@@ -1,0 +1,18 @@
+#+ This file configures Git ignores for org-tasktree.
+
+# Project-specific
+/prompts/
+
+# Emacs temporary/compiled files
+*~
+\#*\#
+.\#*
+auto-save-list/
+.elc
+/eln-cache/
+/var/
+
+# SQLite / local data files
+*.db
+*.sqlite
+*.sqlite3
