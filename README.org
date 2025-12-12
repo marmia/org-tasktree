@@ -24,9 +24,13 @@ Emacs 用タスク管理プラグインです。
 
 * 必要環境
 
-- Emacs 29 以上（sqlite サポート前提）
+- Emacs 29 以上（sqlite.el サポート必須）
 - org-mode（Emacs 標準）
-- Vertico（任意・推奨）
+- 対応 OS:
+  - macOS
+  - Linux
+- Windows:
+  - v1 では動作保証外（将来対応検討）
 
 * インストール（予定）
 
@@ -66,69 +70,35 @@ M-x org-tasktree-init
 
 ※ これらのパスは、後から defcustom で自由に変更可能です。
 
+* ユースケース
+
+** タスクツリーを org-mode で一括作成して登録（予定）
+
+1. 新規 org バッファで Project / Phase / Group / Task のツリーを 1 から記述する。
+2. ツリー全体を SQLite に同期する。
+   - v0.2 以降で `org-tasktree-sync-buffer` を提供予定。
+
+** DB のタスクツリーを org-view にロードして編集（予定）
+
+1. 既存 Project/Phase を検索して org 形式の編集ビューを開く。
+2. org-mode 上でツリーを編集する。
+   - `uid` あり見出しは既存ノード更新、`uid` なし見出しは新規ノードとして扱う。
+3. 編集した範囲のみを DB に再同期する。
+   - v0.2 以降で `org-tasktree-sync-subtree` / `org-tasktree-sync-region` を提供予定。
+
+** 単体タスクを UI で素早く登録（v0.1）
+
+1. `M-x org-tasktree-find-task` を実行する。
+2. find-file 風の階層補完で Project / Phase / Group を辿り、最後に task 名を入力する。
+3. 開かれた編集バッファで必要項目（priority / schedule / deadline / tags）を入力し、`C-c C-c` で確定する。
+4. Project 未指定の task は自動的に Inbox Project に収容される。
+
+** Inbox に集約して後で整理
+
+1. とりあえず単体タスクを Inbox に登録する（上記手順）。
+2. まとまった時間で Inbox を開き、適切な Project/Phase に移動・整理する。
+
 * 基本的な使い方
-
-** タスクの登録
-
-org-mode で通常どおりタスクツリーを記述します。
-
-#+begin_src org
- * PROJ サンプルプロジェクト
- ** PHASE 設計
- *** TODO 画面構成を考える :ui:design:
-SCHEDULED: <2025-12-10 Tue>
-#+end_src
-
-次に以下を実行します。
-
-#+begin_src elisp
-M-x org-tasktree-sync-buffer
-#+end_src
-
-** 部分同期
-
-- リージョンのみ同期:
-  - `M-x org-tasktree-sync-region`
-- カーソル位置のサブツリーのみ同期:
-  - `M-x org-tasktree-sync-subtree`
-
-* 検索の使い方
-
-** クエリー作成
-
-#+begin_src elisp
-M-x org-tasktree-new-query
-#+end_src
-
-YAML 形式で検索条件を記述します。
-
-#+begin_src yaml
-name: today
-scheduled:
-  from: 2025-12-09
-  to: 2025-12-09
-status: open
-#+end_src
-
-** クエリー保存
-
-#+begin_src elisp
-M-x org-tasktree-save-query
-#+end_src
-
-** クエリー呼び出し
-
-#+begin_src elisp
-M-x org-tasktree-find-query
-#+end_src
-
-** 検索実行（v1）
-
-#+begin_src elisp
-M-x org-tasktree-search-to-buffer
-#+end_src
-
-検索結果は org 形式の専用バッファに表示されます。
 
 * 設計ポリシー
 
@@ -136,14 +106,6 @@ M-x org-tasktree-search-to-buffer
 - UID による一意性保証
 - org バッファの内容は常に「一時ビュー」
 - DB の内容のみが正です
-
-* v2 以降の予定
-
-- 検索結果のカーソル位置直接挿入
-- ガントチャートビュー
-- DB マイグレーション機構
-- CLOSED 表示と変更履歴管理
-- XDG 対応
 
 * ライセンス
 

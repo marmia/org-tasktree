@@ -1,0 +1,224 @@
+#+TITLE: org-tasktree v0.1 実装計画
+#+STARTUP: showall
+
+* 目的 / スコープ
+
+- org-tasktree v0.1 を仕様書（docs/org-tasktree-spec.org）に沿って実装する。
+- v0.1 の対話コマンド対象:
+  - org-tasktree-init
+  - org-tasktree-find-project
+  - org-tasktree-find-phase
+  - org-tasktree-find-task
+  - org-tasktree-search-today-task
+  - org-tasktree-search-before-today-task
+  - org-tasktree-search-overdue-task
+  - org-tasktree-search-next-7day-task
+- DB は SQLite（sqlite.el）を single source of truth とし、org はビュー／編集面。
+- UPDATE は禁止し、DELETE / INSERT による再生成とする。
+- Inbox は物理 project ノードとして常駐し、id=1・固定 UID を持つ。未指定 task は project_id=1。
+- v0.2 以降（YAML クエリ、sync-buffer/region/subtree、履歴管理等）は本計画の対象外。
+
+* 実装フェーズ（マイルストーン）
+
+** M1: 基盤・DB 初期化
+
+- パッケージ骨格・ファイル構成を作成（org-tasktree.el を入口に分割）。
+- sqlite.el 接続ヘルパ、PRAGMA foreign_keys=ON を必須化。
+- スキーマ作成:
+  - nodes / node_tags / meta テーブル
+  - インデックス・唯一制約
+  - node_tags.node_id -> nodes.id のみ外部キー（ON DELETE CASCADE）
+- org-tasktree-init 実装:
+  - DB/クエリdir の自動生成
+  - meta 初期データ登録
+  - Inbox（id=1, 固定 UID, title="inbox"）を INSERT
+  - クエリdir 作成
+
+受け入れ基準:
+- init 実行で DB/テーブル/Inbox が一度だけ作成される。
+- 再 init で Inbox が消えない。
+
+** M2: モデル・バリデーション・共通 DB 操作
+
+- nodes/node_tags の Elisp モデル（record/alist/struct いずれか）と変換関数。
+- 必須フィールド・型・値域チェック。
+- UID 生成（org-id-get-create / org-id-new）と UNIQUE 制約衝突時の再生成処理。
+- DELETE/INSERT 再生成 API:
+  - 既存 UID の created_at をキャッシュして維持
+  - updated_at は常に現在時刻
+- 検索・取得の共通 SQL ヘルパ。
+
+受け入れ基準:
+- 単体 INSERT/DELETE が仕様通りに動き、created_at が保持される。
+
+** M3: 検索コマンド＋org ビュー出力
+
+- v0.1 検索共通仕様（OPEN のみ、schedule/deadline NULL 除外、DATE 比較、並び順）を実装。
+- today / before-today / overdue / next-7day の SQL。
+- 結果ツリーを org-mode 形式で read-only バッファに展開し、q で閉じる。
+
+受け入れ基準:
+- サンプルデータで各検索結果と並び順が仕様通り。
+
+** M4: UI レーン（find-project/phase/task）
+
+- completing-read ベースの find-file 風階層ナビ。
+- 編集バッファ（項目入力＋C-c C-c で確定／C-c C-k でキャンセル）。
+- 新規/更新の判定、DB 反映、Inbox 自動収容。
+
+受け入れ基準:
+- 単体 task をツリーを意識せず登録でき、Inbox に入る／既存編集ができる。
+
+** M5: 仕上げ
+
+- エラーハンドリング（Messages への詳細、echo-area 通知、トランザクション rollback）。
+- defcustom/defgroup の整備。
+- 最低限の README/仕様整合（ユースケースとコマンド一覧）。
+
+受け入れ基準:
+- 主要エラーが破綻なく通知され、DB が壊れない。
+
+* 作業項目リスト（進捗管理用）
+
+** 運用（WIPコミット / コードレビュー）
+- WIPコミットは差分が大きくなりすぎない単位で適宜行う。
+- 各WIPコミットのたびにコードレビューを実施し、指摘反映後に次の作業へ進む。
+
+** M1: 基盤・DB 初期化
+
+*** TODO M1-1 パッケージ骨格とロード入口
+- [ ] org-tasktree.el を作成（defgroup/require/提供するコマンドの stub）
+- [ ] 主要モジュール分割案を反映（db / model / query / view / ui）
+
+*** TODO M1-2 DB 接続ユーティリティ
+- [ ] sqlite-open/close のラッパ
+- [ ] PRAGMA foreign_keys=ON の自動実行
+- [ ] DB パス解決（org-tasktree-database-location）
+
+*** TODO M1-WIP-1 WIPコミット / コードレビュー（基盤・接続）
+- [ ] M1-1〜M1-2 完了時点で WIPコミット
+- [ ] WIPコミットに対するコードレビュー
+
+*** TODO M1-3 スキーマ作成
+- [ ] nodes/node_tags/meta の CREATE TABLE
+- [ ] インデックス・UNIQUE 条件
+- [ ] node_tags.node_id FK（ON DELETE CASCADE）
+
+*** TODO M1-4 org-tasktree-init
+- [ ] DB/親dir 作成
+- [ ] schema_version/created_at を meta に INSERT
+- [ ] Inbox（id=1, 固定 UID, title="inbox"）を INSERT
+- [ ] クエリdir 作成
+
+*** TODO M1-WIP-2 WIPコミット / コードレビュー（スキーマ・init）
+- [ ] M1-3〜M1-4 完了時点で WIPコミット
+- [ ] WIPコミットに対するコードレビュー
+
+*** TODO M1-5 M1 受け入れテスト
+- [ ] init の初回/再実行動作確認
+- [ ] Inbox が保護されることを確認
+
+** M2: モデル・バリデーション・共通 DB 操作
+
+*** TODO M2-1 ノード表現と変換
+- [ ] nodes の Elisp 表現定義
+- [ ] org/編集バッファ/DB 行の相互変換
+
+*** TODO M2-2 バリデーション
+- [ ] nodes 必須・値域チェック
+- [ ] node_tags 正規化（trim/重複除去）
+
+*** TODO M2-WIP-1 WIPコミット / コードレビュー（モデル・バリデーション）
+- [ ] M2-1〜M2-2 完了時点で WIPコミット
+- [ ] WIPコミットに対するコードレビュー
+
+*** TODO M2-3 UID 生成と衝突対策
+- [ ] org-id-get-create/org-id-new ラッパ
+- [ ] UNIQUE 衝突時の再生成リトライ
+
+*** TODO M2-4 DELETE/INSERT 再生成 API
+- [ ] スコープ内 UID 既存情報（created_at 含む）キャッシュ
+- [ ] node_tags DELETE -> nodes DELETE
+- [ ] 親順 INSERT（created_at 維持）
+- [ ] node_tags 再 INSERT
+
+*** TODO M2-WIP-2 WIPコミット / コードレビュー（UID・再生成API）
+- [ ] M2-3〜M2-4 完了時点で WIPコミット
+- [ ] WIPコミットに対するコードレビュー
+
+*** TODO M2-5 M2 受け入れテスト
+- [ ] created_at 維持／updated_at 更新の確認
+
+** M3: 検索コマンド＋org ビュー出力
+
+*** TODO M3-1 検索 SQL ヘルパ
+- [ ] 共通 WHERE/ORDER BY を関数化
+- [ ] DATE 比較ユーティリティ
+
+*** TODO M3-2 各検索コマンド
+- [ ] org-tasktree-search-today-task
+- [ ] org-tasktree-search-before-today-task
+- [ ] org-tasktree-search-overdue-task
+- [ ] org-tasktree-search-next-7day-task
+
+*** TODO M3-WIP-1 WIPコミット / コードレビュー（検索SQL）
+- [ ] M3-1〜M3-2 完了時点で WIPコミット
+- [ ] WIPコミットに対するコードレビュー
+
+*** TODO M3-3 org ツリー出力
+- [ ] project>phase>group>task の順で org 展開
+- [ ] read-only バッファ + q 終了
+
+*** TODO M3-WIP-2 WIPコミット / コードレビュー（org出力）
+- [ ] M3-3 完了時点で WIPコミット
+- [ ] WIPコミットに対するコードレビュー
+
+*** TODO M3-4 M3 受け入れテスト
+- [ ] サンプル DB で検索結果確認
+
+** M4: UI レーン（find-*)
+
+*** TODO M4-1 階層ナビ UI
+- [ ] project 選択一覧
+- [ ] project -> phase/group/task への段階的補完
+
+*** TODO M4-WIP-1 WIPコミット / コードレビュー（階層ナビ）
+- [ ] M4-1 完了時点で WIPコミット
+- [ ] WIPコミットに対するコードレビュー
+
+*** TODO M4-2 編集バッファ基盤
+- [ ] バッファ生成と入力可能フィールド
+- [ ] C-c C-c 確定／C-c C-k キャンセル
+
+*** TODO M4-WIP-2 WIPコミット / コードレビュー（編集バッファ基盤）
+- [ ] M4-2 完了時点で WIPコミット
+- [ ] WIPコミットに対するコードレビュー
+
+*** TODO M4-3 find-project/phase/task 実装
+- [ ] org-tasktree-find-project
+- [ ] org-tasktree-find-phase
+- [ ] org-tasktree-find-task
+
+*** TODO M4-WIP-3 WIPコミット / コードレビュー（find-*実装）
+- [ ] M4-3 完了時点で WIPコミット
+- [ ] WIPコミットに対するコードレビュー
+
+*** TODO M4-4 M4 受け入れテスト
+- [ ] 単体 task の新規/更新/Inbox 収容確認
+
+** M5: 仕上げ
+
+*** TODO M5-1 エラーハンドリング
+- [ ] トランザクション rollback
+- [ ] Messages/echo-area 通知
+
+*** TODO M5-2 設定項目整備
+- [ ] defcustom 一覧と初期化
+
+*** TODO M5-WIP-1 WIPコミット / コードレビュー（仕上げ）
+- [ ] M5-1〜M5-2 完了時点で WIPコミット
+- [ ] WIPコミットに対するコードレビュー
+
+*** TODO M5-3 最終確認
+- [ ] v0.1 全コマンドの通し動作確認
+- [ ] README/仕様の整合チェック
