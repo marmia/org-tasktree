@@ -15,12 +15,12 @@
   - org-tasktree-search-next-7day-task
 - DB は SQLite（sqlite.el）を single source of truth とし、org はビュー／編集面。
 - UPDATE は禁止し、DELETE / INSERT による再生成とする。
-- Inbox は物理 project ノードとして常駐し、id=1・固定 UID を持つ。未指定 task は project_id=1。
+- Inbox は物理 project ノードとして常駐し、id=1 ・固定 UID を持つ。未指定 task は project_id=1。
 - v0.2 以降（YAML クエリ、sync-buffer/region/subtree、履歴管理等）は本計画の対象外。
 
 * 実装フェーズ（マイルストーン）
 
-** M1: 基盤・DB 初期化
+** M1: 基盤・ DB 初期化
 
 - パッケージ骨格・ファイル構成を作成（org-tasktree.el を入口に分割）。
 - sqlite.el 接続ヘルパ、PRAGMA foreign_keys=ON を必須化。
@@ -29,10 +29,10 @@
   - インデックス・唯一制約
   - node_tags.node_id -> nodes.id のみ外部キー（ON DELETE CASCADE）
 - org-tasktree-init 実装:
-  - DB/クエリdir の自動生成
+  - DB/クエリ dir の自動生成
   - meta 初期データ登録
   - Inbox（id=1, 固定 UID, title="inbox"）を INSERT
-  - クエリdir 作成
+  - クエリ dir 作成
 
 受け入れ基準:
 - init 実行で DB/テーブル/Inbox が一度だけ作成される。
@@ -80,43 +80,78 @@
 
 * 作業項目リスト（進捗管理用）
 
-** 運用（WIPコミット / コードレビュー）
-- WIPコミットは差分が大きくなりすぎない単位で適宜行う。
-- 各WIPコミットのたびにコードレビューを実施し、指摘反映後に次の作業へ進む。
+** 運用（コードレビュー / WIP コミット）
+- 作業ブランチでは、適宜コードレビューと WIP コミットを実行する。
+- 作業ブランチでの作業フローイメージ。括弧内は担当者を示す。
+  - (User)   : 作業ブランチ作成
+  - 課題 1, 2
+    - (AI)   : 実装 1, 2 
+    - (User) : 実装 1, 2 に対してコードレビューを実施
+    - (AI:)  : 問題点を修正
+    - (User) : 問題点が検出されなくなるまでコードレビュー+修正を繰り返し実施
+    - (USer) : WIP コミット
+  - 課題 3, 4
+    - 課題 1, 2 と同様のフロー
+  - (User)   : 受け入れテスト
+  - (AI/User): 問題点があれば修正 -> 再度受け入れテストを繰り返す
+  - (User)   : `main`ブランチにスカッシュマージ
+  - (User)   : 作業ブランチ削除
+- コードレビューは Codex の`review`機能を使用する。
+- コードレビューはユーザーが Codex 上で`/review`コマンドを実施する。
 
-** M1: 基盤・DB 初期化
+** M1: 基盤・ DB 初期化
 
 *** TODO M1-1 パッケージ骨格とロード入口
-- [ ] org-tasktree.el を作成（defgroup/require/提供するコマンドの stub）
-- [ ] 主要モジュール分割案を反映（db / model / query / view / ui）
+- [x] org-tasktree.el を作成（defgroup/require/提供するコマンドの stub）
+- [x] 主要モジュール分割案を反映（db / model / query / view / ui）
 
 *** TODO M1-2 DB 接続ユーティリティ
-- [ ] sqlite-open/close のラッパ
-- [ ] PRAGMA foreign_keys=ON の自動実行
-- [ ] DB パス解決（org-tasktree-database-location）
+- [x] sqlite-open/close のラッパ
+- [x] PRAGMA foreign_keys=ON の自動実行
+- [x] DB パス解決（org-tasktree-database-location）
 
-*** TODO M1-WIP-1 WIPコミット / コードレビュー（基盤・接続）
-- [ ] M1-1〜M1-2 完了時点で WIPコミット
-- [ ] WIPコミットに対するコードレビュー
+*** TODO M1-WIP-1 WIP コミット / コードレビュー（基盤・接続）
+- [x] M1-1〜M1-2 完了時点で WIP コミット
+- [x] WIP コミットに対するコードレビュー
 
 *** TODO M1-3 スキーマ作成
-- [ ] nodes/node_tags/meta の CREATE TABLE
-- [ ] インデックス・UNIQUE 条件
-- [ ] node_tags.node_id FK（ON DELETE CASCADE）
+- [x] nodes/node_tags/meta の CREATE TABLE
+- [x] インデックス・ UNIQUE 条件
+- [x] node_tags.node_id FK（ON DELETE CASCADE）
 
 *** TODO M1-4 org-tasktree-init
-- [ ] DB/親dir 作成
-- [ ] schema_version/created_at を meta に INSERT
-- [ ] Inbox（id=1, 固定 UID, title="inbox"）を INSERT
-- [ ] クエリdir 作成
+- [x] DB/親 dir 作成
+- [x] schema_version/created_at を meta に INSERT
+- [x] Inbox（id=1, 固定 UID, title="inbox"）を INSERT
+- [x] クエリ dir 作成
 
-*** TODO M1-WIP-2 WIPコミット / コードレビュー（スキーマ・init）
-- [ ] M1-3〜M1-4 完了時点で WIPコミット
-- [ ] WIPコミットに対するコードレビュー
+*** TODO M1-WIP-2 WIP コミット / コードレビュー（スキーマ・ init）
+- [x] M1-3〜M1-4 完了時点で WIP コミット
+- [x] WIP コミットに対するコードレビュー
 
 *** TODO M1-5 M1 受け入れテスト
-- [ ] init の初回/再実行動作確認
-- [ ] Inbox が保護されることを確認
+- [x] 事前準備: テスト用の一時ディレクトリを決め、既存の DB/queries があれば削除してクリーンな状態にする
+  - 例: プロジェクト配下 `.org-tasktree-tmp/`
+- [x]  Eval: (add-to-list 'load-path "~/Projects/develop/org-tasktree/")
+- [x]  M-x load-file で `org-tasktree.el` をロード
+- [x] Emacs で `org-tasktree-database-location` と `org-tasktree-query-dir` を一時パスに設定する
+- [x] `M-x org-tasktree-init` を実行し、エラーなく完了することを確認する
+- [x] ファイル確認: DB ファイルとクエリ dir が作成されている
+- [x] DB 確認: `meta` に `schema_version=1` と `created_at` が登録されている
+- [x] DB 確認: Inbox が 1 件だけ存在し、内容が仕様通りである
+  - `id=1`
+  - `uid=00000000-0000-0000-0000-000000000001`
+  - `node_type=project` / `title=inbox` / `status=OPEN`
+  - `project_id` / `phase_id` が NULL
+- [x] DB 確認: スキーマとインデックスが存在する（nodes/node_tags/meta、idx_nodes_*、idx_node_tags_tag）
+- [x] DB 確認: 外部キーが node_tags にのみ設定されている（`PRAGMA foreign_key_list(node_tags);`）
+  - 例:
+    #+begin_src sh
+    sqlite3 /path/to/tasktree.db "SELECT key,value FROM meta ORDER BY key;"
+    sqlite3 /path/to/tasktree.db "SELECT id,uid,node_type,title,status,project_id,phase_id FROM nodes WHERE id=1;"
+    sqlite3 /path/to/tasktree.db "PRAGMA foreign_key_list(node_tags);"
+    #+end_src
+- [x] 再度 `M-x org-tasktree-init` を実行し、Inbox と meta が破壊・重複しない（冪等性）ことを確認する
 
 ** M2: モデル・バリデーション・共通 DB 操作
 
@@ -128,9 +163,9 @@
 - [ ] nodes 必須・値域チェック
 - [ ] node_tags 正規化（trim/重複除去）
 
-*** TODO M2-WIP-1 WIPコミット / コードレビュー（モデル・バリデーション）
-- [ ] M2-1〜M2-2 完了時点で WIPコミット
-- [ ] WIPコミットに対するコードレビュー
+*** TODO M2-WIP-1 コードレビュー（モデル・バリデーション） / WIP コミット
+- [ ] M2-1 / M2-2 コードレビュー
+- [ ] M2-1〜M2-2 完了時点で WIP コミット
 
 *** TODO M2-3 UID 生成と衝突対策
 - [ ] org-id-get-create/org-id-new ラッパ
@@ -142,9 +177,9 @@
 - [ ] 親順 INSERT（created_at 維持）
 - [ ] node_tags 再 INSERT
 
-*** TODO M2-WIP-2 WIPコミット / コードレビュー（UID・再生成API）
-- [ ] M2-3〜M2-4 完了時点で WIPコミット
-- [ ] WIPコミットに対するコードレビュー
+*** TODO M2-WIP-2 コードレビュー（UID ・再生成 API） / WIP コミット
+- [ ] M2-3 / M2-4 コードレビュー
+- [ ] M2-3〜M2-4 完了時点で WIP コミット
 
 *** TODO M2-5 M2 受け入れテスト
 - [ ] created_at 維持／updated_at 更新の確認
@@ -161,17 +196,17 @@
 - [ ] org-tasktree-search-overdue-task
 - [ ] org-tasktree-search-next-7day-task
 
-*** TODO M3-WIP-1 WIPコミット / コードレビュー（検索SQL）
-- [ ] M3-1〜M3-2 完了時点で WIPコミット
-- [ ] WIPコミットに対するコードレビュー
+*** TODO M3-WIP-1 コードレビュー（検索 SQL）/ WIP コミット
+- [ ] M3-1 / M3-2 コードレビュー
+- [ ] M3-1〜M3-2 完了時点で WIP コミット
 
 *** TODO M3-3 org ツリー出力
 - [ ] project>phase>group>task の順で org 展開
 - [ ] read-only バッファ + q 終了
 
-*** TODO M3-WIP-2 WIPコミット / コードレビュー（org出力）
-- [ ] M3-3 完了時点で WIPコミット
-- [ ] WIPコミットに対するコードレビュー
+*** TODO M3-WIP-2 コードレビュー（org 出力） / WIP コミット
+- [ ] M3-3 コードレビュー
+- [ ] M3-3 完了時点で WIP コミット
 
 *** TODO M3-4 M3 受け入れテスト
 - [ ] サンプル DB で検索結果確認
@@ -182,26 +217,26 @@
 - [ ] project 選択一覧
 - [ ] project -> phase/group/task への段階的補完
 
-*** TODO M4-WIP-1 WIPコミット / コードレビュー（階層ナビ）
-- [ ] M4-1 完了時点で WIPコミット
-- [ ] WIPコミットに対するコードレビュー
+TODO M4-WIP-1 コードレビュー（階層ナビ） / WIP コミット
+- [ ] M4-1 コードレビュー
+- [ ] M4-1 完了時点で WIP コミット
 
 *** TODO M4-2 編集バッファ基盤
 - [ ] バッファ生成と入力可能フィールド
 - [ ] C-c C-c 確定／C-c C-k キャンセル
 
-*** TODO M4-WIP-2 WIPコミット / コードレビュー（編集バッファ基盤）
-- [ ] M4-2 完了時点で WIPコミット
-- [ ] WIPコミットに対するコードレビュー
+*** TODO M4-WIP-2 コードレビュー（編集バッファ基盤） / WIP コミット
+- [ ] M4-2 コードレビュー
+- [ ] M4-2 完了時点で WIP コミット
 
 *** TODO M4-3 find-project/phase/task 実装
 - [ ] org-tasktree-find-project
 - [ ] org-tasktree-find-phase
 - [ ] org-tasktree-find-task
 
-*** TODO M4-WIP-3 WIPコミット / コードレビュー（find-*実装）
-- [ ] M4-3 完了時点で WIPコミット
-- [ ] WIPコミットに対するコードレビュー
+*** TODO M4-WIP-3 コードレビュー（find-*実装） / WIP コミット
+- [ ] M4-3 コードレビュー
+- [ ] M4-3 完了時点で WIP コミット
 
 *** TODO M4-4 M4 受け入れテスト
 - [ ] 単体 task の新規/更新/Inbox 収容確認
@@ -215,9 +250,9 @@
 *** TODO M5-2 設定項目整備
 - [ ] defcustom 一覧と初期化
 
-*** TODO M5-WIP-1 WIPコミット / コードレビュー（仕上げ）
-- [ ] M5-1〜M5-2 完了時点で WIPコミット
-- [ ] WIPコミットに対するコードレビュー
+*** TODO M5-WIP-1 コードレビュー（仕上げ） / WIP コミット
+- [ ] M5-1 / M5-2 コードレビュー
+- [ ] M5-1〜M5-2 完了時点で WIP コミット
 
 *** TODO M5-3 最終確認
 - [ ] v0.1 全コマンドの通し動作確認

@@ -2,6 +2,7 @@
 
 # Project-specific
 /prompts/
+/test/
 
 # Emacs temporary/compiled files
 *~
