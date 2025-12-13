@@ -1,10 +1,23 @@
 ;;; org-tasktree.el --- Task management via org-mode + SQLite -*- lexical-binding: t; -*-
+;; Package-Requires: ((emacs "29.1") (org "9.6"))
+;; URL: https://github.com/marmia/org-tasktree
+;; Version: 0.1.0
+
+;;; Commentary:
+;;
+;; Task management via `org-mode' UI backed by SQLite as the single
+;; source of truth.  This file provides user-facing entry points and
+;; customization variables.  Implementation details are split into
+;; dedicated modules.
+;;
+
+;;; Code:
 
 (require 'org)
 (require 'org-id)
 
 (defgroup org-tasktree nil
-  "Task management via org-mode UI backed by SQLite."
+  "Task management via `org-mode' UI backed by SQLite."
   :group 'org)
 
 (defcustom org-tasktree-database-location
@@ -21,14 +34,14 @@
 
 (defcustom org-tasktree-default-project
   "inbox"
-  "Default project name for tasks without explicit project/phase."
+  "Default project name for tasks without explicit project or phase."
   :type 'string
   :group 'org-tasktree)
 
 (require 'org-tasktree-db)
 
 (defun org-tasktree-init ()
-  "Initialize org-tasktree database and query directory." 
+  "Initialize org-tasktree database and query directory."
   (interactive)
   (make-directory (expand-file-name org-tasktree-query-dir) t)
   (org-tasktree-db-init)
@@ -55,17 +68,17 @@
   (user-error "Not implemented yet"))
 
 (defun org-tasktree-search-before-today-task ()
-  "Search tasks scheduled on/before today and display as an org tree."
+  "Search tasks scheduled on or before today."
   (interactive)
   (user-error "Not implemented yet"))
 
 (defun org-tasktree-search-overdue-task ()
-  "Search tasks with deadline before today and display as an org tree."
+  "Search tasks with a deadline before today."
   (interactive)
   (user-error "Not implemented yet"))
 
 (defun org-tasktree-search-next-7day-task ()
-  "Search tasks scheduled between tomorrow and the next 7 days."
+  "Search tasks scheduled between tomorrow and the next seven days."
   (interactive)
   (user-error "Not implemented yet"))
 

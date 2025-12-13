@@ -3,13 +3,15 @@
 # Project-specific
 /prompts/
 /test/
+.dir-locals.el
 
 # Emacs temporary/compiled files
 *~
 \#*\#
 .\#*
 auto-save-list/
-.elc
+*.elc
+*-autoloads.el
 /eln-cache/
 /var/
 
