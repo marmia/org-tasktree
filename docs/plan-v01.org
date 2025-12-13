@@ -156,33 +156,55 @@
 ** M2: モデル・バリデーション・共通 DB 操作
 
 *** TODO M2-1 ノード表現と変換
-- [ ] nodes の Elisp 表現定義
-- [ ] org/編集バッファ/DB 行の相互変換
+- [x] nodes の Elisp 表現定義
+- [x] org/編集バッファ/DB 行の相互変換
 
 *** TODO M2-2 バリデーション
-- [ ] nodes 必須・値域チェック
-- [ ] node_tags 正規化（trim/重複除去）
+- [x] nodes 必須・値域チェック
+- [x] node_tags 正規化（trim/重複除去）
 
 *** TODO M2-WIP-1 コードレビュー（モデル・バリデーション） / WIP コミット
-- [ ] M2-1 / M2-2 コードレビュー
-- [ ] M2-1〜M2-2 完了時点で WIP コミット
+- [x] M2-1 / M2-2 コードレビュー
+- [x] M2-1〜M2-2 完了時点で WIP コミット
 
 *** TODO M2-3 UID 生成と衝突対策
-- [ ] org-id-get-create/org-id-new ラッパ
-- [ ] UNIQUE 衝突時の再生成リトライ
+- [x] org-id-get-create/org-id-new ラッパ
+- [x] UNIQUE 衝突時の再生成リトライ
 
 *** TODO M2-4 DELETE/INSERT 再生成 API
-- [ ] スコープ内 UID 既存情報（created_at 含む）キャッシュ
-- [ ] node_tags DELETE -> nodes DELETE
-- [ ] 親順 INSERT（created_at 維持）
-- [ ] node_tags 再 INSERT
+- [x] スコープ内 UID 既存情報（created_at 含む）キャッシュ
+- [x] node_tags DELETE -> nodes DELETE
+- [x] 親順 INSERT（created_at 維持）
+- [x] node_tags 再 INSERT
 
 *** TODO M2-WIP-2 コードレビュー（UID ・再生成 API） / WIP コミット
-- [ ] M2-3 / M2-4 コードレビュー
-- [ ] M2-3〜M2-4 完了時点で WIP コミット
+- [x] M2-3 / M2-4 コードレビュー
+- [x] M2-3〜M2-4 完了時点で WIP コミット
 
 *** TODO M2-5 M2 受け入れテスト
-- [ ] created_at 維持／updated_at 更新の確認
+- [x] 1. 準備
+  - 一時 DB パスを設定（例: ~/.emacs.d/org-tasktree-test/tasktree.db）。
+  - 既存 DB/queries を削除または別ディレクトリに避難。
+  - load-path に本リポジトリを追加し、org-tasktree.el をロード。
+  - org-tasktree-database-location / org-tasktree-query-dir を一時パスに設定。
+- [x] 2. 初期化確認
+  - M-x org-tasktree-init 実行。エラーなく完了すること。
+  - DB 内 meta を確認: schema_version=1, created_at が存在。
+  - Inbox 確認: id=1 / uid=00000000-0000-0000-0000-000000000001 / node_type=project / title=inbox / status=OPEN / parent_id, project_id, phase_id は NULL。
+- [x] 3. created_at 維持・ updated_at 更新テスト
+  - サンプルノードを INSERT（親子含む）: org-tasktree-db-commit-nodes を使って created_at 記録。
+  - 直後に同一 UID で別フィールドを変更し再度 commit:
+    - 期待: created_at は初回値のまま、updated_at は再 commit 時刻に更新。
+    - parent_id / project_id / phase_id は再挿入後も正しい新 rowid に再マップされること（親子整合性確認）。
+  - 検証 SQL 例:
+    - SELECT uid, created_at, updated_at, parent_id, project_id, phase_id FROM nodes ORDER BY id;
+- [x] 4. 削除・再生成スコープ確認
+  - 親子を含む複数 UID を同一スコープで commit→delete/insert され、node_tags も再生成されること。
+  - commit 前後で tags の正規化結果（:tag1:tag2:形式）が一致すること。
+- [x] 5. エラーハンドリング確認（軽め）
+  - 無効日付や不正 priority を含むノードで commit し、user-error が出て DB が変化しないことを確認（トランザクション rollback）。
+- [x] 6. 汚染チェック
+  - org-tasktree-lint 相当（elisp-lint.sh）がクリーンであることを再確認。
 
 ** M3: 検索コマンド＋org ビュー出力
 

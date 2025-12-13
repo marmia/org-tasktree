@@ -2,8 +2,8 @@
 
 # Project-specific
 /prompts/
-/test/
 .dir-locals.el
+*.sql
 
 # Emacs temporary/compiled files
 *~

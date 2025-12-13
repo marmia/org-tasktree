@@ -201,3 +201,9 @@ The following files are auto-generated and MUST NOT be committed:
 * `*-autoloads.el`
 
 They may be deleted at any time and SHOULD be ignored by version control.
+
+---
+## Project Notes
+
+* `elisp-format.sh` and `elisp-lint.sh` live outside the repository but are on PATH, so Codex can run them directly from the sandbox.
+* Struct name, accessors, and predicate are unified to the `org-tasktree-model-node-*` prefix; do not use the old names in future changes.

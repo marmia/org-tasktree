@@ -15,6 +15,7 @@
 
 (require 'org)
 (require 'org-id)
+(require 'org-tasktree-model)
 
 (defgroup org-tasktree nil
   "Task management via `org-mode' UI backed by SQLite."
