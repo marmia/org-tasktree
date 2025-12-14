@@ -20,6 +20,10 @@
 (require 'org-tasktree-view)
 (require 'org-tasktree-ui)
 
+(declare-function org-tasktree-ui-edit-project "org-tasktree-ui")
+(declare-function org-tasktree-ui-edit-phase "org-tasktree-ui")
+(declare-function org-tasktree-ui-edit-task "org-tasktree-ui")
+
 (defgroup org-tasktree nil
   "Task management via `org-mode' UI backed by SQLite."
   :group 'org)
@@ -54,32 +58,20 @@
 (defun org-tasktree-find-project ()
   "Find or create a project, then open its edit buffer."
   (interactive)
-  (let* ((sel (org-tasktree-ui-read-project))
-         (title (plist-get sel :project-title))
-         (pid (plist-get sel :project-id)))
-    (message "org-tasktree: project %s (id=%s)" title pid)))
+  (let* ((sel (org-tasktree-ui-read-project)))
+    (org-tasktree-ui-edit-project sel)))
 
 (defun org-tasktree-find-phase ()
   "Find or create a phase, then open its edit buffer."
   (interactive)
-  (let* ((sel (org-tasktree-ui-read-phase))
-         (proj (plist-get sel :project-title))
-         (proj-id (plist-get sel :project-id))
-         (phase (plist-get sel :phase-title))
-         (phase-id (plist-get sel :phase-id)))
-    (message "org-tasktree: phase %s / %s (ids %s / %s)"
-             proj phase proj-id phase-id)))
+  (let* ((sel (org-tasktree-ui-read-phase)))
+    (org-tasktree-ui-edit-phase sel)))
 
 (defun org-tasktree-find-task ()
   "Find or create a task, then open its edit buffer."
   (interactive)
-  (let* ((sel (org-tasktree-ui-read-task))
-         (proj (plist-get sel :project-title))
-         (phase (plist-get sel :phase-title))
-         (task (plist-get sel :task-title))
-         (task-id (plist-get sel :task-id)))
-    (message "org-tasktree: task %s / %s / %s (task-id %s)"
-             proj phase task task-id)))
+  (let* ((sel (org-tasktree-ui-read-task)))
+    (org-tasktree-ui-edit-task sel)))
 
 (defun org-tasktree-search-today-task ()
   "Search tasks scheduled for today and display as an org tree."

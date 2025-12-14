@@ -134,5 +134,139 @@ missing ids mean new."
               :task-title task
               :task-id nil)))))
 
+(defvar-local org-tasktree-ui--edit-metadata nil
+  "Metadata plist for current edit buffer.")
+
+(defvar org-tasktree-ui-edit-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map text-mode-map)
+    (define-key map (kbd "C-c C-c") #'org-tasktree-ui-edit-accept)
+    (define-key map (kbd "C-c C-k") #'org-tasktree-ui-edit-cancel)
+    map)
+  "Keymap for `org-tasktree-ui-edit-mode'.")
+
+(define-derived-mode org-tasktree-ui-edit-mode text-mode
+  "org-tasktree-edit"
+  "Edit buffer for org-tasktree entities."
+  (setq-local buffer-read-only nil)
+  (setq-local truncate-lines nil))
+
+(defun org-tasktree-ui-edit-cancel ()
+  "Cancel current org-tasktree edit buffer."
+  (interactive)
+  (kill-buffer (current-buffer))
+  (message "org-tasktree: edit cancelled"))
+
+(defun org-tasktree-ui-edit-accept ()
+  "Accept current org-tasktree edit buffer (stub)."
+  (interactive)
+  (message "org-tasktree: submit not implemented yet"))
+
+(defun org-tasktree-ui--render-form (type data)
+  "Return form string for TYPE using DATA plist."
+  (pcase type
+    ('project
+     (format (string-join
+              '("---"
+                "Input hints:"
+                "priority     : A or B or C"
+                "schedule     : yyyy-mm-dd"
+                "deadline     : yyyy-mm-dd"
+                "tags         : tag1, tag2, tag3"
+                "---"
+                "type         : project"
+                "uid          : %s"
+                "project_name : %s"
+                "priority     : %s"
+                "schedule     : %s"
+                "deadline     : %s"
+                "tags         : %s\n")
+              "\n")
+             (or (plist-get data :uid) "")
+             (or (plist-get data :project-title) "")
+             (or (plist-get data :priority) "")
+             (or (plist-get data :schedule) "")
+             (or (plist-get data :deadline) "")
+             (or (plist-get data :tags) "")))
+    ('phase
+     (format (string-join
+              '("---"
+                "Input hints:"
+                "priority     : A or B or C"
+                "schedule     : yyyy-mm-dd"
+                "deadline     : yyyy-mm-dd"
+                "tags         : tag1, tag2, tag3"
+                "---"
+                "type         : phase"
+                "uid          : %s"
+                "project_name : %s"
+                "phase_name   : %s"
+                "priority     : %s"
+                "schedule     : %s"
+                "deadline     : %s"
+                "tags         : %s\n")
+              "\n")
+             (or (plist-get data :uid) "")
+             (or (plist-get data :project-title) "")
+             (or (plist-get data :phase-title) "")
+             (or (plist-get data :priority) "")
+             (or (plist-get data :schedule) "")
+             (or (plist-get data :deadline) "")
+             (or (plist-get data :tags) "")))
+    ('task
+     (format (string-join
+              '("---"
+                "Input hints:"
+                "priority     : A or B or C"
+                "schedule     : yyyy-mm-dd"
+                "deadline     : yyyy-mm-dd"
+                "tags         : tag1, tag2, tag3"
+                "---"
+                "type         : task"
+                "uid          : %s"
+                "project_name : %s"
+                "phase_name   : %s"
+                "task_name    : %s"
+                "priority     : %s"
+                "schedule     : %s"
+                "deadline     : %s"
+                "tags         : %s\n")
+              "\n")
+             (or (plist-get data :uid) "")
+             (or (plist-get data :project-title) "")
+             (or (plist-get data :phase-title) "")
+             (or (plist-get data :task-title) "")
+             (or (plist-get data :priority) "")
+             (or (plist-get data :schedule) "")
+             (or (plist-get data :deadline) "")
+             (or (plist-get data :tags) "")))
+    (_ "")))
+
+(defun org-tasktree-ui--open-edit-buffer (type data)
+  "Create and show edit buffer for TYPE with DATA plist."
+  (let* ((buf (generate-new-buffer
+               (format "*org-tasktree-edit %s*" type)))
+         (form (org-tasktree-ui--render-form type data)))
+    (with-current-buffer buf
+      (org-tasktree-ui-edit-mode)
+      (erase-buffer)
+      (insert form)
+      (goto-char (point-min))
+      (setq org-tasktree-ui--edit-metadata
+            (list :type type :data data)))
+    (pop-to-buffer buf)))
+
+(defun org-tasktree-ui-edit-project (selection)
+  "Open project edit buffer using SELECTION plist."
+  (org-tasktree-ui--open-edit-buffer 'project selection))
+
+(defun org-tasktree-ui-edit-phase (selection)
+  "Open phase edit buffer using SELECTION plist."
+  (org-tasktree-ui--open-edit-buffer 'phase selection))
+
+(defun org-tasktree-ui-edit-task (selection)
+  "Open task edit buffer using SELECTION plist."
+  (org-tasktree-ui--open-edit-buffer 'task selection))
+
 (provide 'org-tasktree-ui)
 ;;; org-tasktree-ui.el ends here
