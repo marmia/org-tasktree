@@ -240,12 +240,12 @@
 ** M4: UI レーン（find-*)
 
 *** TODO M4-1 階層ナビ UI
-- [ ] project 選択一覧
-- [ ] project -> phase/group/task への段階的補完
+- [x] project 選択一覧
+- [x] project -> phase/group/task への段階的補完
 
 TODO M4-WIP-1 コードレビュー（階層ナビ） / WIP コミット
-- [ ] M4-1 コードレビュー
-- [ ] M4-1 完了時点で WIP コミット
+- [x] M4-1 コードレビュー
+- [x] M4-1 完了時点で WIP コミット
 
 *** TODO M4-2 編集バッファ基盤
 - [ ] バッファ生成と入力可能フィールド

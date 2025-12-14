@@ -210,5 +210,12 @@ Both boundaries are inclusive, and parents are included."
            (org-tasktree-query--days-from-now 7))
    "scheduled"))
 
+(defun org-tasktree-query-open-tree ()
+  "Return OPEN nodes (project/phase/group/task) in preorder."
+  (seq-filter
+   (lambda (n)
+     (equal (org-tasktree-model-node-status n) "OPEN"))
+   (org-tasktree-query--fetch "status='OPEN'" [])))
+
 (provide 'org-tasktree-query)
 ;;; org-tasktree-query.el ends here
