@@ -16,6 +16,8 @@
 (require 'org)
 (require 'org-id)
 (require 'org-tasktree-model)
+(require 'org-tasktree-query)
+(require 'org-tasktree-view)
 
 (defgroup org-tasktree nil
   "Task management via `org-mode' UI backed by SQLite."
@@ -66,22 +68,30 @@
 (defun org-tasktree-search-today-task ()
   "Search tasks scheduled for today and display as an org tree."
   (interactive)
-  (user-error "Not implemented yet"))
+  (org-tasktree-view-display-tree
+   (org-tasktree-query-search-today)
+   "Today"))
 
 (defun org-tasktree-search-before-today-task ()
   "Search tasks scheduled on or before today."
   (interactive)
-  (user-error "Not implemented yet"))
+  (org-tasktree-view-display-tree
+   (org-tasktree-query-search-before-today)
+   "Before today"))
 
 (defun org-tasktree-search-overdue-task ()
   "Search tasks with a deadline before today."
   (interactive)
-  (user-error "Not implemented yet"))
+  (org-tasktree-view-display-tree
+   (org-tasktree-query-search-overdue)
+   "Overdue"))
 
 (defun org-tasktree-search-next-7day-task ()
   "Search tasks scheduled between tomorrow and the next seven days."
   (interactive)
-  (user-error "Not implemented yet"))
+  (org-tasktree-view-display-tree
+   (org-tasktree-query-search-next-7day)
+   "Next 7 days"))
 
 (provide 'org-tasktree)
 ;;; org-tasktree.el ends here

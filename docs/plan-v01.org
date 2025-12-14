@@ -209,29 +209,33 @@
 ** M3: 検索コマンド＋org ビュー出力
 
 *** TODO M3-1 検索 SQL ヘルパ
-- [ ] 共通 WHERE/ORDER BY を関数化
-- [ ] DATE 比較ユーティリティ
+- [x] 共通 WHERE/ORDER BY を関数化
+- [x] DATE 比較ユーティリティ
 
 *** TODO M3-2 各検索コマンド
-- [ ] org-tasktree-search-today-task
-- [ ] org-tasktree-search-before-today-task
-- [ ] org-tasktree-search-overdue-task
-- [ ] org-tasktree-search-next-7day-task
+- [x] org-tasktree-search-today-task
+- [x] org-tasktree-search-before-today-task
+- [x] org-tasktree-search-overdue-task
+- [x] org-tasktree-search-next-7day-task
 
 *** TODO M3-WIP-1 コードレビュー（検索 SQL）/ WIP コミット
-- [ ] M3-1 / M3-2 コードレビュー
-- [ ] M3-1〜M3-2 完了時点で WIP コミット
+- [x] M3-1 / M3-2 コードレビュー
+- [x] M3-1〜M3-2 完了時点で WIP コミット
 
 *** TODO M3-3 org ツリー出力
-- [ ] project>phase>group>task の順で org 展開
-- [ ] read-only バッファ + q 終了
+- [x] project>phase>group>task の順で org 展開
+- [x] read-only バッファ + q 終了
 
 *** TODO M3-WIP-2 コードレビュー（org 出力） / WIP コミット
-- [ ] M3-3 コードレビュー
-- [ ] M3-3 完了時点で WIP コミット
+- [x] M3-3 コードレビュー
+- [x] M3-3 完了時点で WIP コミット
 
 *** TODO M3-4 M3 受け入れテスト
-- [ ] サンプル DB で検索結果確認
+- [x] サンプル DB で検索結果確認
+  - [x] org-tasktree-search-today-task
+  - [x] org-tasktree-search-before-today-task
+  - [x] org-tasktree-search-overdue-task
+  - [x] org-tasktree-search-next-7day-task
 
 ** M4: UI レーン（find-*)
 
