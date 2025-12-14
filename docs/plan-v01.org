@@ -256,13 +256,13 @@ TODO M4-WIP-1 コードレビュー（階層ナビ） / WIP コミット
 - [x] M4-2 完了時点で WIP コミット
 
 *** TODO M4-3 find-project/phase/task 実装
-- [ ] org-tasktree-find-project
-- [ ] org-tasktree-find-phase
-- [ ] org-tasktree-find-task
+- [x] org-tasktree-find-project
+- [x] org-tasktree-find-phase
+- [x] org-tasktree-find-task
 
 *** TODO M4-WIP-3 コードレビュー（find-*実装） / WIP コミット
-- [ ] M4-3 コードレビュー
-- [ ] M4-3 完了時点で WIP コミット
+- [x] M4-3 コードレビュー
+- [x] M4-3 完了時点で WIP コミット
 
 *** TODO M4-4 M4 受け入れテスト
 - [ ] 単体 task の新規/更新/Inbox 収容確認

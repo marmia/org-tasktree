@@ -157,10 +157,24 @@ missing ids mean new."
   (kill-buffer (current-buffer))
   (message "org-tasktree: edit cancelled"))
 
+(defun org-tasktree-ui--parse-form-buffer ()
+  "Parse current edit buffer into plist.
+Assumes key: value lines after hints."
+  (let (plist)
+    (goto-char (point-min))
+    (while (re-search-forward "^\\([a-z_]+\\)\\s-*: \\(.*\\)$" nil t)
+      (let ((key (match-string 1))
+            (val (string-trim (match-string 2))))
+        (setq plist (plist-put plist (intern (concat ":" key)) val))))
+    plist))
+
 (defun org-tasktree-ui-edit-accept ()
-  "Accept current org-tasktree edit buffer (stub)."
+  "Accept current org-tasktree edit buffer (temporary stub)."
   (interactive)
-  (message "org-tasktree: submit not implemented yet"))
+  (let* ((data (org-tasktree-ui--parse-form-buffer))
+         (type (plist-get org-tasktree-ui--edit-metadata :type)))
+    (message "org-tasktree: [%s] %S" type data)
+    (kill-buffer (current-buffer))))
 
 (defun org-tasktree-ui--render-form (type data)
   "Return form string for TYPE using DATA plist."

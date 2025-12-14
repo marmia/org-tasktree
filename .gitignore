@@ -4,6 +4,7 @@
 /prompts/
 .dir-locals.el
 *.sql
+.serena/
 
 # Emacs temporary/compiled files
 *~
