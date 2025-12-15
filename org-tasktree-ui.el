@@ -263,9 +263,9 @@ missing ids mean new."
     (org-tasktree-ui--goto-field field)))
 
 (defun org-tasktree-ui-edit-set-schedule ()
-  "Prompt date and set schedule field."
+  "Prompt date and set scheduled field."
   (interactive)
-  (org-tasktree-ui--set-date-field "schedule"))
+  (org-tasktree-ui--set-date-field "scheduled"))
 
 (defun org-tasktree-ui-edit-set-deadline ()
   "Prompt date and set deadline field."
@@ -303,17 +303,15 @@ Assumes key: value lines after the second '---' separator."
                   (org-tasktree-ui--field data :uid)
                   (org-tasktree-db-generate-uid)))
          (priority (org-tasktree-ui--field data :priority))
-         (schedule-raw (org-tasktree-ui--field data :schedule))
+         (scheduled-raw (org-tasktree-ui--field data :scheduled))
          (deadline-raw (org-tasktree-ui--field data :deadline))
          (tags (org-tasktree-ui--field data :tags)))
     (condition-case err
         (progn
           (unless (and title (not (string-empty-p title)))
             (user-error "Project name is required"))
-          (let* ((schedule (org-tasktree-ui--normalize-date
-                            schedule-raw "schedule"))
-                 (deadline (org-tasktree-ui--normalize-date
-                            deadline-raw "deadline"))
+          (let* ((scheduled (org-tasktree-ui--normalize-date scheduled-raw "scheduled"))
+                 (deadline (org-tasktree-ui--normalize-date deadline-raw "deadline"))
                  (node (org-tasktree-model-node-create
                         :uid uid
                         :parent-id nil
@@ -322,7 +320,7 @@ Assumes key: value lines after the second '---' separator."
                         :title title
                         :level 1
                         :priority priority
-                        :scheduled schedule
+                        :scheduled scheduled
                         :deadline deadline
                         :tags tags
                         :status "OPEN"
@@ -333,8 +331,8 @@ Assumes key: value lines after the second '---' separator."
       (error
        (message (concat
                  "org-tasktree debug: submit project failed"
-                 " title=%S uid=%S schedule=%S deadline=%S plist=%S")
-                title uid schedule-raw deadline-raw data)
+                 " title=%S uid=%S scheduled=%S deadline=%S plist=%S")
+                title uid scheduled-raw deadline-raw data)
        (signal (car err) (cdr err))))))
 
 (defun org-tasktree-ui-edit-accept ()
@@ -362,15 +360,15 @@ Assumes key: value lines after the second '---' separator."
      (format (string-join
               '("---"
                 "Input hints:"
-                "TAB/S-TAB : move between fields (priority → schedule → deadline → tags)"
+                "TAB/S-TAB : move between fields (priority → scheduled → deadline → tags)"
                 "priority  : A or B or C"
-                "schedule  : yyyy-mm-dd (shortcut-key: C-c C-s)"
+                "scheduled : yyyy-mm-dd (shortcut-key: C-c C-s)"
                 "deadline  : yyyy-mm-dd (shortcut-key: C-c C-d)"
                 "tags      : tag1, tag2, tag3"
                 "---"
                 "project_name : %s"
                 "priority     : %s"
-                "schedule     : %s"
+                "scheduled    : %s"
                 "deadline     : %s"
                 "tags         : %s\n")
               "\n")
@@ -379,7 +377,7 @@ Assumes key: value lines after the second '---' separator."
              (org-tasktree-ui--value-or-placeholder
               (plist-get data :priority))
              (org-tasktree-ui--value-or-placeholder
-              (plist-get data :schedule))
+              (plist-get data :scheduled))
              (org-tasktree-ui--value-or-placeholder
               (plist-get data :deadline))
              (org-tasktree-ui--value-or-placeholder
@@ -388,16 +386,16 @@ Assumes key: value lines after the second '---' separator."
      (format (string-join
               '("---"
                 "Input hints:"
-                "TAB/S-TAB : move between fields (priority → schedule → deadline → tags)"
+                "TAB/S-TAB : move between fields (priority → scheduled → deadline → tags)"
                 "priority     : A or B or C"
-                "schedule     : yyyy-mm-dd (shortcut-key: C-c C-s)"
+                "scheduled    : yyyy-mm-dd (shortcut-key: C-c C-s)"
                 "deadline     : yyyy-mm-dd (shortcut-key: C-c C-d)"
                 "tags         : tag1, tag2, tag3"
                 "---"
                 "project_name : %s"
                 "phase_name   : %s"
                 "priority     : %s"
-                "schedule     : %s"
+                "scheduled    : %s"
                 "deadline     : %s"
                 "tags         : %s\n")
               "\n")
@@ -408,7 +406,7 @@ Assumes key: value lines after the second '---' separator."
              (org-tasktree-ui--value-or-placeholder
               (plist-get data :priority))
              (org-tasktree-ui--value-or-placeholder
-              (plist-get data :schedule))
+              (plist-get data :scheduled))
              (org-tasktree-ui--value-or-placeholder
               (plist-get data :deadline))
              (org-tasktree-ui--value-or-placeholder
@@ -417,9 +415,9 @@ Assumes key: value lines after the second '---' separator."
      (format (string-join
               '("---"
                 "Input hints:"
-                "TAB/S-TAB : move between fields (priority → schedule → deadline → tags)"
+                "TAB/S-TAB : move between fields (priority → scheduled → deadline → tags)"
                 "priority     : A or B or C"
-                "schedule     : yyyy-mm-dd (shortcut-key: C-c C-s)"
+                "scheduled    : yyyy-mm-dd (shortcut-key: C-c C-s)"
                 "deadline     : yyyy-mm-dd (shortcut-key: C-c C-d)"
                 "tags         : tag1, tag2, tag3"
                 "---"
@@ -427,7 +425,7 @@ Assumes key: value lines after the second '---' separator."
                 "phase_name   : %s"
                 "task_name    : %s"
                 "priority     : %s"
-                "schedule     : %s"
+                "scheduled    : %s"
                 "deadline     : %s"
                 "tags         : %s\n")
               "\n")
@@ -440,7 +438,7 @@ Assumes key: value lines after the second '---' separator."
              (org-tasktree-ui--value-or-placeholder
               (plist-get data :priority))
              (org-tasktree-ui--value-or-placeholder
-              (plist-get data :schedule))
+              (plist-get data :scheduled))
              (org-tasktree-ui--value-or-placeholder
               (plist-get data :deadline))
              (org-tasktree-ui--value-or-placeholder
@@ -453,9 +451,9 @@ Assumes key: value lines after the second '---' separator."
                (format "*org-tasktree-edit %s*" type)))
          (form (org-tasktree-ui--render-form type data))
          (fields (pcase type
-                   ('project '("priority" "schedule" "deadline" "tags"))
-                   ('phase '("priority" "schedule" "deadline" "tags"))
-                   ('task '("priority" "schedule" "deadline" "tags"))
+                   ('project '("priority" "scheduled" "deadline" "tags"))
+                   ('phase '("priority" "scheduled" "deadline" "tags"))
+                   ('task '("priority" "scheduled" "deadline" "tags"))
                    (_ nil))))
     (with-current-buffer buf
       (org-tasktree-ui-edit-mode)
@@ -480,7 +478,7 @@ Assumes key: value lines after the second '---' separator."
                    (list :uid (org-tasktree-model-node-uid node)
                          :project-title (org-tasktree-model-node-title node)
                          :priority (org-tasktree-model-node-priority node)
-                         :schedule (org-tasktree-model-node-scheduled node)
+                         :scheduled (org-tasktree-model-node-scheduled node)
                          :deadline (org-tasktree-model-node-deadline node)
                          :tags (org-tasktree-model-node-tags node))
                  selection)))

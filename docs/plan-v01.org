@@ -53,7 +53,7 @@
 
 ** M3: 検索コマンド＋org ビュー出力
 
-- v0.1 検索共通仕様（OPEN のみ、schedule/deadline NULL 除外、DATE 比較、並び順）を実装。
+- v0.1 検索共通仕様（OPEN のみ、scheduled/deadline NULL 除外、DATE 比較、並び順）を実装。
 - today / before-today / overdue / next-7day の SQL。
 - 結果ツリーを org-mode 形式で read-only バッファに展開し、q で閉じる。
 
@@ -295,7 +295,7 @@ TODO M4-WIP-1 コードレビュー（階層ナビ） / WIP コミット
     - 以下のケースで<C-c C-C> 実行時にエラーメッセージが表示されることを確認
     - エラーメッセージは、エラーになった箇所と正しい指定方法が分かるメッセージになっていること
     - [ ] priority: アルファベット１文字以外を設定
-    - [ ] schedule: yyyy-mm-dd 以外の形式で設定
+    - [ ] scheduled: yyyy-mm-dd 以外の形式で設定
     - [ ] deadline: yyyy-mm-dd 以外の形式で設定
     - [ ] tags: 小文字英数字以外の文字を使用してタグを設定
     - [ ] field name を変更
