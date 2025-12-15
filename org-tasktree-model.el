@@ -155,7 +155,7 @@ omitted, starting from `uid'."
 (defun org-tasktree-model--valid-date-p (value)
   "Return non-nil when VALUE matches YYYY-MM-DD format."
   (and (stringp value)
-       (string-match-p "^[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}$" value)))
+       (string-match-p "^[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}$" value)))
 
 (defun org-tasktree-model--normalize-priority (priority)
   "Return normalized PRIORITY string without leading '#'."

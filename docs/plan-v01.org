@@ -265,7 +265,41 @@ TODO M4-WIP-1 コードレビュー（階層ナビ） / WIP コミット
 - [x] M4-3 完了時点で WIP コミット
 
 *** TODO M4-4 M4 受け入れテスト
-- [ ] 単体 task の新規/更新/Inbox 収容確認
+- [ ] 正常系テスト
+  - [x] TAB/S-TAB でのカーソル移動
+    - [x] org-tasktree-find-project
+    - [x] org-tasktree-find-phase
+    - [x] org-tasktree-find-task
+  - [x] <C-c C-s>で schdule 設定
+    - [x] org-tasktree-find-project
+    - [x] org-tasktree-find-phase
+    - [x] org-tasktree-find-task
+  - [x] <C-c C-d>で dealine 設定
+    - [x] org-tasktree-find-project
+    - [x] org-tasktree-find-phase
+    - [x] org-tasktree-find-task
+  - [x] <C-c C-k>で編集バッファを閉じる
+    - [x] org-tasktree-find-project
+    - [x] org-tasktree-find-phase
+    - [x] org-tasktree-find-task
+  - [ ] 新規登録
+    - [ ] org-tasktree-find-project
+    - [ ] org-tasktree-find-phase
+    - [ ] org-tasktree-find-task
+  - [ ] 既存 Node の更新
+    - [ ] org-tasktree-find-project
+    - [ ] org-tasktree-find-phase
+    - [ ] org-tasktree-find-task
+- [ ] 異常系テスト
+  - [ ] バリデーションチェック
+    - 以下のケースで<C-c C-C> 実行時にエラーメッセージが表示されることを確認
+    - エラーメッセージは、エラーになった箇所と正しい指定方法が分かるメッセージになっていること
+    - [ ] priority: アルファベット１文字以外を設定
+    - [ ] schedule: yyyy-mm-dd 以外の形式で設定
+    - [ ] deadline: yyyy-mm-dd 以外の形式で設定
+    - [ ] tags: 小文字英数字以外の文字を使用してタグを設定
+    - [ ] field name を変更
+    - [ ] 'Input hint:'を手動で消す
 
 ** M5: 仕上げ
 

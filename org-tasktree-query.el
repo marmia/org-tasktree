@@ -217,5 +217,20 @@ Both boundaries are inclusive, and parents are included."
      (equal (org-tasktree-model-node-status n) "OPEN"))
    (org-tasktree-query--fetch "status='OPEN'" [])))
 
+(defun org-tasktree-query-get-node-by-id (id)
+  "Return node struct for numeric ID, or nil."
+  (when id
+    (org-tasktree-db--with-db db
+      (let ((rows (sqlite-select
+                   db
+                   (concat
+                    "SELECT id, uid, parent_id, node_type, todo_keyword, title,"
+                    " level, priority, scheduled, deadline, closed_at, tags,"
+                    " status, project_id, phase_id, created_at, updated_at"
+                    " FROM nodes WHERE id = ? LIMIT 1;")
+                   (vector id))))
+        (when rows
+          (org-tasktree-model-node-from-db-row (car rows)))))))
+
 (provide 'org-tasktree-query)
 ;;; org-tasktree-query.el ends here

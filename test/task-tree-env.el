@@ -29,6 +29,10 @@
 ;; org-tasktree-search-overdue-task
 ;; org-tasktree-search-next-7day-task
 
+;; org-tasktree-find-project
+;; org-tasktree-find-phase
+;; org-tasktree-find-task
+
 (provide 'task-tree-env)
 ;;; task-tree-env.el ends here
 
