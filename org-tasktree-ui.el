@@ -622,7 +622,17 @@ Signal `user-error' for invalid date.  FIELD is used in the error message."
   "Edit buffer for org-tasktree entities."
   (use-local-map org-tasktree-ui-widget-edit-mode-map)
   (setq buffer-read-only nil)
+  (overwrite-mode 1)
   (setq truncate-lines t))
+
+(defun org-tasktree-ui--pos (pos)
+  "Return the integer buffer position of POS.
+
+POS may be an integer or a marker."
+  (cond
+   ((integerp pos) pos)
+   ((markerp pos) (marker-position pos))
+   (t nil)))
 
 (defun org-tasktree-ui--widget-lock-buffer ()
   "Make non-widget text read-only in the current buffer."
@@ -632,9 +642,13 @@ Signal `user-error' for invalid date.  FIELD is used in the error message."
     (let ((plist org-tasktree-ui--widget-widgets))
       (while plist
         (let* ((w (cadr plist))
-               (from (and w (widget-get w :from)))
-               (to (and w (widget-get w :to))))
-          (when (and (integerp from) (integerp to) (< from to))
+               (from (org-tasktree-ui--pos
+                      (or (and w (widget-field-start w))
+                          (and w (widget-get w :from)))))
+               (to (org-tasktree-ui--pos
+                    (or (and w (widget-field-end w))
+                        (and w (widget-get w :to))))))
+          (when (and from to (< from to))
             (remove-text-properties from to
                                     '(read-only t rear-nonsticky t))))
         (setq plist (cddr plist))))))
@@ -983,6 +997,55 @@ KEY, VALUE, and HINT configure the created widget."
   (interactive)
   (org-tasktree-ui--set-widget-date :deadline "deadline"))
 
+(defvar-local org-tasktree-ui--widget-enforce-size-in-progress nil
+  "Non-nil while widget field size enforcement is running.")
+
+(defun org-tasktree-ui--widget-enforce-field-size (beg _end _len)
+  "Keep widget editable fields at their fixed display width.
+
+BEG is the start position of the changed region."
+  (unless org-tasktree-ui--widget-enforce-size-in-progress
+    (let ((org-tasktree-ui--widget-enforce-size-in-progress t)
+          (inhibit-read-only t)
+          (pos (if (integerp beg) beg (point))))
+      (save-excursion
+        (let ((plist org-tasktree-ui--widget-widgets)
+              target)
+          (while (and plist (not target))
+            (let* ((w (cadr plist))
+                   (from (org-tasktree-ui--pos
+                          (or (and w (widget-field-start w))
+                              (and w (widget-get w :from)))))
+                   (to (org-tasktree-ui--pos
+                        (or (and w (widget-field-end w))
+                            (and w (widget-get w :to)))))
+                   (size (and w (widget-get w :size))))
+              (when (and (integerp pos)
+                         (integerp from)
+                         (integerp to)
+                         (integerp size)
+                         (< 0 size)
+                         (<= from pos)
+                         (<= pos to))
+                (setq target w)))
+            (setq plist (cddr plist)))
+          (when target
+            (let* ((from (org-tasktree-ui--pos
+                          (or (widget-field-start target)
+                              (widget-get target :from))))
+                   (to (org-tasktree-ui--pos
+                        (or (widget-field-end target)
+                            (widget-get target :to))))
+                   (size (widget-get target :size))
+                   (cur (and (integerp from) (integerp to) (- to from))))
+              (when (and (integerp cur) (integerp size) (< 0 size))
+                (cond
+                 ((> cur size)
+                  (delete-region (+ from size) to))
+                 ((< cur size)
+                  (goto-char to)
+                  (insert-and-inherit (make-string (- size cur) ? ))))))))))))
+
 (defun org-tasktree-ui--open-widget-edit-buffer (meta)
   "Create and show widget edit buffer for META."
   (let* ((type (plist-get meta :type))
@@ -992,11 +1055,16 @@ KEY, VALUE, and HINT configure the created widget."
       (org-tasktree-ui-widget-edit-mode)
       (setq org-tasktree-ui--edit-metadata meta)
       (setq org-tasktree-ui--widget-widgets nil)
+      (setq org-tasktree-ui--widget-enforce-size-in-progress nil)
       (let ((inhibit-read-only t))
         (erase-buffer)
         (org-tasktree-ui--render-widget-form meta)
         (widget-setup)
-        (org-tasktree-ui--widget-lock-buffer)))
+        (org-tasktree-ui--widget-lock-buffer))
+      (add-hook 'after-change-functions
+                #'org-tasktree-ui--widget-enforce-field-size
+                nil
+                t))
     (setq win (pop-to-buffer buf))
     (when (window-live-p win)
       (with-selected-window win
