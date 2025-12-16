@@ -70,7 +70,8 @@
                           ""))
          (title (org-tasktree-model-node-title node))
          (tags (org-tasktree-model-node-tags node))
-         (tags-part (if tags (concat " " tags) "")))
+         (tags-part (let ((org-tags (org-tasktree-model-tags->org-string tags)))
+                      (if org-tags (concat " " org-tags) ""))))
     (format "%s %s%s%s%s"
             stars todo-part priority-part title tags-part)))
 

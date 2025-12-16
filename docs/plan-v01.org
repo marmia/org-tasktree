@@ -63,7 +63,7 @@
 ** M4: UI レーン（find-project/phase/task）
 
 - completing-read ベースの find-file 風階層ナビ。
-- 編集バッファ（項目入力＋C-c C-c で確定／C-c C-k でキャンセル）。
+- `widget.el` ベースの編集 UI（表示欄/入力欄の分離、C-c C-c で確定／C-c C-k でキャンセル）。
 - 新規/更新の判定、DB 反映、Inbox 自動収容。
 
 受け入れ基準:
@@ -247,34 +247,35 @@ TODO M4-WIP-1 コードレビュー（階層ナビ） / WIP コミット
 - [x] M4-1 コードレビュー
 - [x] M4-1 完了時点で WIP コミット
 
-*** TODO M4-2 編集バッファ基盤
+*** == 旧仕様（テキスト編集バッファ)の作業項目 ==
+**** TODO M4-2 編集バッファ基盤
 - [x] バッファ生成と入力可能フィールド
 - [x] C-c C-c 確定／C-c C-k キャンセル
 
-*** TODO M4-WIP-2 コードレビュー（編集バッファ基盤） / WIP コミット
+**** TODO M4-WIP-2 コードレビュー（編集バッファ基盤） / WIP コミット
 - [x] M4-2 コードレビュー
 - [x] M4-2 完了時点で WIP コミット
 
-*** TODO M4-3 find-project/phase/task 実装
+**** TODO M4-3 find-project/phase/task 実装
 - [x] org-tasktree-find-project
 - [x] org-tasktree-find-phase
 - [x] org-tasktree-find-task
 
-*** TODO M4-WIP-3 コードレビュー（find-*実装） / WIP コミット
+**** TODO M4-WIP-3 コードレビュー（find-*実装） / WIP コミット
 - [x] M4-3 コードレビュー
 - [x] M4-3 完了時点で WIP コミット
 
-*** TODO M4-4 M4 受け入れテスト
-- [ ] 正常系テスト
+**** TODO M4-4 M4 受け入れテスト
+- 旧仕様（テキスト編集バッファ）向けテストは、`widget.el` 方式への移行により廃止する。
   - [x] TAB/S-TAB でのカーソル移動
     - [x] org-tasktree-find-project
     - [x] org-tasktree-find-phase
     - [x] org-tasktree-find-task
-  - [x] <C-c C-s>で schdule 設定
+  - [x] <C-c C-s>で scheduled 設定
     - [x] org-tasktree-find-project
     - [x] org-tasktree-find-phase
     - [x] org-tasktree-find-task
-  - [x] <C-c C-d>で dealine 設定
+  - [x] <C-c C-d>で deadline 設定
     - [x] org-tasktree-find-project
     - [x] org-tasktree-find-phase
     - [x] org-tasktree-find-task
@@ -282,24 +283,46 @@ TODO M4-WIP-1 コードレビュー（階層ナビ） / WIP コミット
     - [x] org-tasktree-find-project
     - [x] org-tasktree-find-phase
     - [x] org-tasktree-find-task
-  - [ ] 新規登録
-    - [ ] org-tasktree-find-project
-    - [ ] org-tasktree-find-phase
-    - [ ] org-tasktree-find-task
-  - [ ] 既存 Node の更新
-    - [ ] org-tasktree-find-project
-    - [ ] org-tasktree-find-phase
-    - [ ] org-tasktree-find-task
-- [ ] 異常系テスト
-  - [ ] バリデーションチェック
-    - 以下のケースで<C-c C-C> 実行時にエラーメッセージが表示されることを確認
-    - エラーメッセージは、エラーになった箇所と正しい指定方法が分かるメッセージになっていること
-    - [ ] priority: アルファベット１文字以外を設定
-    - [ ] scheduled: yyyy-mm-dd 以外の形式で設定
-    - [ ] deadline: yyyy-mm-dd 以外の形式で設定
-    - [ ] tags: 小文字英数字以外の文字を使用してタグを設定
-    - [ ] field name を変更
-    - [ ] 'Input hint:'を手動で消す
+
+*** == 新仕様（Widget UI)の作業項目 ==
+**** TODO M4-2b widget 編集 UI 基盤
+- [x] UI 生成と入力可能フィールド
+- [x] C-c C-c 確定／C-c C-k キャンセル
+
+**** TODO M4-WIP-2b コードレビュー（widget 編集 UI 基盤） / WIP コミット
+- [x] M4-2b コードレビュー
+- [x] M4-2b 完了時点で WIP コミット
+
+**** TODO M4-3b find-project/phase/task 実装 (widget 版)
+- [ ] org-tasktree-find-project
+- [ ] org-tasktree-find-phase
+- [ ] org-tasktree-find-task
+
+**** TODO M4-WIP-3b コードレビュー（find-*実装） / WIP コミット
+- [ ] M4-3b コードレビュー
+- [ ] M4-3b 完了時点で WIP コミット
+
+**** TODO M4-4b M4 受け入れテスト
+- 新仕様（`widget.el` 編集 UI）受け入れテスト
+  - [ ] 親 Node パスが UI 上部に表示される
+  - [ ] title がミニバッファ入力値で初期化され、編集可能
+  - [ ] TAB/S-TAB で入力欄を循環移動できる
+  - [ ] 各入力欄にプレースホルダーが表示される
+  - [ ] <C-c C-s> で scheduled の `org-read-date` が起動し、`C-g` でキャンセルできる
+  - [ ] <C-c C-d> で deadline の `org-read-date` が起動し、`C-g` でキャンセルできる
+  - [ ] 日付手入力フォーマットが解釈され、DB には `YYYY-MM-DD` で保存される
+    - `YYYY-MM-DD`
+    - `YYYY/MM/DD`
+    - `MM-DD`
+    - `MM/DD`
+    - `DD`
+  - [ ] 省略形日付が「今日を含む未来のうち最も近い日付」に解決される
+  - [ ] 両方指定時に `scheduled <= deadline` が満たされない場合、<C-c C-c> で `user-error` になる
+  - [ ] priority が英数字 1 文字以外の場合、<C-c C-c> で `user-error` になる
+  - [ ] tags が `tag1:tag2` / `:tag1:tag2:` 形式でない／文字種が不正な場合、<C-c C-c> で `user-error` になる
+  - [ ] tags は DB に `:tag1:tag2:` 形式で保存され、次回 widget UI では DB 値がそのまま表示される
+  - [ ] <C-c C-c> でコミットして編集バッファが閉じる
+  - [ ] <C-c C-k> でキャンセルして編集バッファが閉じる
 
 ** M5: 仕上げ
 
