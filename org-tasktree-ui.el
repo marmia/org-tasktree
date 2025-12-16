@@ -1000,51 +1000,40 @@ KEY, VALUE, and HINT configure the created widget."
 (defvar-local org-tasktree-ui--widget-enforce-size-in-progress nil
   "Non-nil while widget field size enforcement is running.")
 
-(defun org-tasktree-ui--widget-enforce-field-size (beg _end _len)
+(defun org-tasktree-ui--widget-enforce-field-size (_beg _end _len)
   "Keep widget editable fields at their fixed display width.
 
-BEG is the start position of the changed region."
+This function is intended for use in `after-change-functions'."
   (unless org-tasktree-ui--widget-enforce-size-in-progress
     (let ((org-tasktree-ui--widget-enforce-size-in-progress t)
-          (inhibit-read-only t)
-          (pos (if (integerp beg) beg (point))))
+          (inhibit-read-only t))
       (save-excursion
-        (let ((plist org-tasktree-ui--widget-widgets)
-              target)
-          (while (and plist (not target))
-            (let* ((w (cadr plist))
-                   (from (org-tasktree-ui--pos
-                          (or (and w (widget-field-start w))
-                              (and w (widget-get w :from)))))
+        (let ((widgets nil)
+              (plist org-tasktree-ui--widget-widgets))
+          (while plist
+            (push (cadr plist) widgets)
+            (setq plist (cddr plist)))
+          (dolist (w (nreverse widgets))
+            (let* ((from (org-tasktree-ui--pos
+                          (or (ignore-errors (widget-field-start w))
+                              (widget-get w :from))))
                    (to (org-tasktree-ui--pos
-                        (or (and w (widget-field-end w))
-                            (and w (widget-get w :to)))))
+                        (or (ignore-errors (widget-field-end w))
+                            (widget-get w :to))))
                    (size (and w (widget-get w :size))))
-              (when (and (integerp pos)
-                         (integerp from)
+              (when (and (integerp from)
                          (integerp to)
                          (integerp size)
-                         (< 0 size)
-                         (<= from pos)
-                         (<= pos to))
-                (setq target w)))
-            (setq plist (cddr plist)))
-          (when target
-            (let* ((from (org-tasktree-ui--pos
-                          (or (widget-field-start target)
-                              (widget-get target :from))))
-                   (to (org-tasktree-ui--pos
-                        (or (widget-field-end target)
-                            (widget-get target :to))))
-                   (size (widget-get target :size))
-                   (cur (and (integerp from) (integerp to) (- to from))))
-              (when (and (integerp cur) (integerp size) (< 0 size))
-                (cond
-                 ((> cur size)
-                  (delete-region (+ from size) to))
-                 ((< cur size)
-                  (goto-char to)
-                  (insert-and-inherit (make-string (- size cur) ? ))))))))))))
+                         (< from to)
+                         (< 0 size))
+                (let ((cur (- to from)))
+                  (cond
+                   ((> cur size)
+                    (delete-region (+ from size) to))
+                   ((< cur size)
+                    (goto-char to)
+                    (insert-and-inherit
+                     (make-string (- size cur) ? )))))))))))))
 
 (defun org-tasktree-ui--open-widget-edit-buffer (meta)
   "Create and show widget edit buffer for META."
@@ -1064,14 +1053,23 @@ BEG is the start position of the changed region."
       (add-hook 'after-change-functions
                 #'org-tasktree-ui--widget-enforce-field-size
                 nil
-                t))
+                t)
+      (let* ((w (org-tasktree-ui--widget-get :title))
+             (from (and w
+                        (or (ignore-errors (widget-field-start w))
+                            (widget-get w :from))))
+             (pos (or (org-tasktree-ui--pos from)
+                      (save-excursion
+                        (goto-char (point-min))
+                        (when (re-search-forward "^title:[[:space:]]+" nil t)
+                          (point)))
+                      (point-min))))
+        (goto-char pos)))
     (setq win (pop-to-buffer buf))
     (when (window-live-p win)
       (with-selected-window win
         (set-window-start win (point-min))
-        (goto-char (point-min))
-        (widget-forward 1)
-        (set-window-start win (point-min))))
+        (set-window-point win (with-current-buffer buf (point)))))
     win))
 
 (provide 'org-tasktree-ui)
