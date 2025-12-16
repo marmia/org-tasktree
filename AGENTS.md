@@ -130,7 +130,8 @@ Whenever Codex creates or modifies any `.el` file:
 
 1. Run `elisp-format.sh` on all changed `.el` files.
 2. Run `elisp-lint.sh` on the same files.
-3. If lint fails:
+3. After running `elisp-lint.sh`, always run `test/cleanup.sh` to delete `*.elc` files.
+4. If lint fails:
 
    * Apply automatic fixes according to the rules below.
    * Repeat steps (1)–(2) until clean.

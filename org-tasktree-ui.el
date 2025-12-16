@@ -621,7 +621,23 @@ Signal `user-error' for invalid date.  FIELD is used in the error message."
   "org-tasktree-edit"
   "Edit buffer for org-tasktree entities."
   (use-local-map org-tasktree-ui-widget-edit-mode-map)
+  (setq buffer-read-only nil)
   (setq truncate-lines t))
+
+(defun org-tasktree-ui--widget-lock-buffer ()
+  "Make non-widget text read-only in the current buffer."
+  (let ((inhibit-read-only t))
+    (add-text-properties (point-min) (point-max)
+                         '(read-only t rear-nonsticky (read-only)))
+    (let ((plist org-tasktree-ui--widget-widgets))
+      (while plist
+        (let* ((w (cadr plist))
+               (from (and w (widget-get w :from)))
+               (to (and w (widget-get w :to))))
+          (when (and (integerp from) (integerp to) (< from to))
+            (remove-text-properties from to
+                                    '(read-only t rear-nonsticky t))))
+        (setq plist (cddr plist))))))
 
 (defun org-tasktree-ui-widget-edit-cancel ()
   "Cancel current org-tasktree widget edit buffer."
@@ -979,7 +995,8 @@ KEY, VALUE, and HINT configure the created widget."
       (let ((inhibit-read-only t))
         (erase-buffer)
         (org-tasktree-ui--render-widget-form meta)
-        (widget-setup)))
+        (widget-setup)
+        (org-tasktree-ui--widget-lock-buffer)))
     (setq win (pop-to-buffer buf))
     (when (window-live-p win)
       (with-selected-window win
