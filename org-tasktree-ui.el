@@ -160,6 +160,16 @@ Return plist with titles and ids when existing; missing ids mean new."
     map)
   "Keymap for `org-tasktree-ui-edit-mode'.")
 
+(defvar org-tasktree-ui--widget-field-keymap
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map widget-field-keymap)
+    (define-key map (kbd "C-c C-c") #'org-tasktree-ui-widget-edit-accept)
+    (define-key map (kbd "C-c C-k") #'org-tasktree-ui-widget-edit-cancel)
+    (define-key map (kbd "C-c C-s") #'org-tasktree-ui-widget-edit-set-scheduled)
+    (define-key map (kbd "C-c C-d") #'org-tasktree-ui-widget-edit-set-deadline)
+    map)
+  "Keymap used inside widget editable fields.")
+
 (define-derived-mode org-tasktree-ui-edit-mode text-mode
   "org-tasktree-edit"
   "Edit buffer for org-tasktree entities."
@@ -174,10 +184,12 @@ Return plist with titles and ids when existing; missing ids mean new."
 
 (defun org-tasktree-ui--quit-edit-buffer ()
   "Close current edit buffer and its window."
-  (let ((win (get-buffer-window (current-buffer))))
-    (if win
-        (quit-window 'kill win)
-      (kill-buffer (current-buffer)))))
+  (let* ((buf (current-buffer))
+         (win (get-buffer-window buf t)))
+    (when (and win (eq (window-buffer win) buf))
+      (quit-window 'kill win))
+    (when (buffer-live-p buf)
+      (kill-buffer buf))))
 
 (defun org-tasktree-ui--field-regexp (field)
   "Return regexp capturing value part for FIELD line."
@@ -898,6 +910,7 @@ KEY, VALUE, and HINT configure the created widget."
   (let ((w (widget-create 'editable-field
                           :size 40
                           :format "%v"
+                          :keymap org-tasktree-ui--widget-field-keymap
                           :value (or value ""))))
     (when hint
       (widget-insert " " (propertize hint 'face 'shadow)))
@@ -909,10 +922,11 @@ KEY, VALUE, and HINT configure the created widget."
 (defun org-tasktree-ui--render-widget-form (meta)
   "Render widget edit UI for META into current buffer."
   (let* ((path (plist-get meta :path-titles))
-         (path-str (and path (string-join path " > "))))
-    (when path-str
-      (widget-insert (propertize (format "Path: %s\n\n" path-str)
-                                 'face 'bold)))
+         (path-str (if (and (listp path) path)
+                       (string-join path " > ")
+                     "(root)")))
+    (widget-insert (propertize (format "Path: %s\n\n" path-str)
+                               'face 'bold))
     (org-tasktree-ui--widget-insert-field "title" :title
                                           (plist-get meta :title)
                                           "required")
@@ -956,7 +970,8 @@ KEY, VALUE, and HINT configure the created widget."
 (defun org-tasktree-ui--open-widget-edit-buffer (meta)
   "Create and show widget edit buffer for META."
   (let* ((type (plist-get meta :type))
-         (buf (generate-new-buffer (format "*org-tasktree-edit %s*" type))))
+         (buf (generate-new-buffer (format "*org-tasktree-edit %s*" type)))
+         win)
     (with-current-buffer buf
       (org-tasktree-ui-widget-edit-mode)
       (setq org-tasktree-ui--edit-metadata meta)
@@ -964,10 +979,15 @@ KEY, VALUE, and HINT configure the created widget."
       (let ((inhibit-read-only t))
         (erase-buffer)
         (org-tasktree-ui--render-widget-form meta)
-        (widget-setup)
+        (widget-setup)))
+    (setq win (pop-to-buffer buf))
+    (when (window-live-p win)
+      (with-selected-window win
+        (set-window-start win (point-min))
         (goto-char (point-min))
-        (widget-forward 1)))
-    (pop-to-buffer buf)))
+        (widget-forward 1)
+        (set-window-start win (point-min))))
+    win))
 
 (provide 'org-tasktree-ui)
 ;;; org-tasktree-ui.el ends here
