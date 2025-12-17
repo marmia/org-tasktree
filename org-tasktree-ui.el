@@ -348,12 +348,13 @@ title under the selected phase."
                (concat "find task group: "
                        (org-tasktree-ui--prompt-path
                         (list project-title phase-title)))
-               (cons org-tasktree-ui--no-group-label
-                     (org-tasktree-ui--sorted-strings group-or-task-cands))
+               (org-tasktree-ui--sorted-strings group-or-task-cands)
                nil
                nil))
-             (group-or-task-type (org-tasktree-ui--candidate-type group-or-task-input))
-             (group-or-task (string-trim (org-tasktree-ui--candidate-raw group-or-task-input))))
+             (group-or-task-type
+              (org-tasktree-ui--candidate-type group-or-task-input))
+             (group-or-task
+              (string-trim (org-tasktree-ui--candidate-raw group-or-task-input))))
         (cond
          ((eq group-or-task-type 'task)
           (let* ((task-title group-or-task)
@@ -370,8 +371,7 @@ title under the selected phase."
                   :parent-id phase-id
                   :task-title task-title
                   :task-id task-id)))
-         ((or (string-empty-p group-or-task)
-              (equal group-or-task org-tasktree-ui--no-group-label))
+         ((string-empty-p group-or-task)
           (let* ((tasks phase-tasks)
                  (task-input
                   (completing-read
