@@ -192,7 +192,7 @@ Return plist with titles and ids when existing; missing ids mean new."
          (projects (org-tasktree-ui--nodes-of-type nodes "project"))
          (project-title
           (org-tasktree-ui--read-required
-           "find phase project: "
+           "find node: "
            (mapcar (lambda (title)
                      (org-tasktree-ui--make-completion-candidate title 'project))
                    (org-tasktree-ui--sorted-titles projects))
@@ -210,7 +210,7 @@ Return plist with titles and ids when existing; missing ids mean new."
                 (push node result)))))
          (phase-input
           (completing-read
-           (concat "find phase: "
+           (concat "find node: "
                    (org-tasktree-ui--prompt-path (list project-title)))
            (mapcar (lambda (title)
                      (org-tasktree-ui--make-completion-candidate title 'phase))
@@ -240,7 +240,7 @@ title under the selected phase."
          (projects (org-tasktree-ui--nodes-of-type nodes "project"))
          (project-title
           (org-tasktree-ui--read-required
-           "find task project: "
+           "find node: "
            (mapcar (lambda (title)
                      (org-tasktree-ui--make-completion-candidate title 'project))
                    (org-tasktree-ui--sorted-titles projects))
@@ -277,7 +277,7 @@ title under the selected phase."
                    (org-tasktree-ui--sorted-titles project-tasks))))
          (phase-or-task-input
           (completing-read
-           (concat "find task phase: "
+           (concat "find node: "
                    (org-tasktree-ui--prompt-path (list project-title)))
            (org-tasktree-ui--sorted-strings phase-or-task-cands)
            nil
@@ -289,7 +289,7 @@ title under the selected phase."
       (let* ((tasks project-tasks)
              (task-input
               (completing-read
-               (concat "find task: "
+               (concat "find node: "
                        (org-tasktree-ui--prompt-path (list project-title)))
                (mapcar (lambda (title)
                          (org-tasktree-ui--make-completion-candidate title 'task))
@@ -375,7 +375,7 @@ title under the selected phase."
           (let* ((tasks phase-tasks)
                  (task-input
                   (completing-read
-                   (concat "find task: "
+                   (concat "find node: "
                            (org-tasktree-ui--prompt-path
                             (list project-title phase-title)))
                    (mapcar (lambda (title)
@@ -415,7 +415,7 @@ title under the selected phase."
                         (push node result)))))
                  (task-input
                   (completing-read
-                   (concat "find task: "
+                   (concat "find node: "
                            (org-tasktree-ui--prompt-path
                             (list project-title phase-title group-title)))
                    (mapcar (lambda (title)
