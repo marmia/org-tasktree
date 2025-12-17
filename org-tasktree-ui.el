@@ -23,9 +23,6 @@
 (defconst org-tasktree-ui--path-sep " > "
   "Separator for hierarchical paths in `completing-read' candidates.")
 
-(defconst org-tasktree-ui--no-group-label "(no group)"
-  "Label used for the pseudo group selection meaning no group.")
-
 (defcustom org-tasktree-ui-completion-color-task "white"
   "Foreground color for task candidates in minibuffer completion."
   :type 'color
