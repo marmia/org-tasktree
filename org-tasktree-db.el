@@ -187,6 +187,9 @@ Return validated nodes list."
                          now)))
        (setf (org-tasktree-model-node-created-at node) created)
        (setf (org-tasktree-model-node-updated-at node) now)
+       (setf (org-tasktree-model-node-tags node)
+             (car (org-tasktree-model-normalize-tags
+                   (org-tasktree-model-node-tags node))))
        (org-tasktree-model-validate-node node)))
    nodes))
 

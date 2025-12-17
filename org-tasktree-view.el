@@ -70,12 +70,13 @@
                           ""))
          (title (org-tasktree-model-node-title node))
          (tags (org-tasktree-model-node-tags node))
-         (tags-part (if tags (concat " " tags) "")))
+         (tags-part (let ((org-tags (org-tasktree-model-tags->org-string tags)))
+                      (if org-tags (concat " " org-tags) ""))))
     (format "%s %s%s%s%s"
             stars todo-part priority-part title tags-part)))
 
-(defun org-tasktree-view--schedule-line (node)
-  "Return schedule/deadline line for NODE or nil when empty."
+(defun org-tasktree-view--scheduled-line (node)
+  "Return scheduled/deadline line for NODE or nil when empty."
   (let ((scheduled (org-tasktree-model-node-scheduled node))
         (deadline (org-tasktree-model-node-deadline node)))
     (when (or scheduled deadline)
@@ -99,9 +100,9 @@
 (defun org-tasktree-view--insert-node (node)
   "Insert NODE as org-formatted text at point."
   (insert (org-tasktree-view--heading-line node) "\n")
-  (let ((schedule-line (org-tasktree-view--schedule-line node)))
-    (when schedule-line
-      (insert schedule-line "\n")))
+  (let ((scheduled-line (org-tasktree-view--scheduled-line node)))
+    (when scheduled-line
+      (insert scheduled-line "\n")))
   (let ((props (org-tasktree-view--properties node)))
     (when props
       (insert props "\n"))))

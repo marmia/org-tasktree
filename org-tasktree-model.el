@@ -155,7 +155,12 @@ omitted, starting from `uid'."
 (defun org-tasktree-model--valid-date-p (value)
   "Return non-nil when VALUE matches YYYY-MM-DD format."
   (and (stringp value)
-       (string-match-p "^[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}$" value)))
+       (string-match-p "^[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}$" value)))
+
+(defun org-tasktree-model--title-valid-p (title)
+  "Return non-nil when TITLE does not include control characters."
+  (and (stringp title)
+       (not (string-match-p "[[:cntrl:]]" title))))
 
 (defun org-tasktree-model--normalize-priority (priority)
   "Return normalized PRIORITY string without leading '#'."
@@ -164,15 +169,9 @@ omitted, starting from `uid'."
       (if (= (length p) 1) p nil))))
 
 (defun org-tasktree-model--priority-valid-p (priority)
-  "Return non-nil if PRIORITY fits org priority bounds."
+  "Return non-nil if PRIORITY is a single alphanumeric character."
   (let ((p (org-tasktree-model--normalize-priority priority)))
-    (when p
-      (let* ((code (string-to-char p))
-             (high org-highest-priority)
-             (low org-lowest-priority))
-        (and (characterp code)
-             (<= high code)
-             (<= code low))))))
+    (and p (string-match-p "\\`[[:alnum:]]\\'" p))))
 
 (defun org-tasktree-model--dedupe-preserve-order (strings)
   "Return STRINGS without duplicates, preserving order."
@@ -185,8 +184,8 @@ omitted, starting from `uid'."
 
 (defun org-tasktree-model-normalize-tags (tags)
   "Normalize TAGS string or list.
-Return (STRING . LIST) where STRING is `:tag1:tag2:' style or nil
-when empty, and LIST is de-duplicated tag strings."
+Return (STRING . LIST) where STRING is org tag suffix `:tag1:tag2:'
+or nil when empty, and LIST is de-duplicated tag strings."
   (cond
    ((null tags) (cons nil nil))
    ((stringp tags)
@@ -205,6 +204,10 @@ when empty, and LIST is de-duplicated tag strings."
               (concat ":" (string-join unique ":") ":"))
             unique)))
    (t (user-error "Invalid tags value: %S" tags))))
+
+(defun org-tasktree-model-tags->org-string (tags)
+  "Return TAGS as org tag suffix `:tag1:tag2:' or nil."
+  (car (org-tasktree-model-normalize-tags tags)))
 
 (defun org-tasktree-model-node-tags-list (node)
   "Return normalized tag list for NODE."
@@ -236,6 +239,8 @@ Returns NODE when validation succeeds."
                   org-tasktree-model--allowed-node-types))
     (unless (org-tasktree-model--string-nonempty-p title)
       (user-error "Title is required"))
+    (unless (org-tasktree-model--title-valid-p title)
+      (user-error "Title must not include control characters"))
     (unless (and (integerp level) (>= level 1))
       (user-error "Level must be integer >= 1"))
     (unless (member status org-tasktree-model--allowed-statuses)
@@ -258,7 +263,7 @@ Returns NODE when validation succeeds."
       (user-error "Deadline must be >= scheduled"))
     (when (and priority
                (not (org-tasktree-model--priority-valid-p priority)))
-      (user-error "Priority must be within org priority bounds"))
+      (user-error "Priority must be a single alphanumeric character"))
     (when (and tags (not (stringp tags)))
       (user-error "Tags must be string or nil"))
     (unless (org-tasktree-model--string-nonempty-p created-at)
