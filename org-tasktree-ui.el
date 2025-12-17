@@ -26,6 +26,60 @@
 (defconst org-tasktree-ui--no-group-label "(no group)"
   "Label used for the pseudo group selection meaning no group.")
 
+(defcustom org-tasktree-ui-completion-color-task "white"
+  "Foreground color for task candidates in minibuffer completion."
+  :type 'color
+  :group 'org-tasktree)
+
+(defcustom org-tasktree-ui-completion-color-project "DeepSkyBlue"
+  "Foreground color for project candidates in minibuffer completion."
+  :type 'color
+  :group 'org-tasktree)
+
+(defcustom org-tasktree-ui-completion-color-phase "MediumSeaGreen"
+  "Foreground color for phase candidates in minibuffer completion."
+  :type 'color
+  :group 'org-tasktree)
+
+(defcustom org-tasktree-ui-completion-color-group "DarkOrange"
+  "Foreground color for group candidates in minibuffer completion."
+  :type 'color
+  :group 'org-tasktree)
+
+(defun org-tasktree-ui--completion-color (type)
+  "Return configured completion color for TYPE symbol."
+  (pcase type
+    ('task org-tasktree-ui-completion-color-task)
+    ('project org-tasktree-ui-completion-color-project)
+    ('phase org-tasktree-ui-completion-color-phase)
+    ('group org-tasktree-ui-completion-color-group)
+    (_ nil)))
+
+(defun org-tasktree-ui--make-completion-candidate (title type)
+  "Return a propertized completion candidate for TITLE and TYPE.
+
+TYPE is one of the symbols `project', `phase', `group', or `task'."
+  (let* ((suffix (pcase type ((or 'project 'phase 'group) "/") (_ "")))
+         (display (concat title suffix))
+         (color (org-tasktree-ui--completion-color type))
+         (face (and (stringp color) (not (string-empty-p color))
+                    `(:foreground ,color))))
+    (propertize display
+                'face face
+                'org-tasktree-ui--raw title
+                'org-tasktree-ui--candidate-type type)))
+
+(defun org-tasktree-ui--candidate-raw (candidate)
+  "Return the raw title string for completion CANDIDATE."
+  (or (get-text-property 0 'org-tasktree-ui--raw candidate)
+      (if (string-suffix-p "/" candidate)
+          (string-remove-suffix "/" candidate)
+        candidate)))
+
+(defun org-tasktree-ui--candidate-type (candidate)
+  "Return the candidate type symbol for completion CANDIDATE, or nil."
+  (get-text-property 0 'org-tasktree-ui--candidate-type candidate))
+
 (defun org-tasktree-ui--prompt-path (prefix)
   "Return minibuffer prompt string using PREFIX path.
 
@@ -70,7 +124,7 @@ PREFIX is either nil or a list of titles."
   "Read from CANDS with PROMPT.  Signal `user-error' when CANDS is empty."
   (unless cands
     (user-error "%s" empty-message))
-  (completing-read prompt cands nil t))
+  (org-tasktree-ui--candidate-raw (completing-read prompt cands nil t)))
 
 (defun org-tasktree-ui--id-map (nodes)
   "Return hash map of id->node from NODES."
@@ -117,14 +171,19 @@ Returns plist: (:project-title STRING :project-id ID-or-nil)."
                  (lambda (n)
                    (equal (org-tasktree-model-node-node-type n)
                           "project"))))
-         (choice (completing-read
-                  "find project: " (mapcar #'car cands) nil nil)))
-    (let* ((found (assoc choice cands))
+         (display-cands
+          (mapcar (lambda (pair)
+                    (org-tasktree-ui--make-completion-candidate
+                     (car pair) 'project))
+                  cands))
+         (choice (completing-read "find project: " display-cands nil nil))
+         (raw (string-trim (org-tasktree-ui--candidate-raw choice))))
+    (let* ((found (assoc raw cands))
            (node (plist-get (cdr found) :node)))
       (if node
           (list :project-title (org-tasktree-model-node-title node)
                 :project-id (org-tasktree-model-node-id node))
-        (list :project-title choice :project-id nil)))))
+        (list :project-title raw :project-id nil)))))
 
 (defun org-tasktree-ui-read-phase ()
   "Prompt for a phase by navigating project -> phase.
@@ -134,7 +193,9 @@ Return plist with titles and ids when existing; missing ids mean new."
          (project-title
           (org-tasktree-ui--read-required
            "find phase project: "
-           (org-tasktree-ui--sorted-titles projects)
+           (mapcar (lambda (title)
+                     (org-tasktree-ui--make-completion-candidate title 'project))
+                   (org-tasktree-ui--sorted-titles projects))
            "No projects found.  Create a project first."))
          (project-node (or (org-tasktree-ui--node-by-title
                             nodes "project" project-title)
@@ -151,10 +212,12 @@ Return plist with titles and ids when existing; missing ids mean new."
           (completing-read
            (concat "find phase: "
                    (org-tasktree-ui--prompt-path (list project-title)))
-           (org-tasktree-ui--sorted-titles phases)
+           (mapcar (lambda (title)
+                     (org-tasktree-ui--make-completion-candidate title 'phase))
+                   (org-tasktree-ui--sorted-titles phases))
            nil
            nil))
-         (phase-title (string-trim phase-input)))
+         (phase-title (string-trim (org-tasktree-ui--candidate-raw phase-input))))
     (when (string-empty-p phase-title)
       (user-error "Phase title is required"))
     (let* ((phase-node (org-tasktree-ui--node-by-title phases "phase" phase-title))
@@ -178,7 +241,9 @@ title under the selected phase."
          (project-title
           (org-tasktree-ui--read-required
            "find task project: "
-           (org-tasktree-ui--sorted-titles projects)
+           (mapcar (lambda (title)
+                     (org-tasktree-ui--make-completion-candidate title 'project))
+                   (org-tasktree-ui--sorted-titles projects))
            "No projects found.  Create a project first."))
          (project-node (or (org-tasktree-ui--node-by-title
                             nodes "project" project-title)
@@ -202,15 +267,23 @@ title under the selected phase."
                          (equal (org-tasktree-model-node-parent-id node)
                                 project-id))
                 (push node result)))))
+         (phase-or-task-cands
+          (append
+           (mapcar (lambda (title)
+                     (org-tasktree-ui--make-completion-candidate title 'phase))
+                   phase-titles)
+           (mapcar (lambda (title)
+                     (org-tasktree-ui--make-completion-candidate title 'task))
+                   (org-tasktree-ui--sorted-titles project-tasks))))
          (phase-or-task-input
           (completing-read
            (concat "find task phase: "
                    (org-tasktree-ui--prompt-path (list project-title)))
-           (org-tasktree-ui--sorted-strings
-            (append phase-titles (org-tasktree-ui--sorted-titles project-tasks)))
+           (org-tasktree-ui--sorted-strings phase-or-task-cands)
            nil
            nil))
-         (phase-or-task (string-trim phase-or-task-input)))
+         (phase-or-task-type (org-tasktree-ui--candidate-type phase-or-task-input))
+         (phase-or-task (string-trim (org-tasktree-ui--candidate-raw phase-or-task-input))))
     (cond
      ((string-empty-p phase-or-task)
       (let* ((tasks project-tasks)
@@ -218,10 +291,12 @@ title under the selected phase."
               (completing-read
                (concat "find task: "
                        (org-tasktree-ui--prompt-path (list project-title)))
-               (org-tasktree-ui--sorted-titles tasks)
+               (mapcar (lambda (title)
+                         (org-tasktree-ui--make-completion-candidate title 'task))
+                       (org-tasktree-ui--sorted-titles tasks))
                nil
                nil))
-             (task-title (string-trim task-input))
+             (task-title (string-trim (org-tasktree-ui--candidate-raw task-input)))
              (task-node (org-tasktree-ui--node-by-title tasks "task" task-title))
              (task-id (and task-node (org-tasktree-model-node-id task-node))))
         (when (string-empty-p task-title)
@@ -234,7 +309,8 @@ title under the selected phase."
               :parent-id project-id
               :task-title task-title
               :task-id task-id)))
-     ((member phase-or-task phase-titles)
+     ((or (eq phase-or-task-type 'phase)
+          (and (null phase-or-task-type) (member phase-or-task phase-titles)))
       (let* ((phase-title phase-or-task)
              (phase-node (org-tasktree-ui--node-by-title phases "phase" phase-title))
              (phase-id (and phase-node (org-tasktree-model-node-id phase-node)))
@@ -259,19 +335,41 @@ title under the selected phase."
                              (equal (org-tasktree-model-node-parent-id node)
                                     phase-id))
                     (push node result)))))
+             (group-or-task-cands
+              (append
+               (mapcar (lambda (title)
+                         (org-tasktree-ui--make-completion-candidate title 'group))
+                       group-titles)
+               (mapcar (lambda (title)
+                         (org-tasktree-ui--make-completion-candidate title 'task))
+                       (org-tasktree-ui--sorted-titles phase-tasks))))
              (group-or-task-input
               (completing-read
                (concat "find task group: "
                        (org-tasktree-ui--prompt-path
                         (list project-title phase-title)))
                (cons org-tasktree-ui--no-group-label
-                     (org-tasktree-ui--sorted-strings
-                      (append group-titles
-                              (org-tasktree-ui--sorted-titles phase-tasks))))
+                     (org-tasktree-ui--sorted-strings group-or-task-cands))
                nil
                nil))
-             (group-or-task (string-trim group-or-task-input)))
+             (group-or-task-type (org-tasktree-ui--candidate-type group-or-task-input))
+             (group-or-task (string-trim (org-tasktree-ui--candidate-raw group-or-task-input))))
         (cond
+         ((eq group-or-task-type 'task)
+          (let* ((task-title group-or-task)
+                 (task-node
+                  (org-tasktree-ui--node-by-title phase-tasks "task" task-title))
+                 (task-id (and task-node (org-tasktree-model-node-id task-node))))
+            (when (string-empty-p task-title)
+              (user-error "Task title is required"))
+            (list :project-title project-title
+                  :project-id project-id
+                  :phase-title phase-title
+                  :phase-id phase-id
+                  :group-title nil
+                  :parent-id phase-id
+                  :task-title task-title
+                  :task-id task-id)))
          ((or (string-empty-p group-or-task)
               (equal group-or-task org-tasktree-ui--no-group-label))
           (let* ((tasks phase-tasks)
@@ -280,10 +378,13 @@ title under the selected phase."
                    (concat "find task: "
                            (org-tasktree-ui--prompt-path
                             (list project-title phase-title)))
-                   (org-tasktree-ui--sorted-titles tasks)
+                   (mapcar (lambda (title)
+                             (org-tasktree-ui--make-completion-candidate title 'task))
+                           (org-tasktree-ui--sorted-titles tasks))
                    nil
                    nil))
-                 (task-title (string-trim task-input))
+                 (task-title
+                  (string-trim (org-tasktree-ui--candidate-raw task-input)))
                  (task-node (org-tasktree-ui--node-by-title tasks "task" task-title))
                  (task-id (and task-node (org-tasktree-model-node-id task-node))))
             (when (string-empty-p task-title)
@@ -296,7 +397,8 @@ title under the selected phase."
                   :parent-id phase-id
                   :task-title task-title
                   :task-id task-id)))
-         ((member group-or-task group-titles)
+         ((or (eq group-or-task-type 'group)
+              (and (null group-or-task-type) (member group-or-task group-titles)))
           (let* ((group-title group-or-task)
                  (group-node (org-tasktree-ui--node-by-title groups "group" group-title))
                  (group-id (and group-node (org-tasktree-model-node-id group-node)))
@@ -316,10 +418,13 @@ title under the selected phase."
                    (concat "find task: "
                            (org-tasktree-ui--prompt-path
                             (list project-title phase-title group-title)))
-                   (org-tasktree-ui--sorted-titles tasks)
+                   (mapcar (lambda (title)
+                             (org-tasktree-ui--make-completion-candidate title 'task))
+                           (org-tasktree-ui--sorted-titles tasks))
                    nil
                    nil))
-                 (task-title (string-trim task-input))
+                 (task-title
+                  (string-trim (org-tasktree-ui--candidate-raw task-input)))
                  (task-node (org-tasktree-ui--node-by-title tasks "task" task-title))
                  (task-id (and task-node (org-tasktree-model-node-id task-node))))
             (when (string-empty-p task-title)
