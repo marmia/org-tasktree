@@ -1298,7 +1298,7 @@ KEY, VALUE, and HINT configure the created widget."
                                           "required")
     (org-tasktree-ui--widget-insert-field
      "priority" :priority (plist-get meta :priority)
-     "[A-Za-z0-9] (v0.2: org priority settings)")
+     "[A-Za-z0-9]")
     (org-tasktree-ui--widget-insert-field
      "scheduled" :scheduled (plist-get meta :scheduled)
      "YYYY-MM-DD | YYYY/MM/DD | MM-DD | MM/DD | DD  (C-c C-s)")
@@ -1309,8 +1309,9 @@ KEY, VALUE, and HINT configure the created widget."
      "tags" :tags (plist-get meta :tags)
      ":tag1:tag2: | tag1:tag2  ([A-Za-z0-9_-], ':' separated)")
     (widget-insert "\n")
-    (widget-insert (propertize "C-c C-c: commit,  C-c C-k: cancel\n"
-                               'face 'shadow))))
+    (widget-insert
+     (propertize "C-c C-c: commit,  C-c C-k: cancel,  TAB/S-TAB: move fields\n"
+                 'face 'shadow))))
 
 (defun org-tasktree-ui--set-widget-date (key field)
   "Read date via `org-read-date' and set widget KEY for FIELD."
