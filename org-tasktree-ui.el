@@ -20,8 +20,57 @@
 (require 'org-tasktree-query)
 (require 'org-tasktree-db)
 
-(defconst org-tasktree-ui--path-sep " / "
+(defconst org-tasktree-ui--path-sep " > "
   "Separator for hierarchical paths in `completing-read' candidates.")
+
+(defconst org-tasktree-ui--no-group-label "(no group)"
+  "Label used for the pseudo group selection meaning no group.")
+
+(defun org-tasktree-ui--prompt-path (prefix)
+  "Return minibuffer prompt string using PREFIX path.
+
+PREFIX is either nil or a list of titles."
+  (if (and (listp prefix) prefix)
+      (concat (string-join prefix org-tasktree-ui--path-sep)
+              org-tasktree-ui--path-sep)
+    ""))
+
+(defun org-tasktree-ui--node-type= (node type)
+  "Return non-nil when NODE is of TYPE string."
+  (equal (org-tasktree-model-node-node-type node) type))
+
+(defun org-tasktree-ui--nodes-of-type (nodes type)
+  "Return NODES filtered by TYPE string."
+  (let (result)
+    (dolist (node nodes (nreverse result))
+      (when (org-tasktree-ui--node-type= node type)
+        (push node result)))))
+
+(defun org-tasktree-ui--titles (nodes)
+  "Return list of titles from NODES."
+  (mapcar #'org-tasktree-model-node-title nodes))
+
+(defun org-tasktree-ui--sorted-strings (strings)
+  "Return a sorted copy of STRINGS."
+  (sort (copy-sequence strings) #'string<))
+
+(defun org-tasktree-ui--sorted-titles (nodes)
+  "Return sorted list of titles from NODES."
+  (org-tasktree-ui--sorted-strings (org-tasktree-ui--titles nodes)))
+
+(defun org-tasktree-ui--node-by-title (nodes type title)
+  "Return first node in NODES matching TYPE and TITLE, or nil."
+  (catch 'found
+    (dolist (node nodes nil)
+      (when (and (org-tasktree-ui--node-type= node type)
+                 (equal (org-tasktree-model-node-title node) title))
+        (throw 'found node)))))
+
+(defun org-tasktree-ui--read-required (prompt cands empty-message)
+  "Read from CANDS with PROMPT.  Signal `user-error' when CANDS is empty."
+  (unless cands
+    (user-error "%s" empty-message))
+  (completing-read prompt cands nil t))
 
 (defun org-tasktree-ui--id-map (nodes)
   "Return hash map of id->node from NODES."
@@ -78,71 +127,239 @@ Returns plist: (:project-title STRING :project-id ID-or-nil)."
         (list :project-title choice :project-id nil)))))
 
 (defun org-tasktree-ui-read-phase ()
-  "Prompt for phase path (project / phase).
-Returns plist: (:project-title STR :project-id ID-or-nil
-               :phase-title STR :phase-id ID-or-nil)."
-  (let* ((cands (org-tasktree-ui--collect
-                 (lambda (n)
-                   (equal (org-tasktree-model-node-node-type n)
-                          "phase"))))
-         (choice (completing-read
-                  "find phase: " (mapcar #'car cands) nil nil))
-         (found (assoc choice cands)))
-    (if found
-        (let* ((node (plist-get (cdr found) :node))
-               (titles (plist-get (cdr found) :titles)))
-          (list :project-title (car titles)
-                :project-id (org-tasktree-model-node-project-id node)
-                :phase-title (cadr titles)
-                :phase-id (org-tasktree-model-node-id node)))
-      ;; new input: expect "Project / Phase"
-      (let* ((parts (split-string choice org-tasktree-ui--path-sep))
-             (proj (car parts))
-             (phase (cadr parts)))
-        (list :project-title proj
-              :project-id nil
-              :phase-title phase
-              :phase-id nil)))))
+  "Prompt for a phase by navigating project -> phase.
+Return plist with titles and ids when existing; missing ids mean new."
+  (let* ((nodes (org-tasktree-query-open-tree))
+         (projects (org-tasktree-ui--nodes-of-type nodes "project"))
+         (project-title
+          (org-tasktree-ui--read-required
+           "find phase project: "
+           (org-tasktree-ui--sorted-titles projects)
+           "No projects found.  Create a project first."))
+         (project-node (or (org-tasktree-ui--node-by-title
+                            nodes "project" project-title)
+                           (user-error "Project not found: %s" project-title)))
+         (project-id (org-tasktree-model-node-id project-node))
+         (phases
+          (let (result)
+            (dolist (node nodes (nreverse result))
+              (when (and (org-tasktree-ui--node-type= node "phase")
+                         (equal (org-tasktree-model-node-project-id node)
+                                project-id))
+                (push node result)))))
+         (phase-input
+          (completing-read
+           (concat "find phase: "
+                   (org-tasktree-ui--prompt-path (list project-title)))
+           (org-tasktree-ui--sorted-titles phases)
+           nil
+           nil))
+         (phase-title (string-trim phase-input)))
+    (when (string-empty-p phase-title)
+      (user-error "Phase title is required"))
+    (let* ((phase-node (org-tasktree-ui--node-by-title phases "phase" phase-title))
+           (phase-id (and phase-node (org-tasktree-model-node-id phase-node))))
+      (list :project-title project-title
+            :project-id project-id
+            :phase-title phase-title
+            :phase-id phase-id))))
 
 (defun org-tasktree-ui-read-task ()
-  "Prompt for task path (project / phase / [group] / task).
-Return plist with titles and ids when existing; missing ids mean new."
-  (let* ((cands (org-tasktree-ui--collect
-                 (lambda (n)
-                   (equal (org-tasktree-model-node-node-type n)
-                          "task"))))
-         (choice (completing-read
-                  "find task: " (mapcar #'car cands) nil nil))
-         (found (assoc choice cands)))
-    (if found
-        (let* ((node (plist-get (cdr found) :node))
-               (titles (plist-get (cdr found) :titles))
-               (project (car titles))
-               (phase (nth 1 titles))
-               (group (and (> (length titles) 3)
-                           (nth (- (length titles) 2) titles)))
-               (task (car (last titles))))
-          (list :project-title project
-                :project-id (org-tasktree-model-node-project-id node)
-                :phase-title phase
-                :phase-id (org-tasktree-model-node-phase-id node)
-                :group-title group
-                :task-title task
-                :task-id (org-tasktree-model-node-id node)))
-      ;; new input: best-effort parse project/phase/task
-      (let* ((parts (split-string choice org-tasktree-ui--path-sep))
-             (proj (nth 0 parts))
-             (phase (nth 1 parts))
-             (group (and (> (length parts) 3)
-                         (nth (- (length parts) 2) parts)))
-             (task (car (last parts))))
-        (list :project-title proj
-              :project-id nil
-              :phase-title phase
+  "Prompt for a task by navigating project -> phase? -> group? -> task.
+Project must exist.  Phase and group must exist when selected.
+
+If the phase input does not match an existing phase title, treat it as a task
+title under the selected project.
+
+If the group input does not match an existing group title, treat it as a task
+title under the selected phase."
+  (let* ((nodes (org-tasktree-query-open-tree))
+         (projects (org-tasktree-ui--nodes-of-type nodes "project"))
+         (project-title
+          (org-tasktree-ui--read-required
+           "find task project: "
+           (org-tasktree-ui--sorted-titles projects)
+           "No projects found.  Create a project first."))
+         (project-node (or (org-tasktree-ui--node-by-title
+                            nodes "project" project-title)
+                           (user-error "Project not found: %s" project-title)))
+         (project-id (org-tasktree-model-node-id project-node))
+         (phases
+          (let (result)
+            (dolist (node nodes (nreverse result))
+              (when (and (org-tasktree-ui--node-type= node "phase")
+                         (equal (org-tasktree-model-node-project-id node)
+                                project-id))
+                (push node result)))))
+         (phase-titles (org-tasktree-ui--sorted-titles phases))
+         (project-tasks
+          (let (result)
+            (dolist (node nodes (nreverse result))
+              (when (and (org-tasktree-ui--node-type= node "task")
+                         (equal (org-tasktree-model-node-project-id node)
+                                project-id)
+                         (null (org-tasktree-model-node-phase-id node))
+                         (equal (org-tasktree-model-node-parent-id node)
+                                project-id))
+                (push node result)))))
+         (phase-or-task-input
+          (completing-read
+           (concat "find task phase: "
+                   (org-tasktree-ui--prompt-path (list project-title)))
+           (org-tasktree-ui--sorted-strings
+            (append phase-titles (org-tasktree-ui--sorted-titles project-tasks)))
+           nil
+           nil))
+         (phase-or-task (string-trim phase-or-task-input)))
+    (cond
+     ((string-empty-p phase-or-task)
+      (let* ((tasks project-tasks)
+             (task-input
+              (completing-read
+               (concat "find task: "
+                       (org-tasktree-ui--prompt-path (list project-title)))
+               (org-tasktree-ui--sorted-titles tasks)
+               nil
+               nil))
+             (task-title (string-trim task-input))
+             (task-node (org-tasktree-ui--node-by-title tasks "task" task-title))
+             (task-id (and task-node (org-tasktree-model-node-id task-node))))
+        (when (string-empty-p task-title)
+          (user-error "Task title is required"))
+        (list :project-title project-title
+              :project-id project-id
+              :phase-title nil
               :phase-id nil
-              :group-title group
-              :task-title task
-              :task-id nil)))))
+              :group-title nil
+              :parent-id project-id
+              :task-title task-title
+              :task-id task-id)))
+     ((member phase-or-task phase-titles)
+      (let* ((phase-title phase-or-task)
+             (phase-node (org-tasktree-ui--node-by-title phases "phase" phase-title))
+             (phase-id (and phase-node (org-tasktree-model-node-id phase-node)))
+             (groups
+              (let (result)
+                (dolist (node nodes (nreverse result))
+                  (when (and (org-tasktree-ui--node-type= node "group")
+                             (equal (org-tasktree-model-node-project-id node)
+                                    project-id)
+                             (equal (org-tasktree-model-node-phase-id node)
+                                    phase-id))
+                    (push node result)))))
+             (group-titles (org-tasktree-ui--sorted-titles groups))
+             (phase-tasks
+              (let (result)
+                (dolist (node nodes (nreverse result))
+                  (when (and (org-tasktree-ui--node-type= node "task")
+                             (equal (org-tasktree-model-node-project-id node)
+                                    project-id)
+                             (equal (org-tasktree-model-node-phase-id node)
+                                    phase-id)
+                             (equal (org-tasktree-model-node-parent-id node)
+                                    phase-id))
+                    (push node result)))))
+             (group-or-task-input
+              (completing-read
+               (concat "find task group: "
+                       (org-tasktree-ui--prompt-path
+                        (list project-title phase-title)))
+               (cons org-tasktree-ui--no-group-label
+                     (org-tasktree-ui--sorted-strings
+                      (append group-titles
+                              (org-tasktree-ui--sorted-titles phase-tasks))))
+               nil
+               nil))
+             (group-or-task (string-trim group-or-task-input)))
+        (cond
+         ((or (string-empty-p group-or-task)
+              (equal group-or-task org-tasktree-ui--no-group-label))
+          (let* ((tasks phase-tasks)
+                 (task-input
+                  (completing-read
+                   (concat "find task: "
+                           (org-tasktree-ui--prompt-path
+                            (list project-title phase-title)))
+                   (org-tasktree-ui--sorted-titles tasks)
+                   nil
+                   nil))
+                 (task-title (string-trim task-input))
+                 (task-node (org-tasktree-ui--node-by-title tasks "task" task-title))
+                 (task-id (and task-node (org-tasktree-model-node-id task-node))))
+            (when (string-empty-p task-title)
+              (user-error "Task title is required"))
+            (list :project-title project-title
+                  :project-id project-id
+                  :phase-title phase-title
+                  :phase-id phase-id
+                  :group-title nil
+                  :parent-id phase-id
+                  :task-title task-title
+                  :task-id task-id)))
+         ((member group-or-task group-titles)
+          (let* ((group-title group-or-task)
+                 (group-node (org-tasktree-ui--node-by-title groups "group" group-title))
+                 (group-id (and group-node (org-tasktree-model-node-id group-node)))
+                 (tasks
+                  (let (result)
+                    (dolist (node nodes (nreverse result))
+                      (when (and (org-tasktree-ui--node-type= node "task")
+                                 (equal (org-tasktree-model-node-project-id node)
+                                        project-id)
+                                 (equal (org-tasktree-model-node-phase-id node)
+                                        phase-id)
+                                 (equal (org-tasktree-model-node-parent-id node)
+                                        group-id))
+                        (push node result)))))
+                 (task-input
+                  (completing-read
+                   (concat "find task: "
+                           (org-tasktree-ui--prompt-path
+                            (list project-title phase-title group-title)))
+                   (org-tasktree-ui--sorted-titles tasks)
+                   nil
+                   nil))
+                 (task-title (string-trim task-input))
+                 (task-node (org-tasktree-ui--node-by-title tasks "task" task-title))
+                 (task-id (and task-node (org-tasktree-model-node-id task-node))))
+            (when (string-empty-p task-title)
+              (user-error "Task title is required"))
+            (list :project-title project-title
+                  :project-id project-id
+                  :phase-title phase-title
+                  :phase-id phase-id
+                  :group-title group-title
+                  :parent-id group-id
+                  :task-title task-title
+                  :task-id task-id)))
+         (t
+          (let* ((task-title group-or-task)
+                 (task-node (org-tasktree-ui--node-by-title phase-tasks "task" task-title))
+                 (task-id (and task-node (org-tasktree-model-node-id task-node))))
+            (when (string-empty-p task-title)
+              (user-error "Task title is required"))
+            (list :project-title project-title
+                  :project-id project-id
+                  :phase-title phase-title
+                  :phase-id phase-id
+                  :group-title nil
+                  :parent-id phase-id
+                  :task-title task-title
+                  :task-id task-id))))))
+     (t
+      (let* ((task-title phase-or-task)
+             (task-node (org-tasktree-ui--node-by-title project-tasks "task" task-title))
+             (task-id (and task-node (org-tasktree-model-node-id task-node))))
+        (when (string-empty-p task-title)
+          (user-error "Task title is required"))
+        (list :project-title project-title
+              :project-id project-id
+              :phase-title nil
+              :phase-id nil
+              :group-title nil
+              :parent-id project-id
+              :task-title task-title
+              :task-id task-id))))))
 
 (defvar-local org-tasktree-ui--edit-metadata nil
   "Metadata plist for current edit buffer.")
@@ -588,7 +805,7 @@ Assumes key: value lines after the second '---' separator."
                        :phase-title phase-title
                        :phase-id (plist-get selection :phase-id)
                        :group-title group-title
-                       :parent-id nil
+                       :parent-id (plist-get selection :parent-id)
                        :task-id nil))))
     (org-tasktree-ui--open-widget-edit-buffer data)))
 
@@ -885,42 +1102,56 @@ Accepts YYYY-MM-DD, YYYY/MM/DD, MM-DD, MM/DD, and DD forms."
            node)))
       ('task
        (let* ((project-title (plist-get meta :project-title))
-              (phase-title (plist-get meta :phase-title))
-              (group-title (plist-get meta :group-title))
               (project-id (or (plist-get meta :project-id)
                               (and project-title
                                    (org-tasktree-ui--db-project-id
                                     project-title))))
-              (phase-id (or (plist-get meta :phase-id)
-                            (and project-id phase-title
-                                 (org-tasktree-ui--db-phase-id
-                                  project-id phase-title))))
-              (group-id (and group-title project-id phase-id
-                             (org-tasktree-ui--db-group-id
-                              project-id phase-id group-title)))
-              (parent-id (or (plist-get meta :parent-id)
-                             group-id
-                             phase-id)))
+              (phase-id (plist-get meta :phase-id))
+              (parent-id (plist-get meta :parent-id)))
          (unless project-id
            (user-error "Project must exist before creating a task"))
-         (unless phase-id
-           (user-error "Phase must exist before creating a task"))
-         (when (and group-title (not (numberp group-id)))
-           (user-error "Group must exist before creating a task"))
-         (let ((node (org-tasktree-model-node-create
-                      :uid uid
-                      :parent-id parent-id
-                      :node-type "task"
-                      :todo-keyword "TODO"
-                      :title title
-                      :level (if group-title 4 3)
-                      :priority priority
-                      :scheduled scheduled
-                      :deadline deadline
-                      :tags tags
-                      :status "OPEN"
-                      :project-id project-id
-                      :phase-id phase-id)))
+         (unless (numberp parent-id)
+           (user-error "Task parent must exist"))
+         (when (and (null phase-id) (not (equal parent-id project-id)))
+           (user-error "Task parent must be project when phase is not selected"))
+         (when (and (numberp phase-id) (equal parent-id project-id))
+           (user-error "Task parent must not be project when phase is selected"))
+         (when (numberp phase-id)
+           (let ((phase-node (org-tasktree-query-get-node-by-id phase-id)))
+             (unless (and phase-node
+                          (org-tasktree-ui--node-type= phase-node "phase")
+                          (equal (org-tasktree-model-node-project-id phase-node)
+                                 project-id))
+               (user-error "Phase not found: %s" phase-id))))
+         (when (and (numberp phase-id) (not (equal parent-id phase-id)))
+           (let ((parent-node (org-tasktree-query-get-node-by-id parent-id)))
+             (unless (and parent-node
+                          (org-tasktree-ui--node-type= parent-node "group")
+                          (equal (org-tasktree-model-node-project-id parent-node)
+                                 project-id)
+                          (equal (org-tasktree-model-node-phase-id parent-node)
+                                 phase-id))
+               (user-error "Group not found: %s" parent-id))))
+         (let* ((level
+                 (cond
+                  ((not (numberp phase-id)) 2)
+                  ((equal parent-id phase-id) 3)
+                  (t 4)))
+                (node
+                 (org-tasktree-model-node-create
+                  :uid uid
+                  :parent-id parent-id
+                  :node-type "task"
+                  :todo-keyword "TODO"
+                  :title title
+                  :level level
+                  :priority priority
+                  :scheduled scheduled
+                  :deadline deadline
+                  :tags tags
+                  :status "OPEN"
+                  :project-id project-id
+                  :phase-id (and (numberp phase-id) phase-id))))
            (org-tasktree-db-commit-nodes (list node))
            node)))
       (_ (user-error "Unknown edit type: %S" type)))))
