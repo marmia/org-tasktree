@@ -123,7 +123,7 @@ The caller must close the returned connection using
                    (mapconcat
                     #'identity
                     '("SELECT uid, id, parent_id,"
-                      " project_id, phase_id, created_at"
+                      " node_type, project_id, phase_id, created_at"
                       " FROM nodes WHERE uid IN %s;")
                     "")
                    placeholder))
@@ -132,9 +132,10 @@ The caller must close the returned connection using
           (puthash (org-tasktree-db--row-nth row 0)
                    (list :id (org-tasktree-db--row-nth row 1)
                          :parent-id (org-tasktree-db--row-nth row 2)
-                         :project-id (org-tasktree-db--row-nth row 3)
-                         :phase-id (org-tasktree-db--row-nth row 4)
-                         :created-at (org-tasktree-db--row-nth row 5))
+                         :node-type (org-tasktree-db--row-nth row 3)
+                         :project-id (org-tasktree-db--row-nth row 4)
+                         :phase-id (org-tasktree-db--row-nth row 5)
+                         :created-at (org-tasktree-db--row-nth row 6))
                    cache))))
     cache))
 
@@ -143,24 +144,6 @@ The caller must close the returned connection using
   (let ((rows (sqlite-select db "SELECT last_insert_rowid();")))
     (when (and rows (car rows))
       (org-tasktree-db--row-nth (car rows) 0))))
-
-(defun org-tasktree-db--delete-scope (db uids)
-  "Delete nodes and tags for UIDS on DB."
-  (when uids
-    (let* ((placeholder (org-tasktree-db--sql-in (length uids)))
-           (vec (apply #'vector uids)))
-      (sqlite-execute
-       db
-       (format
-        (concat
-         "DELETE FROM node_tags WHERE node_id IN ("
-         "SELECT id FROM nodes WHERE uid IN %s);")
-        placeholder)
-       vec)
-      (sqlite-execute
-       db
-       (format "DELETE FROM nodes WHERE uid IN %s;" placeholder)
-       vec))))
 
 (defun org-tasktree-db--sort-nodes (nodes)
   "Return NODES sorted by level then title for deterministic insert."
@@ -174,18 +157,52 @@ The caller must close the returned connection using
          (< la lb))))
    nodes))
 
+(defun org-tasktree-db--inbox-uid-p (uid)
+  "Return non-nil when UID is the system Inbox UID."
+  (equal uid org-tasktree-db--inbox-uid))
+
 (defun org-tasktree-db--prepare-nodes (nodes cache now)
-  "Set created_at/updated_at on NODES using CACHE and NOW.
-Return validated nodes list."
+  "Prepare NODES for commit using CACHE and NOW.
+
+This fills created/updated timestamps, normalizes tags, applies safe
+defaults, and validates nodes.  For existing UIDs, immutable fields are
+checked and preserved."
   (mapcar
    (lambda (node)
-     (let* ((cached (gethash
-                     (org-tasktree-model-node-uid node)
-                     cache))
-            (created (or (org-tasktree-model-node-created-at node)
-                         (plist-get cached :created-at)
-                         now)))
-       (setf (org-tasktree-model-node-created-at node) created)
+     (let* ((uid (org-tasktree-model-node-uid node))
+            (cached (and uid (gethash uid cache)))
+            (cached-id (plist-get cached :id))
+            (cached-type (plist-get cached :node-type))
+            (cached-created (plist-get cached :created-at))
+            (cached-parent (plist-get cached :parent-id))
+            (cached-project (plist-get cached :project-id))
+            (cached-phase (plist-get cached :phase-id))
+            (node-type (org-tasktree-model-node-node-type node)))
+       (when (org-tasktree-db--inbox-uid-p uid)
+         (user-error "Inbox project is read-only"))
+       (when (and cached-id (= cached-id org-tasktree-db--inbox-id))
+         (user-error "Inbox project is read-only"))
+       (when (and cached-type (not (equal cached-type node-type)))
+         (user-error "Node type must not change (uid=%s)" uid))
+       (when cached-id
+         (setf (org-tasktree-model-node-id node) cached-id))
+       (when (and (null (org-tasktree-model-node-parent-id node))
+                  cached-parent)
+         (setf (org-tasktree-model-node-parent-id node) cached-parent))
+       (when (and (null (org-tasktree-model-node-project-id node))
+                  cached-project)
+         (setf (org-tasktree-model-node-project-id node) cached-project))
+       (when (and (null (org-tasktree-model-node-phase-id node))
+                  cached-phase)
+         (setf (org-tasktree-model-node-phase-id node) cached-phase))
+       (when (and (equal node-type "task")
+                  (not (numberp (org-tasktree-model-node-project-id node))))
+         (setf (org-tasktree-model-node-project-id node)
+               org-tasktree-db--inbox-id))
+       (setf (org-tasktree-model-node-created-at node)
+             (or cached-created
+                 (org-tasktree-model-node-created-at node)
+                 now))
        (setf (org-tasktree-model-node-updated-at node) now)
        (setf (org-tasktree-model-node-tags node)
              (car (org-tasktree-model-normalize-tags
@@ -193,69 +210,97 @@ Return validated nodes list."
        (org-tasktree-model-validate-node node)))
    nodes))
 
-(defun org-tasktree-db--cache-id-map (cache)
-  "Return hash of old id -> uid from CACHE."
-  (let ((table (make-hash-table :test 'equal)))
-    (maphash
-     (lambda (uid plist)
-       (let ((id (plist-get plist :id)))
-         (when id (puthash id uid table))))
-     cache)
-    table))
+(defun org-tasktree-db--upsert-node (db node cache-entry)
+  "Insert or update NODE on DB using CACHE-ENTRY.
 
-(defun org-tasktree-db--remap-id (id id->uid uid->row)
-  "Remap old numeric ID to new row id when present.
-ID is the original parent/project/phase id.  ID->UID maps old ids to
-uids within the current scope.  UID->ROW maps uids to freshly inserted
-row ids.  Returns new row id or the original ID when not remapped."
-  (when id
-    (let* ((uid (gethash id id->uid))
-           (new (and uid (gethash uid uid->row))))
-      (or new id))))
+CACHE-ENTRY is a plist from `org-tasktree-db--existing-cache' or nil."
+  (let* ((uid (org-tasktree-model-node-uid node))
+         (existing-id (plist-get cache-entry :id))
+         (sql-insert
+          (mapconcat
+           #'identity
+           '("INSERT INTO nodes("
+             "  uid, parent_id, node_type, todo_keyword, title,"
+             "  level, priority, scheduled, deadline, closed_at,"
+             "  tags, status, project_id, phase_id, created_at,"
+             "  updated_at"
+             ") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,"
+             " ?, ?);")
+           "\n"))
+         (sql-update
+          (mapconcat
+           #'identity
+           '("UPDATE nodes SET"
+             "  parent_id=?,"
+             "  todo_keyword=?,"
+             "  title=?,"
+             "  level=?,"
+             "  priority=?,"
+             "  scheduled=?,"
+             "  deadline=?,"
+             "  closed_at=?,"
+             "  tags=?,"
+             "  status=?,"
+             "  project_id=?,"
+             "  phase_id=?,"
+             "  updated_at=?"
+             " WHERE uid=?;")
+           "\n")))
+    (if existing-id
+        (progn
+          (sqlite-execute
+           db
+           sql-update
+           (vector (org-tasktree-model-node-parent-id node)
+                   (org-tasktree-model-node-todo-keyword node)
+                   (org-tasktree-model-node-title node)
+                   (org-tasktree-model-node-level node)
+                   (org-tasktree-model-node-priority node)
+                   (org-tasktree-model-node-scheduled node)
+                   (org-tasktree-model-node-deadline node)
+                   (org-tasktree-model-node-closed-at node)
+                   (org-tasktree-model-node-tags node)
+                   (org-tasktree-model-node-status node)
+                   (org-tasktree-model-node-project-id node)
+                   (org-tasktree-model-node-phase-id node)
+                   (org-tasktree-model-node-updated-at node)
+                   uid))
+          (setf (org-tasktree-model-node-id node) existing-id))
+      (progn
+        (setf (org-tasktree-model-node-id node) nil)
+        (sqlite-execute db sql-insert (org-tasktree-model-node->db-vector node))
+        (setf (org-tasktree-model-node-id node)
+              (org-tasktree-db--last-rowid db))))))
 
-(defun org-tasktree-db--insert-nodes (db nodes cache)
-  "Insert NODES into DB along with normalized tags.
-Remap parent/project/phase ids to freshly inserted row ids when their
-uids are in the current scope."
-  (let ((sql (mapconcat
-              #'identity
-              '("INSERT INTO nodes("
-                "  uid, parent_id, node_type, todo_keyword, title,"
-                "  level, priority, scheduled, deadline, closed_at,"
-                "  tags, status, project_id, phase_id, created_at,"
-                "  updated_at"
-                ") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,"
-                " ?, ?);")
-              "\n"))
-        (id->uid (org-tasktree-db--cache-id-map cache))
-        (uid->row (make-hash-table :test 'equal)))
-    (dolist (node (org-tasktree-db--sort-nodes nodes))
-      (let* ((parent (org-tasktree-db--remap-id
-                      (org-tasktree-model-node-parent-id node)
-                      id->uid uid->row))
-             (project (org-tasktree-db--remap-id
-                       (org-tasktree-model-node-project-id node)
-                       id->uid uid->row))
-             (phase (org-tasktree-db--remap-id
-                     (org-tasktree-model-node-phase-id node)
-                     id->uid uid->row)))
-        (setf (org-tasktree-model-node-parent-id node) parent)
-        (setf (org-tasktree-model-node-project-id node) project)
-        (setf (org-tasktree-model-node-phase-id node) phase)
-        (sqlite-execute
-         db sql (org-tasktree-model-node->db-vector node))
-        (let ((row-id (org-tasktree-db--last-rowid db)))
-          (puthash (org-tasktree-model-node-uid node) row-id uid->row)
-          (dolist (tag (org-tasktree-model-node-tags-list node))
-            (sqlite-execute
-             db
-             "INSERT INTO node_tags(node_id, tag) VALUES(?, ?);"
-             (vector row-id tag))))))))
+(defun org-tasktree-db--refresh-node-tags (db node)
+  "Replace node_tags for NODE on DB."
+  (let ((node-id (org-tasktree-model-node-id node)))
+    (unless (numberp node-id)
+      (error "Node id missing for node_tags update (uid=%s)"
+             (org-tasktree-model-node-uid node)))
+    (sqlite-execute db "DELETE FROM node_tags WHERE node_id = ?;"
+                    (vector node-id))
+    (dolist (tag (org-tasktree-model-node-tags-list node))
+      (sqlite-execute
+       db
+       "INSERT INTO node_tags(node_id, tag) VALUES(?, ?);"
+       (vector node-id tag)))))
+
+(defun org-tasktree-db--ensure-unique-uids (uids)
+  "Signal `user-error' when UIDS contain duplicates."
+  (let ((seen (make-hash-table :test 'equal)))
+    (dolist (uid uids)
+      (when uid
+        (if (gethash uid seen)
+            (user-error "Duplicate UID in commit scope: %s" uid)
+          (puthash uid t seen))))))
 
 (defun org-tasktree-db-commit-nodes (nodes)
-  "Replace DB rows for UIDS in NODES with fresh insertions.
-Performs scoped DELETE/INSERT; preserves existing `created_at' for
-existing UIDs and sets `updated_at' to current time."
+  "Insert or update NODES by UID.
+
+Updates preserve existing rows and `id' values.  For existing UIDs,
+`created_at' is preserved and `updated_at' is set to current time.
+For new UIDs, a row is inserted.  node_tags are replaced per node."
   (org-tasktree-db--with-db db
     (org-tasktree-db--with-transaction db
       (let* ((uids (delq nil (mapcar #'org-tasktree-model-node-uid
@@ -264,8 +309,12 @@ existing UIDs and sets `updated_at' to current time."
              (now (format-time-string "%FT%T%:z" (current-time)))
              (prepared (org-tasktree-db--prepare-nodes
                         nodes cache now)))
-        (org-tasktree-db--delete-scope db uids)
-        (org-tasktree-db--insert-nodes db prepared cache)))))
+        (org-tasktree-db--ensure-unique-uids uids)
+        (dolist (node (org-tasktree-db--sort-nodes prepared))
+          (let* ((uid (org-tasktree-model-node-uid node))
+                 (cached (and uid (gethash uid cache))))
+            (org-tasktree-db--upsert-node db node cached)
+            (org-tasktree-db--refresh-node-tags db node)))))))
 
 (defun org-tasktree-db--ensure-schema (db)
   "Ensure all tables and indexes exist in DB."

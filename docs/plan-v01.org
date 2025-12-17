@@ -14,7 +14,7 @@
   - org-tasktree-search-overdue-task
   - org-tasktree-search-next-7day-task
 - DB は SQLite（sqlite.el）を single source of truth とし、org はビュー／編集面。
-- UPDATE は禁止し、DELETE / INSERT による再生成とする。
+- UPDATE / INSERT により更新し、既存レコードの id を維持する。
 - Inbox は物理 project ノードとして常駐し、id=1 ・固定 UID を持つ。未指定 task は project_id=1。
 - v0.2 以降（YAML クエリ、sync-buffer/region/subtree、履歴管理等）は本計画の対象外。
 
@@ -43,13 +43,13 @@
 - nodes/node_tags の Elisp モデル（record/alist/struct いずれか）と変換関数。
 - 必須フィールド・型・値域チェック。
 - UID 生成（org-id-get-create / org-id-new）と UNIQUE 制約衝突時の再生成処理。
-- DELETE/INSERT 再生成 API:
+- commit API（uid による upsert）:
   - 既存 UID の created_at をキャッシュして維持
   - updated_at は常に現在時刻
 - 検索・取得の共通 SQL ヘルパ。
 
 受け入れ基準:
-- 単体 INSERT/DELETE が仕様通りに動き、created_at が保持される。
+- 単体 INSERT/UPDATE が仕様通りに動き、created_at が保持される。
 
 ** M3: 検索コマンド＋org ビュー出力
 
@@ -69,7 +69,13 @@
 受け入れ基準:
 - 単体 task をツリーを意識せず登録でき、Inbox に入る／既存編集ができる。
 
-** M5: 仕上げ
+** M5: DB 更新方式の変更
+- DELETE/INSERT 方式を廃止し UPDATE 方式に統一
+
+受け入れ基準:
+- 親 Node (project/phase)を更新しても親子関係が崩れない。
+
+** M6: 仕上げ
 
 - エラーハンドリング（Messages への詳細、echo-area 通知、トランザクション rollback）。
 - defcustom/defgroup の整備。
@@ -171,11 +177,11 @@
 - [x] org-id-get-create/org-id-new ラッパ
 - [x] UNIQUE 衝突時の再生成リトライ
 
-*** TODO M2-4 DELETE/INSERT 再生成 API
+*** TODO M2-4 commit API（upsert/update）
 - [x] スコープ内 UID 既存情報（created_at 含む）キャッシュ
-- [x] node_tags DELETE -> nodes DELETE
-- [x] 親順 INSERT（created_at 維持）
-- [x] node_tags 再 INSERT
+- [x] nodes: uid をキーに UPDATE、未登録なら INSERT（id/created_at 維持）
+- [x] 親順 INSERT/UPDATE（親子整合性維持）
+- [x] node_tags: node_id 単位で DELETE / INSERT により再生成
 
 *** TODO M2-WIP-2 コードレビュー（UID ・再生成 API） / WIP コミット
 - [x] M2-3 / M2-4 コードレビュー
@@ -195,11 +201,11 @@
   - サンプルノードを INSERT（親子含む）: org-tasktree-db-commit-nodes を使って created_at 記録。
   - 直後に同一 UID で別フィールドを変更し再度 commit:
     - 期待: created_at は初回値のまま、updated_at は再 commit 時刻に更新。
-    - parent_id / project_id / phase_id は再挿入後も正しい新 rowid に再マップされること（親子整合性確認）。
+    - parent_id / project_id / phase_id は commit 前後で同一 id を維持し、親子整合性が崩れないこと。
   - 検証 SQL 例:
     - SELECT uid, created_at, updated_at, parent_id, project_id, phase_id FROM nodes ORDER BY id;
-- [x] 4. 削除・再生成スコープ確認
-  - 親子を含む複数 UID を同一スコープで commit→delete/insert され、node_tags も再生成されること。
+- [x] 4. upsert スコープ確認
+  - 親子を含む複数 UID を同一スコープで commit→update/insert され、node_tags も再生成されること。
   - commit 前後で tags の正規化結果（:tag1:tag2:形式）が一致すること。
 - [x] 5. エラーハンドリング確認（軽め）
   - 無効日付や不正 priority を含むノードで commit し、user-error が出て DB が変化しないことを確認（トランザクション rollback）。
@@ -304,7 +310,7 @@ TODO M4-WIP-1 コードレビュー（階層ナビ） / WIP コミット
 
 **** TODO M4-4b M4 受け入れテスト
 - 新仕様（`widget.el` 編集 UI）受け入れテスト
-  - [ ] 親 Node パスが UI 上部に表示される
+  - [x] 親 Node パスが UI 上部に表示される
   - [x] title がミニバッファ入力値で初期化され、編集可能
   - [x] TAB/S-TAB で入力欄を循環移動できる
   - [x] 各入力欄にプレースホルダーが表示される
@@ -324,19 +330,103 @@ TODO M4-WIP-1 コードレビュー（階層ナビ） / WIP コミット
   - [x] <C-c C-c> でコミットして編集バッファが閉じる
   - [x] <C-c C-k> でキャンセルして編集バッファが閉じる
 
-** M5: 仕上げ
+** M5: DB 更新方式（UPDATE 方式）レーン
 
-*** TODO M5-1 エラーハンドリング
+*** TODO M5-1 仕様・設計整理
+
+- [x] DELETE/INSERT 更新を廃止し、更新は UPDATE で id 維持に統一（例外なし）
+- [x] uid の役割（外部/永続識別子）を仕様書に補足として追記
+- [x] 既存の更新系 API/関数の責務を明文化（create/update の境界、どの列を更新するか）
+- [x] 互換性方針の決定（既存データ移行は不要、DB 破壊は想定しない）
+- [x] 仕様書 docs/org-tasktree-spec.org の反映
+
+**** 補足: uid と id の役割分担の記述
+#+begin_example
+本プロジェクトでは、参照（parent_id / project_id / phase_id）は id を用いる。
+一方 uid は「外部/永続識別子」として維持する（id 参照のままでも uid の存在理由は成立する）。
+
+- 外部公開・永続参照:
+  org 側（org-id）、URL、ログ、エクスポート、将来の連携で「一度割り当てた識別子を変えない」用途に使える。
+  DB の id は移行/再投入/再構築で変わりうるが、uid は変えない前提にできる。
+- データ移行・マージ耐性:
+  複数 DB やバックアップのマージ時に、id は衝突するが uid は衝突しにくい。
+  重複検出にも使える。
+- 検索・ API の安定性:
+  将来「コマンドが node を指す」時に id だと不安定、uid だと安定。
+
+つまり、uid は「その node を“外に”指すための恒久 ID」、
+id は「DB 内部の参照・最適化（JOIN 用）」という役割分担が自然である。
+#+end_example
+
+*** TODO M5-2 実装計画（対象範囲の洗い出し）
+
+  - [x] 更新が発生する経路の列挙（UI commit、DB モジュール、query 層）
+    - 更新入口: `org-tasktree-ui--submit-project` / `org-tasktree-ui--submit-widget`
+    - DB 層: `org-tasktree-db-commit-nodes`（1 node 単位の commit を呼び出し）
+    - query/view 層: 読み取り専用（DB 書き込みなし）
+  - [x] org-tasktree-db-commit-nodes（相当）の挙動変更方針決定（insert-only→upsert/update）
+  - [x] UPDATE 時の一意性と安全策（uid で対象行特定、id 更新禁止、status/型の整合チェック）
+  - [x] トランザクション境界の確認（複数 node 更新がある場合の原子性）
+    - `org-tasktree-db-commit-nodes` 内で 1 transaction にまとめる（例外時は rollback）
+
+*** TODO M5-3 実装（UPDATE 方式への置換）
+
+  - [x] DB 層に UPDATE 処理を追加（uid 指定で更新、存在しなければ INSERT）
+  - [x] 既存の DELETE/INSERT 更新呼び出しを置換（親更新時に子の関連が壊れないことを担保）
+  - [x] 更新時に変更してよい列/禁止列を実装で固定（id/node_type 等）
+  - [x] 例外時のエラーハンドリングを規約どおりに整理（user-error/error）
+
+*** TODO M5-4 テスト/検証（受け入れテスト観点）
+
+  - [x] 既存 node（project/phase/task）を更新しても子が辿れること
+  - [x] project 更新時に phase/task の project_id が壊れないこと（UPDATE なので不変であること）
+  - [x] phase 更新時に task の phase_id が壊れないこと（UPDATE なので不変であること）
+  - “新規作成”と“更新”の境界が崩れていないこと（uid 未指定/指定で分岐）
+
+*** TODO M5-5 仕上げ
+
+  - [x] PR → Codex Cloud レビュー → 指摘修正 → ローカル main へマージ → push
+
+** M6: Task を入れ子可能にする。
+*** TODO M6-1 仕様決め
+- [ ] `org-tasktree-find-task` の階層ナビを `project > phase? > group? > task*` に拡張し、task は「ディレクトリとして潜れる」対象にする（`task > group > task` は非対応）。
+- [ ] 「ディレクトリ表示対象 task」の判定ルールを確定する（子を 1 件以上持つ task は候補末尾に `/`、色は白のまま）。
+- [ ] task 配下に作れるノード種別を確定する（task 配下は task のみ、group は作らない／選ばない）。
+- [ ] task の親子関係の正当性ルールを確定する（例: project_id は不変、phase_id は親 task から継承、parent_id は project/phase/group/task のいずれか）。
+
+*** TODO M6-2 実装計画
+- [ ] `org-tasktree-ui-read-task` の候補生成を「現在位置（project/phase/group/task）→ 子候補一覧」を返す共通関数に分割する（重複ロジックの集約）。
+- [ ] `nodes` から `parent_id -> 子あり` セットを構築し、task 候補の表示（`/` 付与）に利用する設計にする。
+- [ ] “潜る” 操作の UI を決める（例: `TAB` で候補のディレクトリに入る／`RET` は選択、など。既存の project/phase と同じ操作感に寄せる）。
+- [ ] 潜り先（task 配下）での新規入力の扱いを決める（未知の入力は「その task 配下の新規 task」として扱う）。
+
+*** TODO M6-3 実装
+- [ ] task 候補生成を「子ありなら末尾 `/`」対応に変更する（表示のみ、task 色は白維持）。
+- [ ] `org-tasktree-find-task` のナビで task をディレクトリ扱いにし、task 配下の task 一覧を表示できるようにする（`task > group > task` は発生させない）。
+- [ ] 新規 task 作成時に、親が task の場合の `parent_id`/`project_id`/`phase_id`/`level` を正しく設定する（phase 配下の task が親なら phase_id を維持、project 直下なら phase_id=nil 等）。
+- [ ] 編集バッファ（widget）側の path 表示に task 階層が反映されることを確認し、必要なら path-titles の生成を調整する。
+
+*** TODO 動作確認
+- [ ] 子を持つ task が `.../` 表示になり、`TAB` で task 配下に潜れて一覧が出ることを確認する（project 直下/phase 直下/group 配下それぞれ）。
+- [ ] task 配下で新規 task を作成でき、DB 上で parent_id が task.id を指し、project_id/phase_id が期待通りであることを確認する。
+- [ ] 既存 task を選ぶ（編集する）動作が壊れていないこと、従来の project/phase/group ナビが回帰していないことを確認する。
+    
+** M7: 仕上げ
+*** TODO M7-1 `org-tasktree-search-*`の修正
+- [ ] 出力結果バッファを書き込み可能にする
+- [ ] ':PROPERTIES:'の先頭の余分なスペースを削除
+  
+*** TODO M7-2 エラーハンドリング
 - [ ] トランザクション rollback
 - [ ] Messages/echo-area 通知
 
-*** TODO M5-2 設定項目整備
+*** TODO M7-3 設定項目整備
 - [ ] defcustom 一覧と初期化
 
-*** TODO M5-WIP-1 コードレビュー（仕上げ） / WIP コミット
-- [ ] M5-1 / M5-2 コードレビュー
-- [ ] M5-1〜M5-2 完了時点で WIP コミット
+*** TODO M7-WIP-1 コードレビュー（仕上げ） / WIP コミット
+- [ ] M6-1 / M6-2 コードレビュー
+- [ ] M6-1〜M6-2 完了時点で WIP コミット
 
-*** TODO M5-3 最終確認
+*** TODO M7-4 最終確認
 - [ ] v0.1 全コマンドの通し動作確認
 - [ ] README/仕様の整合チェック
