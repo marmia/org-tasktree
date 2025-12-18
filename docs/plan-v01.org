@@ -107,35 +107,35 @@
 
 ** M1: 基盤・ DB 初期化
 
-*** TODO M1-1 パッケージ骨格とロード入口
+*** DONE M1-1 パッケージ骨格とロード入口
 - [x] org-tasktree.el を作成（defgroup/require/提供するコマンドの stub）
 - [x] 主要モジュール分割案を反映（db / model / query / view / ui）
 
-*** TODO M1-2 DB 接続ユーティリティ
+*** DONE M1-2 DB 接続ユーティリティ
 - [x] sqlite-open/close のラッパ
 - [x] PRAGMA foreign_keys=ON の自動実行
 - [x] DB パス解決（org-tasktree-database-location）
 
-*** TODO M1-WIP-1 WIP コミット / コードレビュー（基盤・接続）
+*** DONE M1-WIP-1 WIP コミット / コードレビュー（基盤・接続）
 - [x] M1-1〜M1-2 完了時点で WIP コミット
 - [x] WIP コミットに対するコードレビュー
 
-*** TODO M1-3 スキーマ作成
+*** DONE M1-3 スキーマ作成
 - [x] nodes/node_tags/meta の CREATE TABLE
 - [x] インデックス・ UNIQUE 条件
 - [x] node_tags.node_id FK（ON DELETE CASCADE）
 
-*** TODO M1-4 org-tasktree-init
+*** DONE M1-4 org-tasktree-init
 - [x] DB/親 dir 作成
 - [x] schema_version/created_at を meta に INSERT
 - [x] Inbox（id=1, 固定 UID, title="inbox"）を INSERT
 - [x] クエリ dir 作成
 
-*** TODO M1-WIP-2 WIP コミット / コードレビュー（スキーマ・ init）
+*** DONE M1-WIP-2 WIP コミット / コードレビュー（スキーマ・ init）
 - [x] M1-3〜M1-4 完了時点で WIP コミット
 - [x] WIP コミットに対するコードレビュー
 
-*** TODO M1-5 M1 受け入れテスト
+*** DONE M1-5 M1 受け入れテスト
 - [x] 事前準備: テスト用の一時ディレクトリを決め、既存の DB/queries があれば削除してクリーンな状態にする
   - 例: プロジェクト配下 `.org-tasktree-tmp/`
 - [x]  Eval: (add-to-list 'load-path "~/Projects/develop/org-tasktree/")
@@ -161,33 +161,33 @@
 
 ** M2: モデル・バリデーション・共通 DB 操作
 
-*** TODO M2-1 ノード表現と変換
+*** DONE M2-1 ノード表現と変換
 - [x] nodes の Elisp 表現定義
 - [x] org/編集バッファ/DB 行の相互変換
 
-*** TODO M2-2 バリデーション
+*** DONE M2-2 バリデーション
 - [x] nodes 必須・値域チェック
 - [x] node_tags 正規化（trim/重複除去）
 
-*** TODO M2-WIP-1 コードレビュー（モデル・バリデーション） / WIP コミット
+*** DONE M2-WIP-1 コードレビュー（モデル・バリデーション） / WIP コミット
 - [x] M2-1 / M2-2 コードレビュー
 - [x] M2-1〜M2-2 完了時点で WIP コミット
 
-*** TODO M2-3 UID 生成と衝突対策
+*** DONE M2-3 UID 生成と衝突対策
 - [x] org-id-get-create/org-id-new ラッパ
 - [x] UNIQUE 衝突時の再生成リトライ
 
-*** TODO M2-4 commit API（upsert/update）
+*** DONE M2-4 commit API（upsert/update）
 - [x] スコープ内 UID 既存情報（created_at 含む）キャッシュ
 - [x] nodes: uid をキーに UPDATE、未登録なら INSERT（id/created_at 維持）
 - [x] 親順 INSERT/UPDATE（親子整合性維持）
 - [x] node_tags: node_id 単位で DELETE / INSERT により再生成
 
-*** TODO M2-WIP-2 コードレビュー（UID ・再生成 API） / WIP コミット
+*** DONE M2-WIP-2 コードレビュー（UID ・再生成 API） / WIP コミット
 - [x] M2-3 / M2-4 コードレビュー
 - [x] M2-3〜M2-4 完了時点で WIP コミット
 
-*** TODO M2-5 M2 受け入れテスト
+*** DONE M2-5 M2 受け入れテスト
 - [x] 1. 準備
   - 一時 DB パスを設定（例: ~/.emacs.d/org-tasktree-test/tasktree.db）。
   - 既存 DB/queries を削除または別ディレクトリに避難。
@@ -214,29 +214,29 @@
 
 ** M3: 検索コマンド＋org ビュー出力
 
-*** TODO M3-1 検索 SQL ヘルパ
+*** DONE M3-1 検索 SQL ヘルパ
 - [x] 共通 WHERE/ORDER BY を関数化
 - [x] DATE 比較ユーティリティ
 
-*** TODO M3-2 各検索コマンド
+*** DONE M3-2 各検索コマンド
 - [x] org-tasktree-search-today-task
 - [x] org-tasktree-search-before-today-task
 - [x] org-tasktree-search-overdue-task
 - [x] org-tasktree-search-next-7day-task
 
-*** TODO M3-WIP-1 コードレビュー（検索 SQL）/ WIP コミット
+*** DONE M3-WIP-1 コードレビュー（検索 SQL）/ WIP コミット
 - [x] M3-1 / M3-2 コードレビュー
 - [x] M3-1〜M3-2 完了時点で WIP コミット
 
-*** TODO M3-3 org ツリー出力
+*** DONE M3-3 org ツリー出力
 - [x] project>phase>group>task の順で org 展開
 - [x] read-only バッファ + q 終了
 
-*** TODO M3-WIP-2 コードレビュー（org 出力） / WIP コミット
+*** DONE M3-WIP-2 コードレビュー（org 出力） / WIP コミット
 - [x] M3-3 コードレビュー
 - [x] M3-3 完了時点で WIP コミット
 
-*** TODO M3-4 M3 受け入れテスト
+*** DONE M3-4 M3 受け入れテスト
 - [x] サンプル DB で検索結果確認
   - [x] org-tasktree-search-today-task
   - [x] org-tasktree-search-before-today-task
@@ -245,33 +245,33 @@
 
 ** M4: UI レーン（find-*)
 
-*** TODO M4-1 階層ナビ UI
+*** DONE M4-1 階層ナビ UI
 - [x] project 選択一覧
 - [x] project -> phase/group/task への段階的補完
 
-TODO M4-WIP-1 コードレビュー（階層ナビ） / WIP コミット
+*** DONE M4-WIP-1 コードレビュー（階層ナビ） / WIP コミット
 - [x] M4-1 コードレビュー
 - [x] M4-1 完了時点で WIP コミット
 
 *** == 旧仕様（テキスト編集バッファ)の作業項目 ==
-**** TODO M4-2 編集バッファ基盤
+**** DONE M4-2 編集バッファ基盤
 - [x] バッファ生成と入力可能フィールド
 - [x] C-c C-c 確定／C-c C-k キャンセル
 
-**** TODO M4-WIP-2 コードレビュー（編集バッファ基盤） / WIP コミット
+**** DONE M4-WIP-2 コードレビュー（編集バッファ基盤） / WIP コミット
 - [x] M4-2 コードレビュー
 - [x] M4-2 完了時点で WIP コミット
 
-**** TODO M4-3 find-project/phase/task 実装
+**** DONE M4-3 find-project/phase/task 実装
 - [x] org-tasktree-find-project
 - [x] org-tasktree-find-phase
 - [x] org-tasktree-find-task
 
-**** TODO M4-WIP-3 コードレビュー（find-*実装） / WIP コミット
+**** DONE M4-WIP-3 コードレビュー（find-*実装） / WIP コミット
 - [x] M4-3 コードレビュー
 - [x] M4-3 完了時点で WIP コミット
 
-**** TODO M4-4 M4 受け入れテスト
+**** DONE M4-4 M4 受け入れテスト
 - 旧仕様（テキスト編集バッファ）向けテストは、`widget.el` 方式への移行により廃止する。
   - [x] TAB/S-TAB でのカーソル移動
     - [x] org-tasktree-find-project
@@ -291,24 +291,24 @@ TODO M4-WIP-1 コードレビュー（階層ナビ） / WIP コミット
     - [x] org-tasktree-find-task
 
 *** == 新仕様（Widget UI)の作業項目 ==
-**** TODO M4-2b widget 編集 UI 基盤
+**** DONE M4-2b widget 編集 UI 基盤
 - [x] UI 生成と入力可能フィールド
 - [x] C-c C-c 確定／C-c C-k キャンセル
 
-**** TODO M4-WIP-2b コードレビュー（widget 編集 UI 基盤） / WIP コミット
+**** DONE M4-WIP-2b コードレビュー（widget 編集 UI 基盤） / WIP コミット
 - [x] M4-2b コードレビュー
 - [x] M4-2b 完了時点で WIP コミット
 
-**** TODO M4-3b find-project/phase/task 実装 (widget 版)
+**** DONE M4-3b find-project/phase/task 実装 (widget 版)
 - [x] org-tasktree-find-project
 - [x] org-tasktree-find-phase
 - [x] org-tasktree-find-task
 
-**** TODO M4-WIP-3b コードレビュー（find-*実装） / WIP コミット
+**** DONE M4-WIP-3b コードレビュー（find-*実装） / WIP コミット
 - [x] M4-3b コードレビュー
 - [x] M4-3b 完了時点で WIP コミット
 
-**** TODO M4-4b M4 受け入れテスト
+**** DONE M4-4b M4 受け入れテスト
 - 新仕様（`widget.el` 編集 UI）受け入れテスト
   - [x] 親 Node パスが UI 上部に表示される
   - [x] title がミニバッファ入力値で初期化され、編集可能
@@ -332,7 +332,7 @@ TODO M4-WIP-1 コードレビュー（階層ナビ） / WIP コミット
 
 ** M5: DB 更新方式（UPDATE 方式）レーン
 
-*** TODO M5-1 仕様・設計整理
+*** DONE M5-1 仕様・設計整理
 
 - [x] DELETE/INSERT 更新を廃止し、更新は UPDATE で id 維持に統一（例外なし）
 - [x] uid の役割（外部/永続識別子）を仕様書に補足として追記
@@ -358,7 +358,7 @@ TODO M4-WIP-1 コードレビュー（階層ナビ） / WIP コミット
 id は「DB 内部の参照・最適化（JOIN 用）」という役割分担が自然である。
 #+end_example
 
-*** TODO M5-2 実装計画（対象範囲の洗い出し）
+*** DONE M5-2 実装計画（対象範囲の洗い出し）
 
   - [x] 更新が発生する経路の列挙（UI commit、DB モジュール、query 層）
     - 更新入口: `org-tasktree-ui--submit-project` / `org-tasktree-ui--submit-widget`
@@ -369,64 +369,126 @@ id は「DB 内部の参照・最適化（JOIN 用）」という役割分担が
   - [x] トランザクション境界の確認（複数 node 更新がある場合の原子性）
     - `org-tasktree-db-commit-nodes` 内で 1 transaction にまとめる（例外時は rollback）
 
-*** TODO M5-3 実装（UPDATE 方式への置換）
+*** DONE M5-3 実装（UPDATE 方式への置換）
 
   - [x] DB 層に UPDATE 処理を追加（uid 指定で更新、存在しなければ INSERT）
   - [x] 既存の DELETE/INSERT 更新呼び出しを置換（親更新時に子の関連が壊れないことを担保）
   - [x] 更新時に変更してよい列/禁止列を実装で固定（id/node_type 等）
   - [x] 例外時のエラーハンドリングを規約どおりに整理（user-error/error）
 
-*** TODO M5-4 テスト/検証（受け入れテスト観点）
+*** DONE M5-4 テスト/検証（受け入れテスト観点）
 
   - [x] 既存 node（project/phase/task）を更新しても子が辿れること
   - [x] project 更新時に phase/task の project_id が壊れないこと（UPDATE なので不変であること）
   - [x] phase 更新時に task の phase_id が壊れないこと（UPDATE なので不変であること）
   - “新規作成”と“更新”の境界が崩れていないこと（uid 未指定/指定で分岐）
 
-*** TODO M5-5 仕上げ
+*** DONE M5-5 仕上げ
 
   - [x] PR → Codex Cloud レビュー → 指摘修正 → ローカル main へマージ → push
 
-** M6: Task を入れ子可能にする。
-*** TODO M6-1 仕様決め
-- [ ] `org-tasktree-find-task` の階層ナビを `project > phase? > group? > task*` に拡張し、task は「ディレクトリとして潜れる」対象にする（`task > group > task` は非対応）。
-- [ ] 「ディレクトリ表示対象 task」の判定ルールを確定する（子を 1 件以上持つ task は候補末尾に `/`、色は白のまま）。
-- [ ] task 配下に作れるノード種別を確定する（task 配下は task のみ、group は作らない／選ばない）。
-- [ ] task の親子関係の正当性ルールを確定する（例: project_id は不変、phase_id は親 task から継承、parent_id は project/phase/group/task のいずれか）。
+** M6: `org-tasktree-find-*`のミニバッファの修正
+*** DONE M6-1 修正内容 1 の確認
+ミニバッファで'Backspace'でタスクツリーの上位階層に戻れるようにする。
+- 現在の動作: ミニバッファでは、'Backspace'キーを入力できない。
+- 修正後の動作: ミニバッファで'Backspace'キーを押すと入力中のタスクツリーパスの最下層の Node を削除し、上位の Node 配下のリストを表示する。
+*** DONE M6-2 実装
+*** DONE M6-3 レビュー/テスト
+- [x] 手動確認: `org-tasktree-find-phase` の phase 選択中にミニバッファが空の状態で `Backspace` を押すと、project 選択へ戻ること
+- [x] 手動確認: `org-tasktree-find-task` の phase/group/task 選択中にミニバッファが空の状態で `Backspace` を押すと、1 階層上へ戻ること
+- [x] 手動確認: ミニバッファに入力がある状態の `Backspace` は通常どおり 1 文字削除になること
+*** DONE M6-4 修正内容 2 の確認
+`org-tasktree-find-phase', `org-tasktree-find-task`のミニバッファで TAB キー 1 回で補完できるようにする。
+- 状況説明:
+  - ミニバッファ初期表示時 project の一覧が表示され一番上のリストにフォーカスがある状態になる。
+  - この時に TAB キーだけで project 名を補完できるのだが、なぜか最初の project 選択の時だけ TAB を 2 回入力する必要がある。
+  - 1 回目の TAB キーを押しても何も起こらず、もう 1 度 TAB キーを押すと project 名が補完される。
+  - phase 以降の選択ではこのようなことは起こらず 1 回で node 名が補完される。
+  - また`org-tasktree-find-project`では、ミニバッファ初期表示時に 1 回の TAB キー入力で project 名が補完される。
+*** DONE M6-5 実装
+*** DONE M6-6 レビュー/テスト
+- [x] 手動確認: TAB キー 1 回で Project 名が補完できること
+*** DONE M6-7 修正内容 3 の確認
+`org-tasktree-find-*のミニバッファで TAB キーで Node 名を補完するか手入力した場合に、即座に入力した Node 配下の一覧を表示するように修正する。
+- 状況説明:
+  - 現状の動作: ミニバッファで TAB キーで Node 名を補完するか、手入力して、'Enter'キーを押すと選択した Node 配下のリストが表示される。
+  - 修正後の動作: ミニバッファで TAB キーで Node 名を補完するか、正確な Node 名(末尾の'/'までを含む)を入力し終えると、その Node が選択されたことが確定されて、配下の Node リストが表示される。
+*** DONE M6-9 実装
+*** DONE M6-9 レビュー/テスト
+- [x] org-tasktree-find-phase / org-tasktree-find-task のミニバッファで、project/phase/group を TAB 補完して xxx/ まで入った瞬間に次の一覧へ進むか
+- [x] xxx/ を手入力で完全一致させた瞬間にも同様に進むか
+- [x] 候補が一意でない（完全一致しない）場合は自動で進まず、従来どおり Enter が必要なままか
 
-*** TODO M6-2 実装計画
-- [ ] `org-tasktree-ui-read-task` の候補生成を「現在位置（project/phase/group/task）→ 子候補一覧」を返す共通関数に分割する（重複ロジックの集約）。
-- [ ] `nodes` から `parent_id -> 子あり` セットを構築し、task 候補の表示（`/` 付与）に利用する設計にする。
-- [ ] “潜る” 操作の UI を決める（例: `TAB` で候補のディレクトリに入る／`RET` は選択、など。既存の project/phase と同じ操作感に寄せる）。
-- [ ] 潜り先（task 配下）での新規入力の扱いを決める（未知の入力は「その task 配下の新規 task」として扱う）。
+** M7: リファクタリング（先行・やりすぎない範囲）
+*** 対象ファイル
+- org-tasktree-ui.el
+  - find-* のミニバッファ階層ナビ（Backspace 上位移動、auto-enter、候補生成と表示形式、確定動作）
+  - 追加予定の find-group / task 入れ子 / Shift+Enter 分岐がこの領域に集中するため
 
-*** TODO M6-3 実装
-- [ ] task 候補生成を「子ありなら末尾 `/`」対応に変更する（表示のみ、task 色は白維持）。
-- [ ] `org-tasktree-find-task` のナビで task をディレクトリ扱いにし、task 配下の task 一覧を表示できるようにする（`task > group > task` は発生させない）。
-- [ ] 新規 task 作成時に、親が task の場合の `parent_id`/`project_id`/`phase_id`/`level` を正しく設定する（phase 配下の task が親なら phase_id を維持、project 直下なら phase_id=nil 等）。
-- [ ] 編集バッファ（widget）側の path 表示に task 階層が反映されることを確認し、必要なら path-titles の生成を調整する。
+*** リファクタリングが必要となった理由
+- org-tasktree-ui.el が 1500 行を超え、複数の関心事（ミニバッファ階層ナビ、widget 編集 UI、入力正規化、DB 補助）が同居しているため、変更の局所性が低い。
+- 直近の予定（旧 M8/M9）で、find-* の階層ナビに以下が追加される:
+  - `org-tasktree-find-group` の追加（phase と近いが、候補と遷移ルールの追加が必要）
+  - task の入れ子化に伴う「task でも子を持つ場合は末尾 '/' を付与」などの候補表現ルールの拡張
+  - 'Enter' と 'Shift+Enter' で確定/遷移を分岐する UI 仕様の追加
+- 現状でもミニバッファ側のロジックは既に複雑で、機能追加を直書きで続けると破綻（条件分岐の増殖、バグ混入、環境差の発生）が起きやすい。
 
-*** TODO 動作確認
-- [ ] 子を持つ task が `.../` 表示になり、`TAB` で task 配下に潜れて一覧が出ることを確認する（project 直下/phase 直下/group 配下それぞれ）。
-- [ ] task 配下で新規 task を作成でき、DB 上で parent_id が task.id を指し、project_id/phase_id が期待通りであることを確認する。
-- [ ] 既存 task を選ぶ（編集する）動作が壊れていないこと、従来の project/phase/group ナビが回帰していないことを確認する。
-    
-** M7: 仕上げ
-*** TODO M7-1 `org-tasktree-search-*`の修正
-- [ ] 出力結果バッファを書き込み可能にする
-- [ ] ':PROPERTIES:'の先頭の余分なスペースを削除
+*** リファクタリング方針（やりすぎない範囲の先行リファクタ）
+- 目的: 以降の機能追加（find-group、task 入れ子、Shift+Enter）を「既存の階層ナビの枠組みに当てはめて追加」できる状態にし、ロジックの重複と分岐散在を防ぐ。
+- 方針:
+  - 階層ナビ（find-* のミニバッファ処理）を “エンジン化” して、選択状態管理と入力/確定処理を 1 箇所に集約する。
+    - 例: `org-tasktree-ui--nav-read`（状態/キー処理/候補表示/確定） + `org-tasktree-ui--nav-children`（DB→候補生成）
+  - 候補の表現を統一する（dir 候補=`\"NAME/\"`、leaf 候補=`\"NAME\"`、type 判定を末尾`/`＋メタ情報に寄せる）。
+  - 確定ルールを集中管理する（RET / S-RET / auto-enter / Backspace の挙動を 1 箇所で決定）。
+- 非方針（今回はやらない）:
+  - 大規模なファイル分割（`org-tasktree-ui-minibuffer.el` 等）や API 再設計は行わない。
+  - 仕様変更を伴う UI の挙動変更は、次の作業項目で扱う（リファクタは挙動を極力維持する）。 
+
+** M8: `org-taskree-find-group`を実装する
+*** TODO M8-1 仕様確認
+- group の新規作成/更新を行う関数を実装する。
+- 機能が似ている`org-tasktree-find-phase`を参考にして実装する。
+*** TODO M8-2 実装
+*** TODO M8-3 レビュー/テスト
+
+** M9: Task を入れ子可能にする。
+*** TODO M9-1 修正内容の確認
+- `org-tasktree-find-task`で task の下に task を作成できるようにする。
+- 子 node を持つ task はミニバッファ上では末尾に'/'を付けて表示する。(色は白のまま)
+- ミニバッファで末端の task 名を入力した後の操作
+  - 'Enter'キーで従来どおり編集 UI に遷移する。
+  - 'Shif+Enter'キーで Node パスを確定させて、ミニバッファに空リストを表示する。その後新規 task 名を入力して Enter を押すと編集 UI に遷移する。コミットすると Node パスで選択した task 配下に新規 task が登録される。
+*** TODO M9-2 実装
+*** TODO M9-3 レビュー/テスト
+
+** M10: `org-tasktree-search-*`の修正
+*** TODO M10-1 修正内容の確認
+- 出力結果バッファを書き込み可能にする
+- PROPERTIES の先頭の余分なスペースを削除
+ 
+**** 現在の PROPERTIES 出力
+以下のように各行の先頭に Space が入っているが、これは不要である。
+```  
+ :PROPERTIES:
+ :UID: 11111111-1111-1111-1111-111111111111
+ :END:
+```  
+
+*** TODO M10-2 実装
+*** TODO M10-3 レビュー/テスト
   
-*** TODO M7-2 エラーハンドリング
+** M11: 仕上げ
+*** TODO M11-2 エラーハンドリング
 - [ ] トランザクション rollback
 - [ ] Messages/echo-area 通知
 
-*** TODO M7-3 設定項目整備
+*** TODO M11-3 設定項目整備
 - [ ] defcustom 一覧と初期化
 
-*** TODO M7-WIP-1 コードレビュー（仕上げ） / WIP コミット
+*** TODO M11-WIP-1 コードレビュー（仕上げ） / WIP コミット
 - [ ] M6-1 / M6-2 コードレビュー
 - [ ] M6-1〜M6-2 完了時点で WIP コミット
 
-*** TODO M7-4 最終確認
+*** TODO M11-4 最終確認
 - [ ] v0.1 全コマンドの通し動作確認
 - [ ] README/仕様の整合チェック
