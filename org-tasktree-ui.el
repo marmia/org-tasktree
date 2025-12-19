@@ -509,7 +509,23 @@ Assumes key: value lines after the second '---' separator."
          (project-title (plist-get selection :project-title))
          (phase-title (plist-get selection :phase-title))
          (group-title (plist-get selection :group-title))
-         (path-titles (delq nil (list project-title phase-title group-title)))
+         (base-path (delq nil (list project-title phase-title group-title)))
+         (parent-id (if node
+                        (org-tasktree-model-node-parent-id node)
+                      (plist-get selection :parent-id)))
+         (task-parent-titles
+          (let (titles current-id)
+            (setq current-id parent-id)
+            (while (and current-id (numberp current-id))
+              (let ((parent-node (org-tasktree-query-get-node-by-id current-id)))
+                (if (and parent-node
+                         (equal (org-tasktree-model-node-node-type parent-node) "task"))
+                    (progn
+                      (push (org-tasktree-model-node-title parent-node) titles)
+                      (setq current-id (org-tasktree-model-node-parent-id parent-node)))
+                  (setq current-id nil))))
+            titles))
+         (path-titles (append base-path task-parent-titles))
          (data (if node
                    (let ((parent-id (org-tasktree-model-node-parent-id node)))
                      (list :type 'task
@@ -880,48 +896,63 @@ Accepts YYYY-MM-DD, YYYY/MM/DD, MM-DD, MM/DD, and DD forms."
            (user-error "Project must exist before creating a task"))
          (unless (numberp parent-id)
            (user-error "Task parent must exist"))
-         (when (and (null phase-id) (not (equal parent-id project-id)))
-           (user-error "Task parent must be project when phase is not selected"))
-         (when (and (numberp phase-id) (equal parent-id project-id))
-           (user-error "Task parent must not be project when phase is selected"))
-         (when (numberp phase-id)
-           (let ((phase-node (org-tasktree-query-get-node-by-id phase-id)))
-             (unless (and phase-node
-                          (org-tasktree-ui--node-type= phase-node "phase")
-                          (equal (org-tasktree-model-node-project-id phase-node)
-                                 project-id))
-               (user-error "Phase not found: %s" phase-id))))
-         (when (and (numberp phase-id) (not (equal parent-id phase-id)))
-           (let ((parent-node (org-tasktree-query-get-node-by-id parent-id)))
-             (unless (and parent-node
-                          (org-tasktree-ui--node-type= parent-node "group")
-                          (equal (org-tasktree-model-node-project-id parent-node)
-                                 project-id)
-                          (equal (org-tasktree-model-node-phase-id parent-node)
-                                 phase-id))
-               (user-error "Group not found: %s" parent-id))))
-         (let* ((level
-                 (cond
-                  ((not (numberp phase-id)) 2)
-                  ((equal parent-id phase-id) 3)
-                  (t 4)))
-                (node
-                 (org-tasktree-model-node-create
-                  :uid uid
-                  :parent-id parent-id
-                  :node-type "task"
-                  :todo-keyword "TODO"
-                  :title title
-                  :level level
-                  :priority priority
-                  :scheduled scheduled
-                  :deadline deadline
-                  :tags tags
-                  :status "OPEN"
-                  :project-id project-id
-                  :phase-id (and (numberp phase-id) phase-id))))
-           (org-tasktree-db-commit-nodes (list node))
-           node)))
+         (let* ((parent-node (org-tasktree-query-get-node-by-id parent-id))
+                (parent-type (and parent-node
+                                  (org-tasktree-model-node-node-type parent-node)))
+                (parent-project-id (and parent-node
+                                        (org-tasktree-model-node-project-id parent-node)))
+                (parent-phase-id (and parent-node
+                                      (org-tasktree-model-node-phase-id parent-node)))
+                (parent-level (and parent-node
+                                   (org-tasktree-model-node-level parent-node))))
+           (unless parent-node
+             (user-error "Task parent must exist"))
+           (if (numberp phase-id)
+               (let ((phase-node (org-tasktree-query-get-node-by-id phase-id)))
+                 (unless (and phase-node
+                              (org-tasktree-ui--node-type= phase-node "phase")
+                              (equal (org-tasktree-model-node-project-id phase-node)
+                                     project-id))
+                   (user-error "Phase not found: %s" phase-id)))
+             (when (not (equal parent-id project-id))
+               (unless (and (string= parent-type "task")
+                            (null parent-phase-id)
+                            (equal parent-project-id project-id))
+                 (user-error "Task parent must be project or task under project"))))
+           (when (numberp phase-id)
+             (unless (or (equal parent-id phase-id)
+                         (and (string= parent-type "group")
+                              (equal parent-project-id project-id)
+                              (equal parent-phase-id phase-id))
+                         (and (string= parent-type "task")
+                              (equal parent-project-id project-id)
+                              (equal parent-phase-id phase-id)))
+               (user-error "Task parent must be phase, group, or task under phase")))
+           (let* ((level
+                   (if (and (string= parent-type "task")
+                            (numberp parent-level))
+                       (1+ parent-level)
+                     (cond
+                      ((not (numberp phase-id)) 2)
+                      ((equal parent-id phase-id) 3)
+                      (t 4))))
+                  (node
+                   (org-tasktree-model-node-create
+                    :uid uid
+                    :parent-id parent-id
+                    :node-type "task"
+                    :todo-keyword "TODO"
+                    :title title
+                    :level level
+                    :priority priority
+                    :scheduled scheduled
+                    :deadline deadline
+                    :tags tags
+                    :status "OPEN"
+                    :project-id project-id
+                    :phase-id (and (numberp phase-id) phase-id))))
+             (org-tasktree-db-commit-nodes (list node))
+             node))))
       (_ (user-error "Unknown edit type: %S" type)))))
 
 (defun org-tasktree-ui-widget-edit-accept ()

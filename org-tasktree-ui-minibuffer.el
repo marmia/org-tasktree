@@ -148,6 +148,45 @@ FILTERS is a plist that may include :project-id, :phase-id, or :parent-id."
   "Return sorted completion candidates from CANDIDATE-LISTS."
   (org-tasktree-ui-minibuffer--sorted-strings (apply #'append candidate-lists)))
 
+(defun org-tasktree-ui-minibuffer--task-child-map (nodes)
+  "Return hash map of task ids that have child tasks in NODES."
+  (let ((table (make-hash-table :test 'equal)))
+    (dolist (node nodes table)
+      (when (org-tasktree-ui-minibuffer--node-type= node "task")
+        (let ((parent-id (org-tasktree-model-node-parent-id node)))
+          (when (numberp parent-id)
+            (puthash parent-id t table)))))))
+
+(defun org-tasktree-ui-minibuffer--make-task-dir-candidate (title)
+  "Return a propertized task candidate for TITLE with children."
+  (let* ((display (concat title "/"))
+         (color (org-tasktree-ui-minibuffer--completion-color 'task))
+         (face (and (stringp color) (not (string-empty-p color))
+                    `(:foreground ,color))))
+    (propertize display
+                'face face
+                'org-tasktree-ui-minibuffer--raw title
+                'org-tasktree-ui-minibuffer--candidate-type 'task)))
+
+(defun org-tasktree-ui-minibuffer--task-candidates (tasks child-map)
+  "Return completion candidates for TASKS using CHILD-MAP."
+  (let* ((sorted
+          (sort (copy-sequence tasks)
+                (lambda (a b)
+                  (string< (org-tasktree-model-node-title a)
+                           (org-tasktree-model-node-title b))))))
+    (mapcar
+     (lambda (task)
+       (let* ((title (org-tasktree-model-node-title task))
+              (has-child (gethash (org-tasktree-model-node-id task) child-map)))
+         (if has-child
+             (org-tasktree-ui-minibuffer--make-task-dir-candidate title)
+           (org-tasktree-ui-minibuffer--make-completion-candidate title 'task))))
+     sorted)))
+
+(defvar org-tasktree-ui-minibuffer--last-exit-kind nil
+  "Exit kind of the last org-tasktree minibuffer session.")
+
 (defun org-tasktree-ui-minibuffer--nav-read-input
     (prompt cands require-match allow-backspace-up allow-auto-enter)
   "Read navigation input using PROMPT and CANDS.
@@ -156,12 +195,15 @@ REQUIRE-MATCH, ALLOW-BACKSPACE-UP, and ALLOW-AUTO-ENTER are passed to
 `org-tasktree-ui-minibuffer--completing-read'.
 
 Return :up or a plist with :raw, :type, and :candidate."
-  (let ((input (org-tasktree-ui-minibuffer--completing-read
-                prompt cands require-match allow-backspace-up allow-auto-enter)))
+  (let* ((org-tasktree-ui-minibuffer--last-exit-kind nil)
+         (input (org-tasktree-ui-minibuffer--completing-read
+                 prompt cands require-match allow-backspace-up allow-auto-enter))
+         (exit-kind org-tasktree-ui-minibuffer--last-exit-kind))
     (if (eq input :up)
         :up
       (list :raw (string-trim (org-tasktree-ui-minibuffer--candidate-raw input))
             :type (org-tasktree-ui-minibuffer--candidate-type input)
+            :exit-kind exit-kind
             :candidate input))))
 
 (defun org-tasktree-ui-minibuffer--nav-read (initial-state step-fn)
@@ -222,6 +264,12 @@ automatic confirmation for directory candidates."
     (call-interactively
      (or org-tasktree-ui-minibuffer--minibuffer-backspace-original
          #'delete-backward-char))))
+
+(defun org-tasktree-ui-minibuffer--minibuffer-shift-enter ()
+  "Handle Shift+Enter in org-tasktree minibuffer."
+  (interactive)
+  (setq org-tasktree-ui-minibuffer--last-exit-kind :shift-enter)
+  (exit-minibuffer))
 
 (defun org-tasktree-ui-minibuffer--minibuffer-cleanup ()
   "Cleanup hooks and buffer-local state for org-tasktree minibuffer sessions."
@@ -285,7 +333,10 @@ with \"/\") auto-confirms and proceeds without requiring RET."
                                  (let (result)
                                    (dolist (cand cands (nreverse result))
                                      (let ((s (substring-no-properties cand)))
-                                       (when (string-suffix-p "/" s)
+                                       (when (and (string-suffix-p "/" s)
+                                                  (memq (org-tasktree-ui-minibuffer--candidate-type
+                                                         cand)
+                                                        '(project phase group task)))
                                          (push s result)))))))
                    (when org-tasktree-ui-minibuffer--minibuffer-auto-enter-enabled
                      (add-hook 'post-command-hook
@@ -300,16 +351,14 @@ with \"/\") auto-confirms and proceeds without requiring RET."
                                (or (key-binding (kbd "DEL") t)
                                    (key-binding (kbd "<backspace>") t)
                                    #'delete-backward-char))
-                   (let ((map (make-sparse-keymap)))
+                   (let ((map (make-sparse-keymap))
+                         (backspace #'org-tasktree-ui-minibuffer--minibuffer-backspace)
+                         (shift-enter #'org-tasktree-ui-minibuffer--minibuffer-shift-enter))
                      (set-keymap-parent map (current-local-map))
-                     (define-key
-                      map
-                      (kbd "DEL")
-                      #'org-tasktree-ui-minibuffer--minibuffer-backspace)
-                     (define-key
-                      map
-                      (kbd "<backspace>")
-                      #'org-tasktree-ui-minibuffer--minibuffer-backspace)
+                     (define-key map (kbd "DEL") backspace)
+                     (define-key map (kbd "<backspace>") backspace)
+                     (define-key map (kbd "S-<return>") shift-enter)
+                     (define-key map (kbd "S-RET") shift-enter)
                      (use-local-map map))))))))
       (completing-read prompt cands nil require-match))))
 
@@ -528,9 +577,10 @@ Project must exist.  Phase and group must exist when selected.
 If the phase input does not match an existing phase title, treat it as a task
 title under the selected project.
 
-If the group input does not match an existing group title, treat it as a task
-title under the selected phase."
+  If the group input does not match an existing group title, treat it as a task
+  title under the selected phase."
   (let* ((nodes (org-tasktree-query-open-tree))
+         (task-child-map (org-tasktree-ui-minibuffer--task-child-map nodes))
          (projects (org-tasktree-ui-minibuffer--nav-children nodes "project"))
          (project-cands
           (org-tasktree-ui-minibuffer--nav-candidates-from-nodes projects 'project))
@@ -539,21 +589,19 @@ title under the selected phase."
          phase-title
          phase-id
          group-title
-         group-id)
+         group-id
+         task-parent-stack
+         task-parent-prev-state)
     (cl-labels
-        ((read-task-title (titles tasks)
+        ((read-task-input (titles tasks)
            (let* ((task-cands
-                   (org-tasktree-ui-minibuffer--nav-candidates-from-nodes tasks 'task))
-                  (input
-                   (org-tasktree-ui-minibuffer--nav-read-input
-                    (concat "find node: " (org-tasktree-ui-minibuffer--prompt-path titles))
-                    task-cands
-                    nil
-                    t
-                    nil)))
-             (if (eq input :up)
-                 :up
-               (plist-get input :raw)))))
+                   (org-tasktree-ui-minibuffer--task-candidates tasks task-child-map)))
+             (org-tasktree-ui-minibuffer--nav-read-input
+              (concat "find node: " (org-tasktree-ui-minibuffer--prompt-path titles))
+              task-cands
+              nil
+              t
+              nil))))
       (org-tasktree-ui-minibuffer--nav-read
        :project
        (lambda (state)
@@ -574,7 +622,6 @@ title under the selected phase."
                   group-title nil
                   group-id nil)
             (list :state :phase-or-task))
-
            (:phase-or-task
             (let* ((phases (org-tasktree-ui-minibuffer--nav-children
                             nodes "phase" :project-id project-id))
@@ -587,7 +634,7 @@ title under the selected phase."
                    (cands
                     (org-tasktree-ui-minibuffer--nav-merge-candidates
                      (org-tasktree-ui-minibuffer--nav-candidates phase-titles 'phase)
-                     (org-tasktree-ui-minibuffer--nav-candidates-from-nodes project-tasks 'task)))
+                     (org-tasktree-ui-minibuffer--task-candidates project-tasks task-child-map)))
                    (input
                     (org-tasktree-ui-minibuffer--nav-read-input
                      (concat "find node: "
@@ -599,7 +646,8 @@ title under the selected phase."
               (if (eq input :up)
                   (list :state :project)
                 (let* ((raw (plist-get input :raw))
-                       (input-type (plist-get input :type)))
+                       (input-type (plist-get input :type))
+                       (exit-kind (plist-get input :exit-kind)))
                   (cond
                    ((string-empty-p raw)
                     (list :state :project-task))
@@ -618,7 +666,80 @@ title under the selected phase."
                     (let* ((task-node
                             (org-tasktree-ui-minibuffer--node-by-title project-tasks "task" raw))
                            (task-id (and task-node
-                                         (org-tasktree-model-node-id task-node))))
+                                         (org-tasktree-model-node-id task-node)))
+                           (has-child (and task-id
+                                           (gethash task-id task-child-map))))
+                      (cond
+                       ((eq exit-kind :shift-enter)
+                        (unless task-id
+                          (user-error "Task not found: %s" raw))
+                        (if has-child
+                            (list :result
+                                  (list :project-title project-title
+                                        :project-id project-id
+                                        :phase-title nil
+                                        :phase-id nil
+                                        :group-title nil
+                                        :parent-id project-id
+                                        :task-title raw
+                                        :task-id task-id))
+                          (setq task-parent-stack (list (cons task-id raw))
+                                task-parent-prev-state :phase-or-task)
+                          (list :state :task-child-browse)))
+                       (has-child
+                        (setq task-parent-stack (list (cons task-id raw))
+                              task-parent-prev-state :phase-or-task)
+                        (list :state :task-child-browse))
+                       (t
+                        (list :result
+                              (list :project-title project-title
+                                    :project-id project-id
+                                    :phase-title nil
+                                    :phase-id nil
+                                    :group-title nil
+                                    :parent-id project-id
+                                    :task-title raw
+                                    :task-id task-id)))))))))))
+           (:project-task
+            (let* ((tasks (org-tasktree-ui-minibuffer--nav-children
+                           nodes "task"
+                           :project-id project-id
+                           :phase-id nil
+                           :parent-id project-id))
+                   (input (read-task-input (list project-title) tasks)))
+              (if (eq input :up)
+                  (list :state :phase-or-task)
+                (let* ((title (plist-get input :raw))
+                       (exit-kind (plist-get input :exit-kind)))
+                  (when (string-empty-p title)
+                    (user-error "Task title is required"))
+                  (let* ((task-node (org-tasktree-ui-minibuffer--node-by-title tasks "task" title))
+                         (task-id (and task-node
+                                       (org-tasktree-model-node-id task-node)))
+                         (has-child (and task-id
+                                         (gethash task-id task-child-map))))
+                    (cond
+                     ((eq exit-kind :shift-enter)
+                      (unless task-id
+                        (user-error "Task not found: %s" title))
+                      (if has-child
+                          (list :result
+                                (list :project-title project-title
+                                      :project-id project-id
+                                      :phase-title nil
+                                      :phase-id nil
+                                      :group-title nil
+                                      :parent-id project-id
+                                      :task-title title
+                                      :task-id task-id))
+                        (setq task-parent-stack (list (cons task-id title))
+                              task-parent-prev-state :project-task)
+                        (list :state :task-child-browse)))
+                     (has-child
+                      (setq task-parent-stack (list (cons task-id title))
+                            task-parent-prev-state :project-task)
+                      (list :state :task-child-browse))
+                     (t
                       (list :result
                             (list :project-title project-title
                                   :project-id project-id
@@ -626,33 +747,8 @@ title under the selected phase."
                                   :phase-id nil
                                   :group-title nil
                                   :parent-id project-id
-                                  :task-title raw
+                                  :task-title title
                                   :task-id task-id)))))))))
-
-           (:project-task
-            (let* ((tasks (org-tasktree-ui-minibuffer--nav-children
-                           nodes "task"
-                           :project-id project-id
-                           :phase-id nil
-                           :parent-id project-id))
-                   (title (read-task-title (list project-title) tasks)))
-              (if (eq title :up)
-                  (list :state :phase-or-task)
-                (when (string-empty-p title)
-                  (user-error "Task title is required"))
-                (let* ((task-node (org-tasktree-ui-minibuffer--node-by-title tasks "task" title))
-                       (task-id (and task-node
-                                     (org-tasktree-model-node-id task-node))))
-                  (list :result
-                        (list :project-title project-title
-                              :project-id project-id
-                              :phase-title nil
-                              :phase-id nil
-                              :group-title nil
-                              :parent-id project-id
-                              :task-title title
-                              :task-id task-id))))))
-
            (:group-or-task
             (let* ((groups (org-tasktree-ui-minibuffer--nav-children
                             nodes "group"
@@ -667,7 +763,7 @@ title under the selected phase."
                    (cands
                     (org-tasktree-ui-minibuffer--nav-merge-candidates
                      (org-tasktree-ui-minibuffer--nav-candidates group-titles 'group)
-                     (org-tasktree-ui-minibuffer--nav-candidates-from-nodes phase-tasks 'task)))
+                     (org-tasktree-ui-minibuffer--task-candidates phase-tasks task-child-map)))
                    (input
                     (org-tasktree-ui-minibuffer--nav-read-input
                      (concat "find task group: "
@@ -683,7 +779,8 @@ title under the selected phase."
                           group-id nil)
                     (list :state :phase-or-task))
                 (let* ((raw (plist-get input :raw))
-                       (input-type (plist-get input :type)))
+                       (input-type (plist-get input :type))
+                       (exit-kind (plist-get input :exit-kind)))
                   (cond
                    ((eq input-type 'task)
                     (when (string-empty-p raw)
@@ -691,16 +788,40 @@ title under the selected phase."
                     (let* ((task-node
                             (org-tasktree-ui-minibuffer--node-by-title phase-tasks "task" raw))
                            (task-id (and task-node
-                                         (org-tasktree-model-node-id task-node))))
-                      (list :result
-                            (list :project-title project-title
-                                  :project-id project-id
-                                  :phase-title phase-title
-                                  :phase-id phase-id
-                                  :group-title nil
-                                  :parent-id phase-id
-                                  :task-title raw
-                                  :task-id task-id))))
+                                         (org-tasktree-model-node-id task-node)))
+                           (has-child (and task-id
+                                           (gethash task-id task-child-map))))
+                      (cond
+                       ((eq exit-kind :shift-enter)
+                        (unless task-id
+                          (user-error "Task not found: %s" raw))
+                        (if has-child
+                            (list :result
+                                  (list :project-title project-title
+                                        :project-id project-id
+                                        :phase-title phase-title
+                                        :phase-id phase-id
+                                        :group-title nil
+                                        :parent-id phase-id
+                                        :task-title raw
+                                        :task-id task-id))
+                          (setq task-parent-stack (list (cons task-id raw))
+                                task-parent-prev-state :group-or-task)
+                          (list :state :task-child-browse)))
+                       (has-child
+                        (setq task-parent-stack (list (cons task-id raw))
+                              task-parent-prev-state :group-or-task)
+                        (list :state :task-child-browse))
+                       (t
+                        (list :result
+                              (list :project-title project-title
+                                    :project-id project-id
+                                    :phase-title phase-title
+                                    :phase-id phase-id
+                                    :group-title nil
+                                    :parent-id phase-id
+                                    :task-title raw
+                                    :task-id task-id))))))
                    ((string-empty-p raw)
                     (list :state :phase-task))
                    ((or (eq input-type 'group) (member raw group-titles))
@@ -716,7 +837,80 @@ title under the selected phase."
                     (let* ((task-node
                             (org-tasktree-ui-minibuffer--node-by-title phase-tasks "task" raw))
                            (task-id (and task-node
-                                         (org-tasktree-model-node-id task-node))))
+                                         (org-tasktree-model-node-id task-node)))
+                           (has-child (and task-id
+                                           (gethash task-id task-child-map))))
+                      (cond
+                       ((eq exit-kind :shift-enter)
+                        (unless task-id
+                          (user-error "Task not found: %s" raw))
+                        (if has-child
+                            (list :result
+                                  (list :project-title project-title
+                                        :project-id project-id
+                                        :phase-title phase-title
+                                        :phase-id phase-id
+                                        :group-title nil
+                                        :parent-id phase-id
+                                        :task-title raw
+                                        :task-id task-id))
+                          (setq task-parent-stack (list (cons task-id raw))
+                                task-parent-prev-state :group-or-task)
+                          (list :state :task-child-browse)))
+                       (has-child
+                        (setq task-parent-stack (list (cons task-id raw))
+                              task-parent-prev-state :group-or-task)
+                        (list :state :task-child-browse))
+                       (t
+                        (list :result
+                              (list :project-title project-title
+                                    :project-id project-id
+                                    :phase-title phase-title
+                                    :phase-id phase-id
+                                    :group-title nil
+                                    :parent-id phase-id
+                                    :task-title raw
+                                    :task-id task-id)))))))))))
+           (:phase-task
+            (let* ((tasks (org-tasktree-ui-minibuffer--nav-children
+                           nodes "task"
+                           :project-id project-id
+                           :phase-id phase-id
+                           :parent-id phase-id))
+                   (input (read-task-input (list project-title phase-title) tasks)))
+              (if (eq input :up)
+                  (list :state :group-or-task)
+                (let* ((title (plist-get input :raw))
+                       (exit-kind (plist-get input :exit-kind)))
+                  (when (string-empty-p title)
+                    (user-error "Task title is required"))
+                  (let* ((task-node (org-tasktree-ui-minibuffer--node-by-title tasks "task" title))
+                         (task-id (and task-node
+                                       (org-tasktree-model-node-id task-node)))
+                         (has-child (and task-id
+                                         (gethash task-id task-child-map))))
+                    (cond
+                     ((eq exit-kind :shift-enter)
+                      (unless task-id
+                        (user-error "Task not found: %s" title))
+                      (if has-child
+                          (list :result
+                                (list :project-title project-title
+                                      :project-id project-id
+                                      :phase-title phase-title
+                                      :phase-id phase-id
+                                      :group-title nil
+                                      :parent-id phase-id
+                                      :task-title title
+                                      :task-id task-id))
+                        (setq task-parent-stack (list (cons task-id title))
+                              task-parent-prev-state :phase-task)
+                        (list :state :task-child-browse)))
+                     (has-child
+                      (setq task-parent-stack (list (cons task-id title))
+                            task-parent-prev-state :phase-task)
+                      (list :state :task-child-browse))
+                     (t
                       (list :result
                             (list :project-title project-title
                                   :project-id project-id
@@ -724,58 +918,138 @@ title under the selected phase."
                                   :phase-id phase-id
                                   :group-title nil
                                   :parent-id phase-id
-                                  :task-title raw
+                                  :task-title title
                                   :task-id task-id)))))))))
-
-           (:phase-task
-            (let* ((tasks (org-tasktree-ui-minibuffer--nav-children
-                           nodes "task"
-                           :project-id project-id
-                           :phase-id phase-id
-                           :parent-id phase-id))
-                   (title (read-task-title (list project-title phase-title) tasks)))
-              (if (eq title :up)
-                  (list :state :group-or-task)
-                (when (string-empty-p title)
-                  (user-error "Task title is required"))
-                (let* ((task-node (org-tasktree-ui-minibuffer--node-by-title tasks "task" title))
-                       (task-id (and task-node
-                                     (org-tasktree-model-node-id task-node))))
-                  (list :result
-                        (list :project-title project-title
-                              :project-id project-id
-                              :phase-title phase-title
-                              :phase-id phase-id
-                              :group-title nil
-                              :parent-id phase-id
-                              :task-title title
-                              :task-id task-id))))))
-
            (:group-task
             (let* ((tasks (org-tasktree-ui-minibuffer--nav-children
                            nodes "task"
                            :project-id project-id
                            :phase-id phase-id
                            :parent-id group-id))
-                   (title (read-task-title
+                   (input (read-task-input
                            (list project-title phase-title group-title) tasks)))
-              (if (eq title :up)
+              (if (eq input :up)
                   (list :state :group-or-task)
-                (when (string-empty-p title)
-                  (user-error "Task title is required"))
-                (let* ((task-node (org-tasktree-ui-minibuffer--node-by-title tasks "task" title))
+                (let* ((title (plist-get input :raw))
+                       (exit-kind (plist-get input :exit-kind)))
+                  (when (string-empty-p title)
+                    (user-error "Task title is required"))
+                  (let* ((task-node (org-tasktree-ui-minibuffer--node-by-title tasks "task" title))
+                         (task-id (and task-node
+                                       (org-tasktree-model-node-id task-node)))
+                         (has-child (and task-id
+                                         (gethash task-id task-child-map))))
+                    (cond
+                     ((eq exit-kind :shift-enter)
+                      (unless task-id
+                        (user-error "Task not found: %s" title))
+                      (if has-child
+                          (list :result
+                                (list :project-title project-title
+                                      :project-id project-id
+                                      :phase-title phase-title
+                                      :phase-id phase-id
+                                      :group-title group-title
+                                      :parent-id group-id
+                                      :task-title title
+                                      :task-id task-id))
+                        (setq task-parent-stack (list (cons task-id title))
+                              task-parent-prev-state :group-task)
+                        (list :state :task-child-browse)))
+                     (has-child
+                      (setq task-parent-stack (list (cons task-id title))
+                            task-parent-prev-state :group-task)
+                      (list :state :task-child-browse))
+                     (t
+                      (list :result
+                            (list :project-title project-title
+                                  :project-id project-id
+                                  :phase-title phase-title
+                                  :phase-id phase-id
+                                  :group-title group-title
+                                  :parent-id group-id
+                                  :task-title title
+                                  :task-id task-id)))))))))
+           (:task-child-browse
+            (let* ((current (car (last task-parent-stack)))
+                   (current-id (car current))
+                   (current-title (cdr current))
+                   (tasks (org-tasktree-ui-minibuffer--nav-children
+                           nodes "task"
+                           :project-id project-id
+                           :phase-id phase-id
+                           :parent-id current-id))
+                   (task-cands
+                    (org-tasktree-ui-minibuffer--task-candidates tasks task-child-map))
+                   (input
+                    (org-tasktree-ui-minibuffer--nav-read-input
+                     (concat "find node: "
+                             (org-tasktree-ui-minibuffer--prompt-path
+                              (append
+                               (delq nil (list project-title phase-title group-title))
+                               (mapcar #'cdr task-parent-stack))))
+                     task-cands
+                     nil
+                     t
+                     t)))
+              (if (eq input :up)
+                  (if (and task-parent-stack (cdr task-parent-stack))
+                      (progn
+                        (setq task-parent-stack (butlast task-parent-stack))
+                        (list :state :task-child-browse))
+                    (setq task-parent-stack nil)
+                    (list :state (or task-parent-prev-state :group-or-task)))
+                (let* ((title (plist-get input :raw))
+                       (exit-kind (plist-get input :exit-kind))
+                       (task-node
+                        (org-tasktree-ui-minibuffer--node-by-title tasks "task" title))
                        (task-id (and task-node
-                                     (org-tasktree-model-node-id task-node))))
-                  (list :result
-                        (list :project-title project-title
-                              :project-id project-id
-                              :phase-title phase-title
-                              :phase-id phase-id
-                              :group-title group-title
-                              :parent-id group-id
-                              :task-title title
-                              :task-id task-id))))))
-
+                                     (org-tasktree-model-node-id task-node)))
+                       (has-child (and task-id
+                                       (gethash task-id task-child-map))))
+                  (cond
+                   ((and (eq exit-kind :shift-enter) (string-empty-p title))
+                    (list :result
+                          (list :project-title project-title
+                                :project-id project-id
+                                :phase-title phase-title
+                                :phase-id phase-id
+                                :group-title group-title
+                                :parent-id current-id
+                                :task-title current-title
+                                :task-id current-id)))
+                   ((string-empty-p title)
+                    (user-error "Task title is required"))
+                   ((eq exit-kind :shift-enter)
+                    (unless task-id
+                      (user-error "Task not found: %s" title))
+                    (if has-child
+                        (list :result
+                              (list :project-title project-title
+                                    :project-id project-id
+                                    :phase-title phase-title
+                                    :phase-id phase-id
+                                    :group-title group-title
+                                    :parent-id current-id
+                                    :task-title title
+                                    :task-id task-id))
+                      (setq task-parent-stack
+                            (append task-parent-stack (list (cons task-id title))))
+                      (list :state :task-child-browse)))
+                   (has-child
+                    (setq task-parent-stack
+                          (append task-parent-stack (list (cons task-id title))))
+                    (list :state :task-child-browse))
+                   (t
+                    (list :result
+                          (list :project-title project-title
+                                :project-id project-id
+                                :phase-title phase-title
+                                :phase-id phase-id
+                                :group-title group-title
+                                :parent-id current-id
+                                :task-title title
+                                :task-id task-id))))))))
            (_
             (error "Unknown state: %S" state))))))))
 

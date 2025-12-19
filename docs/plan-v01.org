@@ -456,36 +456,31 @@ id は「DB 内部の参照・最適化（JOIN 用）」という役割分担が
 - 新規ファイル: org-tasktree-ui-minibuffer.el（ナビエンジン＋候補生成＋read-*）
 - 依存関係は org-tasktree-ui.el → org-tasktree-ui-minibuffer.el の一方向に制限
 
-** M8: `org-taskree-find-group`を実装する
-*** TODO M8-1 仕様確認
+** DONE M8: `org-taskree-find-group`を実装する
+*** DONE M8-1 仕様確認
 - group の新規作成/更新を行う関数を実装する。
 - 機能が似ている`org-tasktree-find-phase`を参考にして実装する。
-*** TODO M8-2 実装
-*** TODO M8-3 レビュー/テスト
+*** DONE M8-2 実装
+*** DONE M8-3 レビュー/テスト
 
 ** M9: Task を入れ子可能にする。
 *** TODO M9-1 修正内容の確認
 - `org-tasktree-find-task`で task の下に task を作成できるようにする。
 - 子 node を持つ task はミニバッファ上では末尾に'/'を付けて表示する。(色は白のまま)
-- ミニバッファで末端の task 名を入力した後の操作
-  - 'Enter'キーで従来どおり編集 UI に遷移する。
-  - 'Shif+Enter'キーで Node パスを確定させて、ミニバッファに空リストを表示する。その後新規 task 名を入力して Enter を押すと編集 UI に遷移する。コミットすると Node パスで選択した task 配下に新規 task が登録される。
+- 子 task を持たない task 配下に task を登録する場合の操作:
+  - ミニバッファで子を持たない task 名を入力
+    - 'Enter'キーを押すと編集 UI へ遷移する。
+    - 'Shif+Enter'キーを押すとタスクパスに'task >'を追加し、空リストを表示する。その後、新規 task 名を入力して'Enter'キーを押すと編集 UI へ遷移する。
+- 子 task を持つ task 配下に task を登録/更新する場合の操作:
+  - ミニバッファで子を持つ task 名を入力
+    - 既存の子 task 名を入力するか新規 task 名を入力して'Enter'キーを押すと編集 UI へ遷移する。
+    - task 名を入力せずに'Shif+Enter'キーを押すと親 task の編集 UI へ遷移する。
 *** TODO M9-2 実装
 *** TODO M9-3 レビュー/テスト
 
-** M10: `org-tasktree-search-*`の修正
+** M10: `org-tasktree-find-*`の編集 UI 修正
 *** TODO M10-1 修正内容の確認
-- 出力結果バッファを書き込み可能にする
-- PROPERTIES の先頭の余分なスペースを削除
- 
-**** 現在の PROPERTIES 出力
-以下のように各行の先頭に Space が入っているが、これは不要である。
-```  
- :PROPERTIES:
- :UID: 11111111-1111-1111-1111-111111111111
- :END:
-```  
-
+- 編集 UI で'C-c C-k'キーを押すと編集 UI を表示する前のミニバッファ画面に戻る
 *** TODO M10-2 実装
 *** TODO M10-3 レビュー/テスト
   
