@@ -22,6 +22,7 @@
 
 (declare-function org-tasktree-ui-edit-project "org-tasktree-ui")
 (declare-function org-tasktree-ui-edit-phase "org-tasktree-ui")
+(declare-function org-tasktree-ui-edit-group "org-tasktree-ui")
 (declare-function org-tasktree-ui-edit-task "org-tasktree-ui")
 
 (defgroup org-tasktree nil
@@ -66,6 +67,12 @@
   (interactive)
   (let* ((sel (org-tasktree-ui-read-phase)))
     (org-tasktree-ui-edit-phase sel)))
+
+(defun org-tasktree-find-group ()
+  "Find or create a group, then open its edit buffer."
+  (interactive)
+  (let* ((sel (org-tasktree-ui-read-group)))
+    (org-tasktree-ui-edit-group sel)))
 
 (defun org-tasktree-find-task ()
   "Find or create a task, then open its edit buffer."

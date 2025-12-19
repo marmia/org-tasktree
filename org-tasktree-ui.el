@@ -52,6 +52,10 @@ Returns plist: (:project-title STRING :project-id ID-or-nil)."
 Return plist with titles and ids when existing; missing ids mean new."
   (org-tasktree-ui-minibuffer-read-phase))
 
+(defun org-tasktree-ui-read-group ()
+  "Prompt for a group by navigating project -> phase -> group."
+  (org-tasktree-ui-minibuffer-read-group))
+
 (defun org-tasktree-ui-read-task ()
   "Prompt for a task by navigating project -> phase? -> group? -> task."
   (org-tasktree-ui-minibuffer-read-task))
@@ -462,6 +466,42 @@ Assumes key: value lines after the second '---' separator."
                        :phase-id nil))))
     (org-tasktree-ui--open-widget-edit-buffer data)))
 
+(defun org-tasktree-ui-edit-group (selection)
+  "Open group edit buffer using SELECTION plist."
+  (let* ((group-id (plist-get selection :group-id))
+         (node (org-tasktree-query-get-node-by-id group-id))
+         (project-title (plist-get selection :project-title))
+         (phase-title (plist-get selection :phase-title))
+         (path-titles (delq nil (list project-title phase-title)))
+         (data (if node
+                   (list :type 'group
+                         :uid (org-tasktree-model-node-uid node)
+                         :title (org-tasktree-model-node-title node)
+                         :priority (org-tasktree-model-node-priority node)
+                         :scheduled (org-tasktree-model-node-scheduled node)
+                         :deadline (org-tasktree-model-node-deadline node)
+                         :tags (org-tasktree-model-node-tags node)
+                         :path-titles path-titles
+                         :project-title project-title
+                         :project-id (org-tasktree-model-node-project-id node)
+                         :phase-title phase-title
+                         :phase-id (org-tasktree-model-node-phase-id node)
+                         :group-id (org-tasktree-model-node-id node))
+                 (list :type 'group
+                       :uid nil
+                       :title (plist-get selection :group-title)
+                       :priority nil
+                       :scheduled nil
+                       :deadline nil
+                       :tags nil
+                       :path-titles path-titles
+                       :project-title project-title
+                       :project-id (plist-get selection :project-id)
+                       :phase-title phase-title
+                       :phase-id (plist-get selection :phase-id)
+                       :group-id nil))))
+    (org-tasktree-ui--open-widget-edit-buffer data)))
+
 (defun org-tasktree-ui-edit-task (selection)
   "Open task edit buffer using SELECTION plist."
   (let* ((task-id (plist-get selection :task-id))
@@ -793,6 +833,39 @@ Accepts YYYY-MM-DD, YYYY/MM/DD, MM-DD, MM/DD, and DD forms."
                       :status "OPEN"
                       :project-id project-id
                       :phase-id nil)))
+           (org-tasktree-db-commit-nodes (list node))
+           node)))
+      ('group
+       (let* ((project-title (plist-get meta :project-title))
+              (project-id (or (plist-get meta :project-id)
+                              (and project-title
+                                   (org-tasktree-ui--db-project-id
+                                    project-title))))
+              (phase-title (plist-get meta :phase-title))
+              (phase-id (or (plist-get meta :phase-id)
+                            (and (numberp project-id)
+                                 phase-title
+                                 (org-tasktree-ui--db-phase-id
+                                  project-id
+                                  phase-title)))))
+         (unless project-id
+           (user-error "Project must exist before creating a group"))
+         (unless phase-id
+           (user-error "Phase must exist before creating a group"))
+         (let ((node (org-tasktree-model-node-create
+                      :uid uid
+                      :parent-id phase-id
+                      :node-type "group"
+                      :todo-keyword nil
+                      :title title
+                      :level 3
+                      :priority priority
+                      :scheduled scheduled
+                      :deadline deadline
+                      :tags tags
+                      :status "OPEN"
+                      :project-id project-id
+                      :phase-id phase-id)))
            (org-tasktree-db-commit-nodes (list node))
            node)))
       ('task

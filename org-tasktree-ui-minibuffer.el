@@ -431,6 +431,95 @@ Return plist with titles and ids when existing; missing ids mean new."
          (_
           (error "Unknown state: %S" state)))))))
 
+(defun org-tasktree-ui-minibuffer-read-group ()
+  "Prompt for a group by navigating project -> phase -> group.
+Return plist with titles and ids when existing; missing ids mean new."
+  (let* ((nodes (org-tasktree-query-open-tree))
+         (projects (org-tasktree-ui-minibuffer--nav-children nodes "project"))
+         (project-cands
+          (org-tasktree-ui-minibuffer--nav-candidates-from-nodes projects 'project))
+         project-title
+         project-id
+         phase-title
+         phase-id)
+    (org-tasktree-ui-minibuffer--nav-read
+     :project
+     (lambda (state)
+       (pcase state
+         (:project
+          (setq project-title
+                (org-tasktree-ui-minibuffer--read-required
+                 "find node: "
+                 project-cands
+                 "No projects found.  Create a project first."
+                 t))
+          (let ((project-node
+                 (or (org-tasktree-ui-minibuffer--node-by-title nodes "project" project-title)
+                     (user-error "Project not found: %s" project-title))))
+            (setq project-id (org-tasktree-model-node-id project-node)))
+          (list :state :phase))
+         (:phase
+          (let* ((phases (org-tasktree-ui-minibuffer--nav-children
+                          nodes "phase" :project-id project-id))
+                 (phase-cands
+                  (org-tasktree-ui-minibuffer--nav-candidates-from-nodes phases 'phase))
+                 (input
+                  (org-tasktree-ui-minibuffer--nav-read-input
+                   (concat "find node: "
+                           (org-tasktree-ui-minibuffer--prompt-path (list project-title)))
+                   phase-cands
+                   t
+                   t
+                   t)))
+            (if (eq input :up)
+                (list :state :project)
+              (let ((phase-name (plist-get input :raw)))
+                (when (string-empty-p phase-name)
+                  (user-error "Phase title is required"))
+                (let* ((phase-node
+                        (org-tasktree-ui-minibuffer--node-by-title phases "phase" phase-name))
+                       (phase-id-1 (and phase-node
+                                        (org-tasktree-model-node-id phase-node))))
+                  (unless phase-id-1
+                    (user-error "Phase not found: %s" phase-name))
+                  (setq phase-title phase-name
+                        phase-id phase-id-1)
+                  (list :state :group))))))
+         (:group
+          (let* ((groups (org-tasktree-ui-minibuffer--nav-children
+                          nodes "group"
+                          :project-id project-id
+                          :phase-id phase-id))
+                 (group-cands
+                  (org-tasktree-ui-minibuffer--nav-candidates-from-nodes groups 'group))
+                 (input
+                  (org-tasktree-ui-minibuffer--nav-read-input
+                   (concat "find node: "
+                           (org-tasktree-ui-minibuffer--prompt-path
+                            (list project-title phase-title)))
+                   group-cands
+                   nil
+                   t
+                   nil)))
+            (if (eq input :up)
+                (list :state :phase)
+              (let ((group-title (plist-get input :raw)))
+                (when (string-empty-p group-title)
+                  (user-error "Group title is required"))
+                (let* ((group-node
+                        (org-tasktree-ui-minibuffer--node-by-title groups "group" group-title))
+                       (group-id (and group-node
+                                      (org-tasktree-model-node-id group-node))))
+                  (list :result
+                        (list :project-title project-title
+                              :project-id project-id
+                              :phase-title phase-title
+                              :phase-id phase-id
+                              :group-title group-title
+                              :group-id group-id)))))))
+         (_
+          (error "Unknown state: %S" state)))))))
+
 (defun org-tasktree-ui-minibuffer-read-task ()
   "Prompt for a task by navigating project -> phase? -> group? -> task.
 

@@ -509,7 +509,7 @@ id は「DB 内部の参照・最適化（JOIN 用）」という役割分担と
 **** 処理内容
 1. nodes テーブルから の project / phase 情報を取得してミニバッファに表示する。
    - 検索条件: node_type IN ('project', 'phase') and status='OPEN'
-   - ミニバッファのプロンプト表示: `find phase:`
+   - ミニバッファのプロンプト表示: `find node:`
    - project をディレクトリ、phase をファイルに見立てて`find-file`と同じ操作感で phase を選択できるようにする。
    - 表示イメージ:
      - 初期表示: project 一覧を表示（`project >` 形式）
@@ -524,6 +524,33 @@ id は「DB 内部の参照・最適化（JOIN 用）」という役割分担と
 
 - 編集 UI は `org-tasktree-find-project` と同一（`widget.el` ベース）とし、UI 上部には親 Node のパス（project）を表示する。
 - title フィールドにはミニバッファで入力/選択された title（phase 名）を初期表示する。
+
+*重要* :
+- 初期カーソル位置は title の入力欄。
+- 既存ノードの UID と type は表示せず内部で保持する。
+
+*** org-tasktree-find-group
+**** 目的
+- group の更新/新規追加を行う。
+
+**** 処理内容
+1. nodes テーブルから の project / phase / group 情報を取得してミニバッファに表示する。
+   - 検索条件: node_type IN ('project', 'phase', 'group') and status='OPEN'
+   - ミニバッファのプロンプト表示: `find node:`
+   - project / phase をディレクトリ、group をファイルに見立てて`find-file`と同じ操作感で group を選択できるようにする。
+   - 表示イメージ:
+     - 初期表示: project 一覧を表示（`project >` 形式）
+     - 特定の project を選択して TAB キーを押すと、その project 階層に移動し配下の phase / group 一覧を表示する。
+     - group がまだ登録されていない場合は、リストに何も表示しない。
+2. ユーザーが group を入力/選択すると group 編集バッファを開く
+   - ユーザーが新規の group 名を入力した場合、新規登録として扱う。
+   - ユーザーが既存の group 名を入力した場合、更新処理として扱う。
+3. ユーザーが group 内容を編集し<C-c C-c> を押すとデータベースに編集内容を登録する。<C-c C-k>を押すとキャンセルして編集バッファを閉じる。
+
+**** 編集 UI（v0.1）
+
+- 編集 UI は `org-tasktree-find-project` と同一（`widget.el` ベース）とし、UI 上部には親 Node のパス（project）を表示する。
+- title フィールドにはミニバッファで入力/選択された title（group 名）を初期表示する。
 
 *重要* :
 - 初期カーソル位置は title の入力欄。

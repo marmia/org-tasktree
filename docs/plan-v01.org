@@ -419,7 +419,7 @@ id は「DB 内部の参照・最適化（JOIN 用）」という役割分担が
 - [x] xxx/ を手入力で完全一致させた瞬間にも同様に進むか
 - [x] 候補が一意でない（完全一致しない）場合は自動で進まず、従来どおり Enter が必要なままか
 
-** M7: リファクタリング（先行・やりすぎない範囲）
+** DONE M7: リファクタリング（先行・やりすぎない範囲）
 *** DONE リファクタリング 1 回目
 **** 対象ファイル
 - org-tasktree-ui.el
@@ -455,6 +455,7 @@ id は「DB 内部の参照・最適化（JOIN 用）」という役割分担が
 - org-tasktree-ui.el に残す: public API と widget UI
 - 新規ファイル: org-tasktree-ui-minibuffer.el（ナビエンジン＋候補生成＋read-*）
 - 依存関係は org-tasktree-ui.el → org-tasktree-ui-minibuffer.el の一方向に制限
+
 ** M8: `org-taskree-find-group`を実装する
 *** TODO M8-1 仕様確認
 - group の新規作成/更新を行う関数を実装する。
