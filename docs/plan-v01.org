@@ -105,7 +105,7 @@
 - コードレビューは Codex の`review`機能を使用する。
 - コードレビューはユーザーが Codex 上で`/review`コマンドを実施する。
 
-** M1: 基盤・ DB 初期化
+** DONE M1: 基盤・ DB 初期化
 
 *** DONE M1-1 パッケージ骨格とロード入口
 - [x] org-tasktree.el を作成（defgroup/require/提供するコマンドの stub）
@@ -159,7 +159,7 @@
     #+end_src
 - [x] 再度 `M-x org-tasktree-init` を実行し、Inbox と meta が破壊・重複しない（冪等性）ことを確認する
 
-** M2: モデル・バリデーション・共通 DB 操作
+** DONE M2: モデル・バリデーション・共通 DB 操作
 
 *** DONE M2-1 ノード表現と変換
 - [x] nodes の Elisp 表現定義
@@ -212,7 +212,7 @@
 - [x] 6. 汚染チェック
   - org-tasktree-lint 相当（elisp-lint.sh）がクリーンであることを再確認。
 
-** M3: 検索コマンド＋org ビュー出力
+** DONE M3: 検索コマンド＋org ビュー出力
 
 *** DONE M3-1 検索 SQL ヘルパ
 - [x] 共通 WHERE/ORDER BY を関数化
@@ -243,7 +243,7 @@
   - [x] org-tasktree-search-overdue-task
   - [x] org-tasktree-search-next-7day-task
 
-** M4: UI レーン（find-*)
+** DONE M4: UI レーン（find-*)
 
 *** DONE M4-1 階層ナビ UI
 - [x] project 選択一覧
@@ -330,7 +330,7 @@
   - [x] <C-c C-c> でコミットして編集バッファが閉じる
   - [x] <C-c C-k> でキャンセルして編集バッファが閉じる
 
-** M5: DB 更新方式（UPDATE 方式）レーン
+** DONE M5: DB 更新方式（UPDATE 方式）レーン
 
 *** DONE M5-1 仕様・設計整理
 
@@ -387,7 +387,7 @@ id は「DB 内部の参照・最適化（JOIN 用）」という役割分担が
 
   - [x] PR → Codex Cloud レビュー → 指摘修正 → ローカル main へマージ → push
 
-** M6: `org-tasktree-find-*`のミニバッファの修正
+** DONE M6: `org-tasktree-find-*`のミニバッファの修正
 *** DONE M6-1 修正内容 1 の確認
 ミニバッファで'Backspace'でタスクツリーの上位階層に戻れるようにする。
 - 現在の動作: ミニバッファでは、'Backspace'キーを入力できない。
@@ -420,12 +420,13 @@ id は「DB 内部の参照・最適化（JOIN 用）」という役割分担が
 - [x] 候補が一意でない（完全一致しない）場合は自動で進まず、従来どおり Enter が必要なままか
 
 ** M7: リファクタリング（先行・やりすぎない範囲）
-*** 対象ファイル
+*** DONE リファクタリング 1 回目
+**** 対象ファイル
 - org-tasktree-ui.el
   - find-* のミニバッファ階層ナビ（Backspace 上位移動、auto-enter、候補生成と表示形式、確定動作）
   - 追加予定の find-group / task 入れ子 / Shift+Enter 分岐がこの領域に集中するため
 
-*** リファクタリングが必要となった理由
+**** リファクタリングが必要となった理由
 - org-tasktree-ui.el が 1500 行を超え、複数の関心事（ミニバッファ階層ナビ、widget 編集 UI、入力正規化、DB 補助）が同居しているため、変更の局所性が低い。
 - 直近の予定（旧 M8/M9）で、find-* の階層ナビに以下が追加される:
   - `org-tasktree-find-group` の追加（phase と近いが、候補と遷移ルールの追加が必要）
@@ -433,7 +434,7 @@ id は「DB 内部の参照・最適化（JOIN 用）」という役割分担が
   - 'Enter' と 'Shift+Enter' で確定/遷移を分岐する UI 仕様の追加
 - 現状でもミニバッファ側のロジックは既に複雑で、機能追加を直書きで続けると破綻（条件分岐の増殖、バグ混入、環境差の発生）が起きやすい。
 
-*** リファクタリング方針（やりすぎない範囲の先行リファクタ）
+**** リファクタリング方針（やりすぎない範囲の先行リファクタ）
 - 目的: 以降の機能追加（find-group、task 入れ子、Shift+Enter）を「既存の階層ナビの枠組みに当てはめて追加」できる状態にし、ロジックの重複と分岐散在を防ぐ。
 - 方針:
   - 階層ナビ（find-* のミニバッファ処理）を “エンジン化” して、選択状態管理と入力/確定処理を 1 箇所に集約する。
@@ -442,8 +443,18 @@ id は「DB 内部の参照・最適化（JOIN 用）」という役割分担が
   - 確定ルールを集中管理する（RET / S-RET / auto-enter / Backspace の挙動を 1 箇所で決定）。
 - 非方針（今回はやらない）:
   - 大規模なファイル分割（`org-tasktree-ui-minibuffer.el` 等）や API 再設計は行わない。
-  - 仕様変更を伴う UI の挙動変更は、次の作業項目で扱う（リファクタは挙動を極力維持する）。 
-
+  - 仕様変更を伴う UI の挙動変更は、次の作業項目で扱う（リファクタは挙動を極力維持する）。
+*** リファクタリング 2 回目
+**** 対象ファイル
+`org-tasktree-ui.el`
+**** リファクタリングの必要性
+- M8/M9 はミニバッファ階層ナビの分岐が増えるため、今の 1600+ 行の org-tasktree-ui.el に追記すると複雑性がさらに増え、変更の局所性が落ちます。
+- 仕様でも「次の追加が集中する領域（find-group / task 入れ子 / Shift+Enter）」と明記されており、ここで分割しておくのが最もコスト効率が高いです。
+- M11 まで先送りすると「動くが壊れやすい状態」で機能追加を進めることになり、結局リファクタ時の回帰リスクが上がります。
+**** リファクタリング方針
+- org-tasktree-ui.el に残す: public API と widget UI
+- 新規ファイル: org-tasktree-ui-minibuffer.el（ナビエンジン＋候補生成＋read-*）
+- 依存関係は org-tasktree-ui.el → org-tasktree-ui-minibuffer.el の一方向に制限
 ** M8: `org-taskree-find-group`を実装する
 *** TODO M8-1 仕様確認
 - group の新規作成/更新を行う関数を実装する。
