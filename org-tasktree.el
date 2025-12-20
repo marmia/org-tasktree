@@ -24,6 +24,7 @@
 (declare-function org-tasktree-ui-edit-phase "org-tasktree-ui")
 (declare-function org-tasktree-ui-edit-group "org-tasktree-ui")
 (declare-function org-tasktree-ui-edit-task "org-tasktree-ui")
+(declare-function org-tasktree-ui-edit-node "org-tasktree-ui")
 
 (defgroup org-tasktree nil
   "Task management via `org-mode' UI backed by SQLite."
@@ -79,6 +80,12 @@
   (interactive)
   (let* ((sel (org-tasktree-ui-read-task)))
     (org-tasktree-ui-edit-task sel)))
+
+(defun org-tasktree-find-node ()
+  "Find or create a node, then open its edit buffer."
+  (interactive)
+  (let* ((sel (org-tasktree-ui-read-node)))
+    (org-tasktree-ui-edit-node sel)))
 
 (defun org-tasktree-search-today-task ()
   "Search tasks scheduled for today and display as an org tree."
