@@ -20,10 +20,6 @@
 (require 'org-tasktree-view)
 (require 'org-tasktree-ui)
 
-(declare-function org-tasktree-ui-edit-project "org-tasktree-ui")
-(declare-function org-tasktree-ui-edit-phase "org-tasktree-ui")
-(declare-function org-tasktree-ui-edit-group "org-tasktree-ui")
-(declare-function org-tasktree-ui-edit-task "org-tasktree-ui")
 (declare-function org-tasktree-ui-edit-node "org-tasktree-ui")
 
 (defgroup org-tasktree nil
@@ -56,30 +52,6 @@
   (make-directory (expand-file-name org-tasktree-query-dir) t)
   (org-tasktree-db-init)
   (message "org-tasktree: initialized"))
-
-(defun org-tasktree-find-project ()
-  "Find or create a project, then open its edit buffer."
-  (interactive)
-  (let* ((sel (org-tasktree-ui-read-project)))
-    (org-tasktree-ui-edit-project sel)))
-
-(defun org-tasktree-find-phase ()
-  "Find or create a phase, then open its edit buffer."
-  (interactive)
-  (let* ((sel (org-tasktree-ui-read-phase)))
-    (org-tasktree-ui-edit-phase sel)))
-
-(defun org-tasktree-find-group ()
-  "Find or create a group, then open its edit buffer."
-  (interactive)
-  (let* ((sel (org-tasktree-ui-read-group)))
-    (org-tasktree-ui-edit-group sel)))
-
-(defun org-tasktree-find-task ()
-  "Find or create a task, then open its edit buffer."
-  (interactive)
-  (let* ((sel (org-tasktree-ui-read-task)))
-    (org-tasktree-ui-edit-task sel)))
 
 (defun org-tasktree-find-node ()
   "Find or create a node, then open its edit buffer."
