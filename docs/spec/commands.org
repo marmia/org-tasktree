@@ -224,7 +224,7 @@
      - TOP 階層 node を更新/新規追加する場合は、'project'固定表示 (編集不可)
      - project 配下の node に指定できるのは、'phase/group/task'
      - phase 配下の node に指定できるのは、'group/task'
-     - group 配下の node に指定できるのは、'task'
+     - group 配下の node に指定できるのは、'group/task'
      - task 配下の node に指定できるのは、'task'
    - title フィールドにはミニバッファで入力/選択された node パスの末端の node 名を初期表示する。
    - scheduled / deadline は手入力と日付選択ダイアログの両方をサポートする。

@@ -58,7 +58,7 @@ PARENT-TYPE is a node_type string or nil for top-level."
    ((or (null parent-type) (string-empty-p parent-type)) '("project"))
    ((string= parent-type "project") '("phase" "group" "task"))
    ((string= parent-type "phase") '("group" "task"))
-   ((string= parent-type "group") '("task"))
+   ((string= parent-type "group") '("group" "task"))
    ((string= parent-type "task") '("task"))
    (t '("task"))))
 
@@ -68,7 +68,7 @@ PARENT-TYPE is a node_type string or nil for top-level."
    ((or (null parent-type) (string-empty-p parent-type)) "project")
    ((string= parent-type "project") "phase")
    ((string= parent-type "phase") "group")
-   ((string= parent-type "group") "task")
+   ((string= parent-type "group") "group")
    ((string= parent-type "task") "task")
    (t "task")))
 
@@ -1046,20 +1046,35 @@ Accepts YYYY-MM-DD, YYYY/MM/DD, MM-DD, MM/DD, and DD forms."
                 (parent-type (and parent-node
                                   (org-tasktree-model-node-node-type parent-node)))
                 (parent-project-id (and parent-node
-                                        (org-tasktree-model-node-project-id parent-node))))
+                                        (org-tasktree-model-node-project-id parent-node)))
+                (parent-phase-id (and parent-node
+                                      (org-tasktree-model-node-phase-id parent-node)))
+                (parent-level (and parent-node
+                                   (org-tasktree-model-node-level parent-node))))
            (unless parent-node
              (user-error "Group parent must exist"))
-           (unless (member parent-type '("project" "phase"))
-             (user-error "Group parent must be project or phase"))
+           (unless (member parent-type '("project" "phase" "group"))
+             (user-error "Group parent must be project, phase, or group"))
            (when (string= parent-type "project")
              (setq phase-id nil))
            (when (string= parent-type "phase")
              (setq phase-id parent-id))
+           (when (string= parent-type "group")
+             (setq phase-id parent-phase-id)
+             (when (and (numberp parent-project-id)
+                        (not (equal parent-project-id project-id)))
+               (user-error "Group does not belong to project")))
            (when (and (string= parent-type "phase")
                       (numberp project-id)
                       (not (equal parent-project-id project-id)))
              (user-error "Phase does not belong to project"))
-           (let* ((level (if (string= parent-type "project") 2 3))
+           (let* ((level (cond
+                          ((string= parent-type "project") 2)
+                          ((string= parent-type "phase") 3)
+                          ((and (string= parent-type "group")
+                                (numberp parent-level))
+                           (1+ parent-level))
+                          (t 3)))
                   (node (org-tasktree-model-node-create
                          :uid uid
                          :parent-id parent-id

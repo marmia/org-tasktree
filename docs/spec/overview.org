@@ -20,5 +20,5 @@ Emacs 用タスク管理プラグインである。
 - TOP 階層には Project のみ作成できる
 - Project 直下には、Phase/Group/Task を作成できる
 - Phase 直下には、Group/Task を作成できる
-- Group 直下には、Task を作成できる
+- Group 直下には、Group/Task を作成できる
 - Task 直下には、Task を作成できる
