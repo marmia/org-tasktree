@@ -24,6 +24,21 @@
 - `org-tasktree-find-group`
 - `org-tasktree-find-task`
 *** DONE M13-2 コードレビュー
+*** DONE M13-3 ユーザーテスト
+** DONE M14: search 系関数が表示する出力バッファを修正
+*** DONE M14-1 実装
+以下の関数で表示する出力専用バッファを書き込み可能に変更する。
+- org-tasktree-search-before-today-task
+- org-tasktree-search-today-task
+- org-tasktree-search-overdue-task
+- org-tasktree-search-next-7day-task
+*** DONE M14-2 コードレビュー
+*** DONE M14-3 ユーザーテスト
+*** DONE M14-4 実装
+- 出力バッファをウィンドウ分割せずに画面一杯に表示する。
+- 見出し間に空行を挿入しない。
+*** DONE M14-5 コードレビュー
+*** DONE M14-6 ユーザーテスト
 ** 新規作成: org-tasktree-sync-buffer
 *** 目的
 - カレントバッファ全体を 1 つのタスクツリーとして

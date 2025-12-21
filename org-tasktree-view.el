@@ -28,11 +28,13 @@
 (defun org-tasktree-view--setup-evil ()
   "Ensure `q' quits in `org-tasktree-view-mode' under Evil."
   (when (featurep 'evil)
-    ;; Set motion state as initial state (like help-mode)
+    ;; Allow editing by using normal state instead of motion.
     (when (fboundp 'evil-set-initial-state)
-      (evil-set-initial-state 'org-tasktree-view-mode 'motion))
-    ;; Define q key in motion state for this mode
+      (evil-set-initial-state 'org-tasktree-view-mode 'normal))
+    ;; Define q key in normal/motion states for this mode
     (when (fboundp 'evil-define-key*)
+      (evil-define-key* 'normal org-tasktree-view-mode-map
+                        (kbd "q") #'quit-window)
       (evil-define-key* 'motion org-tasktree-view-mode-map
                         (kbd "q") #'quit-window))
     (when (fboundp 'evil-normalize-keymaps)
@@ -49,9 +51,9 @@
 
 (define-derived-mode org-tasktree-view-mode
   org-mode "org-tasktree-view"
-  "Read-only mode for org-tasktree search results."
+  "Writable mode for org-tasktree search results."
   (use-local-map org-tasktree-view-mode-map)
-  (setq buffer-read-only t)
+  (setq buffer-read-only nil)
   (setq truncate-lines nil))
 
 (defun org-tasktree-view--heading-line (node)
@@ -95,7 +97,7 @@
   "Return property drawer string for NODE or nil."
   (let ((uid (org-tasktree-model-node-uid node)))
     (when uid
-      (format ":PROPERTIES:\n:UID: %s\n:END:\n" uid))))
+      (format ":PROPERTIES:\n:UID: %s\n:END:" uid))))
 
 (defun org-tasktree-view--insert-node (node)
   "Insert NODE as org-formatted text at point."
@@ -108,7 +110,7 @@
       (insert props "\n"))))
 
 (defun org-tasktree-view-display-tree (nodes title)
-  "Display NODES as an org tree in a read-only buffer titled TITLE."
+  "Display NODES as an org tree in a writable buffer titled TITLE."
   (let* ((buffer-name (format "%s%s*"
                               org-tasktree-view--buffer-prefix
                               title))
@@ -119,8 +121,14 @@
         (erase-buffer)
         (dolist (node nodes)
           (org-tasktree-view--insert-node node))
-        (goto-char (point-min))))
-    (pop-to-buffer buffer)))
+        (goto-char (point-min))
+        (setq buffer-read-only nil)
+        (setq-local view-read-only nil)
+        (when (bound-and-true-p view-mode)
+          (view-mode -1))
+        (remove-text-properties (point-min) (point-max) '(read-only nil))))
+    (pop-to-buffer buffer)
+    (delete-other-windows)))
 
 (provide 'org-tasktree-view)
 ;;; org-tasktree-view.el ends here
