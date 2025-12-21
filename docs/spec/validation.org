@@ -32,7 +32,7 @@
   - nil でないこと。
   - 形式は ISO 8601 形式の文字列を基本とするが、厳密チェックは行わない。
 
-*** 日付関連（scheduled / deadline）
+*** 日付関連（scheduled / deadline / repeat）
 
 - scheduled / deadline
   - いずれも NULL を許容する。
@@ -47,6 +47,14 @@
     - 例: 今日が 2025/12/15 のとき、`1` は `2026-01-01` として保存する。
   - 両方が存在する場合（いずれも非 NULL）:
     - `scheduled <= deadline` を満たすこと。
+
+- repeat
+  - NULL を許容する。
+  - org-mode の Repeat Syntax に沿った文字列のみ許可する。
+  - Repeat Syntax
+    - syntax: <+|++|.+><Number><d|w|m|y>[/<Number>]
+    - <...> : 必須トークン（かつ | で選択肢）
+    - [...] : 任意
 
 *** priority
 

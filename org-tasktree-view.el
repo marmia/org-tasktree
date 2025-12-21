@@ -78,11 +78,16 @@
 (defun org-tasktree-view--scheduled-line (node)
   "Return scheduled/deadline line for NODE or nil when empty."
   (let ((scheduled (org-tasktree-model-node-scheduled node))
-        (deadline (org-tasktree-model-node-deadline node)))
+        (deadline (org-tasktree-model-node-deadline node))
+        (repeat (org-tasktree-model-node-repeat node)))
     (when (or scheduled deadline)
       (concat
        (when scheduled
-         (format "SCHEDULED: <%s> " scheduled))
+         (format "SCHEDULED: <%s%s> "
+                 scheduled
+                 (if (and repeat (not (string-empty-p repeat)))
+                     (concat " " repeat)
+                   "")))
        (when deadline
          (format "DEADLINE: <%s>" deadline))))))
 
@@ -90,12 +95,7 @@
   "Return property drawer string for NODE or nil."
   (let ((uid (org-tasktree-model-node-uid node)))
     (when uid
-      (string-join
-       '(" :PROPERTIES:"
-         " :UID: %s"
-         " :END:")
-       "\n")
-      (format " :PROPERTIES:\n :UID: %s\n :END:\n" uid))))
+      (format ":PROPERTIES:\n:UID: %s\n:END:\n" uid))))
 
 (defun org-tasktree-view--insert-node (node)
   "Insert NODE as org-formatted text at point."

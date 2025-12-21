@@ -6,17 +6,17 @@
 - docs/spec
 - docs/plan
 *** DONE 仕様書(docs/org-tasktree-spec.org)の分割
-** TODO M11: `org-tasktree-find-node`で Group 直下に Group を作成可能にする
+** DONE M11: `org-tasktree-find-node`で Group 直下に Group を作成可能にする
 *** DONE M11-1: ドキュメント修正
 *** DONE M11-2: 実装
-*** TODO M11-3 コードレビュー
-*** TODO M11-4 ユーザーテスト
-** TODO M12: Repeat Task 対応
-*** TODO M12-1 仕様決め
-*** TODO M12-2 仕様書の修正
-*** TODO M12-3 実装
-*** TODO M12-4 コードレビュー
-*** TODO M12-5 ユーザーテスト
+*** DONE M11-3 コードレビュー
+*** DONE M11-4 ユーザーテスト
+** DONE M12: Repeat Task 対応
+*** DONE M12-1 仕様決め
+*** DONE M12-2 仕様書の修正
+*** DONE M12-3 実装
+*** DONE M12-4 コードレビュー
+*** DONE M12-5 ユーザーテスト
 ** TODO M13: 初期化処理で Todo キーワード設定
 `org-tasktree-init`で本プラグインで使用する Todo キーワードを設定
 ** 新規作成: org-tasktree-sync-buffer

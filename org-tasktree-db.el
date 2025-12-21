@@ -221,11 +221,11 @@ CACHE-ENTRY is a plist from `org-tasktree-db--existing-cache' or nil."
            #'identity
            '("INSERT INTO nodes("
              "  uid, parent_id, node_type, todo_keyword, title,"
-             "  level, priority, scheduled, deadline, closed_at,"
+             "  level, priority, scheduled, deadline, repeat, closed_at,"
              "  tags, status, project_id, phase_id, created_at,"
              "  updated_at"
              ") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,"
-             " ?, ?);")
+             " ?, ?, ?);")
            "\n"))
          (sql-update
           (mapconcat
@@ -238,6 +238,7 @@ CACHE-ENTRY is a plist from `org-tasktree-db--existing-cache' or nil."
              "  priority=?,"
              "  scheduled=?,"
              "  deadline=?,"
+             "  repeat=?,"
              "  closed_at=?,"
              "  tags=?,"
              "  status=?,"
@@ -258,6 +259,7 @@ CACHE-ENTRY is a plist from `org-tasktree-db--existing-cache' or nil."
                    (org-tasktree-model-node-priority node)
                    (org-tasktree-model-node-scheduled node)
                    (org-tasktree-model-node-deadline node)
+                   (org-tasktree-model-node-repeat node)
                    (org-tasktree-model-node-closed-at node)
                    (org-tasktree-model-node-tags node)
                    (org-tasktree-model-node-status node)
@@ -332,6 +334,7 @@ For new UIDs, a row is inserted.  node_tags are replaced per node."
            "  priority TEXT,"
            "  scheduled TEXT,"
            "  deadline TEXT,"
+           "  repeat TEXT,"
            "  closed_at TEXT,"
            "  tags TEXT,"
            "  status TEXT NOT NULL,"
@@ -406,11 +409,11 @@ For new UIDs, a row is inserted.  node_tags are replaced per node."
       #'identity
       '("INSERT OR IGNORE INTO nodes("
         "  id, uid, parent_id, node_type, todo_keyword, title,"
-        "  level, priority, scheduled, deadline, closed_at, tags,"
+        "  level, priority, scheduled, deadline, repeat, closed_at, tags,"
         "  status, project_id, phase_id, created_at,"
         "  updated_at"
         ") VALUES(?, ?, NULL, 'project', 'PROJ', 'inbox', 1,"
-        "  NULL, NULL, NULL, NULL, NULL, 'OPEN',"
+        "  NULL, NULL, NULL, NULL, NULL, NULL, 'OPEN',"
         "  NULL, NULL, ?, ?);")
       "\n")
      (vector org-tasktree-db--inbox-id

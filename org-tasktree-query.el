@@ -77,7 +77,7 @@ FIELD must be a column name such as scheduled or deadline."
     " )"
     "SELECT DISTINCT"
     "  id, uid, parent_id, node_type, todo_keyword, title, level,"
-    "  priority, scheduled, deadline, closed_at, tags, status,"
+    "  priority, scheduled, deadline, repeat, closed_at, tags, status,"
     "  project_id, phase_id, created_at, updated_at"
     "FROM tree"
     org-tasktree-query--order-clause
@@ -225,8 +225,8 @@ Both boundaries are inclusive, and parents are included."
                    db
                    (concat
                     "SELECT id, uid, parent_id, node_type, todo_keyword, title,"
-                    " level, priority, scheduled, deadline, closed_at, tags,"
-                    " status, project_id, phase_id, created_at, updated_at"
+                    " level, priority, scheduled, deadline, repeat, closed_at,"
+                    " tags, status, project_id, phase_id, created_at, updated_at"
                     " FROM nodes WHERE id = ? LIMIT 1;")
                    (vector id))))
         (when rows

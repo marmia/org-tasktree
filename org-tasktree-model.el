@@ -25,17 +25,17 @@
 
 (cl-defstruct org-tasktree-model-node
   id uid parent-id node-type todo-keyword title level priority
-  scheduled deadline closed-at tags status project-id phase-id
+  scheduled deadline repeat closed-at tags status project-id phase-id
   created-at updated-at)
 
 (cl-defun org-tasktree-model-node-create
     (&key id uid parent-id node-type todo-keyword title level priority
-          scheduled deadline closed-at tags status project-id phase-id
+          scheduled deadline repeat closed-at tags status project-id phase-id
           created-at updated-at)
   "Create node from keyword arguments.
 Accepts ID, UID, PARENT-ID, NODE-TYPE, TODO-KEYWORD, TITLE, LEVEL,
-PRIORITY, SCHEDULED, DEADLINE, CLOSED-AT, TAGS, STATUS, PROJECT-ID,
-PHASE-ID, CREATED-AT, and UPDATED-AT."
+PRIORITY, SCHEDULED, DEADLINE, REPEAT, CLOSED-AT, TAGS, STATUS,
+PROJECT-ID, PHASE-ID, CREATED-AT, and UPDATED-AT."
   (make-org-tasktree-model-node
    :id id
    :uid uid
@@ -47,6 +47,7 @@ PHASE-ID, CREATED-AT, and UPDATED-AT."
    :priority priority
    :scheduled scheduled
    :deadline deadline
+   :repeat repeat
    :closed-at closed-at
    :tags tags
    :status status
@@ -62,7 +63,7 @@ PHASE-ID, CREATED-AT, and UPDATED-AT."
 (defun org-tasktree-model-node-from-db-row (row)
   "Create `org-tasktree-model-node' from DB ROW.
 ROW must follow table column order: id, uid, parent_id, node_type,
-TODO keyword, title, level, priority, scheduled, deadline,
+TODO keyword, title, level, priority, scheduled, deadline, repeat,
 closed_at, tags, status, project_id, phase_id, created_at, and
 updated_at."
   (org-tasktree-model-node-create
@@ -76,13 +77,14 @@ updated_at."
    :priority (org-tasktree-model--row-nth row 7)
    :scheduled (org-tasktree-model--row-nth row 8)
    :deadline (org-tasktree-model--row-nth row 9)
-   :closed-at (org-tasktree-model--row-nth row 10)
-   :tags (org-tasktree-model--row-nth row 11)
-   :status (org-tasktree-model--row-nth row 12)
-   :project-id (org-tasktree-model--row-nth row 13)
-   :phase-id (org-tasktree-model--row-nth row 14)
-   :created-at (org-tasktree-model--row-nth row 15)
-   :updated-at (org-tasktree-model--row-nth row 16)))
+   :repeat (org-tasktree-model--row-nth row 10)
+   :closed-at (org-tasktree-model--row-nth row 11)
+   :tags (org-tasktree-model--row-nth row 12)
+   :status (org-tasktree-model--row-nth row 13)
+   :project-id (org-tasktree-model--row-nth row 14)
+   :phase-id (org-tasktree-model--row-nth row 15)
+   :created-at (org-tasktree-model--row-nth row 16)
+   :updated-at (org-tasktree-model--row-nth row 17)))
 
 (defun org-tasktree-model-node-from-plist (plist)
   "Create `org-tasktree-model-node' from PLIST with keyword keys."
@@ -97,6 +99,7 @@ updated_at."
    :priority (plist-get plist :priority)
    :scheduled (plist-get plist :scheduled)
    :deadline (plist-get plist :deadline)
+   :repeat (plist-get plist :repeat)
    :closed-at (plist-get plist :closed-at)
    :tags (plist-get plist :tags)
    :status (plist-get plist :status)
@@ -117,6 +120,7 @@ updated_at."
         :priority (org-tasktree-model-node-priority node)
         :scheduled (org-tasktree-model-node-scheduled node)
         :deadline (org-tasktree-model-node-deadline node)
+        :repeat (org-tasktree-model-node-repeat node)
         :closed-at (org-tasktree-model-node-closed-at node)
         :tags (org-tasktree-model-node-tags node)
         :status (org-tasktree-model-node-status node)
@@ -139,6 +143,7 @@ omitted, starting from `uid'."
                     (org-tasktree-model-node-priority node)
                     (org-tasktree-model-node-scheduled node)
                     (org-tasktree-model-node-deadline node)
+                    (org-tasktree-model-node-repeat node)
                     (org-tasktree-model-node-closed-at node)
                     (org-tasktree-model-node-tags node)
                     (org-tasktree-model-node-status node)
@@ -156,6 +161,13 @@ omitted, starting from `uid'."
   "Return non-nil when VALUE matches YYYY-MM-DD format."
   (and (stringp value)
        (string-match-p "^[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}$" value)))
+
+(defun org-tasktree-model--valid-repeat-p (value)
+  "Return non-nil when VALUE matches org repeat syntax."
+  (and (stringp value)
+       (string-match-p
+        "\\`\\(?:\\+\\|\\+\\+\\|\\.\\+\\)[0-9]+[dwmy]\\(?:/[0-9]+\\)?\\'"
+        value)))
 
 (defun org-tasktree-model--title-valid-p (title)
   "Return non-nil when TITLE does not include control characters."
@@ -229,6 +241,7 @@ Returns NODE when validation succeeds."
         (priority (org-tasktree-model-node-priority node))
         (scheduled (org-tasktree-model-node-scheduled node))
         (deadline (org-tasktree-model-node-deadline node))
+        (repeat (org-tasktree-model-node-repeat node))
         (tags (org-tasktree-model-node-tags node))
         (created-at (org-tasktree-model-node-created-at node))
         (updated-at (org-tasktree-model-node-updated-at node)))
@@ -257,6 +270,9 @@ Returns NODE when validation succeeds."
     (when (and deadline
                (not (org-tasktree-model--valid-date-p deadline)))
       (user-error "Deadline must be YYYY-MM-DD or nil"))
+    (when (and repeat
+               (not (org-tasktree-model--valid-repeat-p repeat)))
+      (user-error "Repeat must follow org repeat syntax"))
     (when (and (org-tasktree-model--valid-date-p scheduled)
                (org-tasktree-model--valid-date-p deadline)
                (string-lessp deadline scheduled))

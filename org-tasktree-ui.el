@@ -473,6 +473,7 @@ Assumes key: value lines after the second '---' separator."
           :priority (org-tasktree-model-node-priority node)
           :scheduled (org-tasktree-model-node-scheduled node)
           :deadline (org-tasktree-model-node-deadline node)
+          :repeat (org-tasktree-model-node-repeat node)
           :tags (org-tasktree-model-node-tags node)
           :path-titles parent-path
           :project-title project-title
@@ -525,6 +526,7 @@ Assumes key: value lines after the second '---' separator."
           :priority nil
           :scheduled nil
           :deadline nil
+          :repeat nil
           :tags nil
           :path-titles parent-path-titles
           :project-title project-title
@@ -546,6 +548,7 @@ Assumes key: value lines after the second '---' separator."
               (org-tasktree-ui--node-edit-meta-existing node path-titles)
             (org-tasktree-ui--node-edit-meta-new title parent-node parent-path-titles))))
     (setq meta (plist-put meta :return-to 'find-node))
+    (setq meta (plist-put meta :show-repeat t))
     (org-tasktree-ui--open-widget-edit-buffer meta)))
 
 (defun org-tasktree-ui-edit-project (selection)
@@ -818,6 +821,17 @@ POS may be an integer or a marker."
      (t (user-error
          "Tags must be like tag1:tag2 or :tag1:tag2: using [A-Za-z0-9_-]")))))
 
+(defun org-tasktree-ui--validate-repeat (value)
+  "Return normalized repeat string from VALUE or nil."
+  (let ((r0 (and value (string-trim value))))
+    (cond
+     ((or (null r0) (string-empty-p r0)) nil)
+     ((string-match-p
+       "\\`\\(?:\\+\\|\\+\\+\\|\\.\\+\\)[0-9]+[dwmy]\\(?:/[0-9]+\\)?\\'"
+       r0)
+      r0)
+     (t (user-error "Repeat must follow org repeat syntax")))))
+
 (defun org-tasktree-ui--days-in-month (year month)
   "Return number of days for YEAR and MONTH."
   (calendar-last-day-of-month month year))
@@ -979,6 +993,8 @@ Accepts YYYY-MM-DD, YYYY/MM/DD, MM-DD, MM/DD, and DD forms."
          (deadline (org-tasktree-ui--parse-date-input
                     (org-tasktree-ui--widget-value :deadline)
                     "deadline"))
+         (repeat (org-tasktree-ui--validate-repeat
+                  (org-tasktree-ui--widget-value :repeat)))
          (tags (org-tasktree-ui--validate-tags
                 (org-tasktree-ui--widget-value :tags))))
     (org-tasktree-ui--validate-schedule-deadline scheduled deadline)
@@ -994,6 +1010,7 @@ Accepts YYYY-MM-DD, YYYY/MM/DD, MM-DD, MM/DD, and DD forms."
                     :priority priority
                     :scheduled scheduled
                     :deadline deadline
+                    :repeat repeat
                     :tags tags
                     :status "OPEN"
                     :project-id nil
@@ -1018,6 +1035,7 @@ Accepts YYYY-MM-DD, YYYY/MM/DD, MM-DD, MM/DD, and DD forms."
                       :priority priority
                       :scheduled scheduled
                       :deadline deadline
+                      :repeat repeat
                       :tags tags
                       :status "OPEN"
                       :project-id project-id
@@ -1085,6 +1103,7 @@ Accepts YYYY-MM-DD, YYYY/MM/DD, MM-DD, MM/DD, and DD forms."
                          :priority priority
                          :scheduled scheduled
                          :deadline deadline
+                         :repeat repeat
                          :tags tags
                          :status "OPEN"
                          :project-id project-id
@@ -1158,6 +1177,7 @@ Accepts YYYY-MM-DD, YYYY/MM/DD, MM-DD, MM/DD, and DD forms."
                     :priority priority
                     :scheduled scheduled
                     :deadline deadline
+                    :repeat repeat
                     :tags tags
                     :status "OPEN"
                     :project-id project-id
@@ -1229,6 +1249,10 @@ KEY, VALUE, and HINT configure the created widget."
     (org-tasktree-ui--widget-insert-field
      "deadline" :deadline (plist-get meta :deadline)
      "YYYY-MM-DD | YYYY/MM/DD | MM-DD | MM/DD | DD  (C-c C-d)")
+    (when (plist-get meta :show-repeat)
+      (org-tasktree-ui--widget-insert-field
+       "repeat" :repeat (plist-get meta :repeat)
+       "+1d | ++2w | .+3m | +1y/2"))
     (org-tasktree-ui--widget-insert-field
      "tags" :tags (plist-get meta :tags)
      ":tag1:tag2: | tag1:tag2  ([A-Za-z0-9_-], ':' separated)")
