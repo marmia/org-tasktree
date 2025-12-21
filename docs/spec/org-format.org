@@ -1,0 +1,17 @@
+#+TITLE: org-tasktree Specification - Org Format
+#+STARTUP: showall
+
+* org 展開フォーマット仕様
+
+** 基本形式
+#+begin_src org-mode
+ * TODO [#B] タイトル :tag1:tag2:
+ SCHEDULED: <YYYY-MM-DD> DEADLINE: <YYYY-MM-DD>
+ :PROPERTIES:
+ :UID: xxxxx
+ :END:
+#+end_src
+
+- DONE は見出しキーワードとして表示
+- CLOSED 行は出力しない
+- PROPERTIES は UID のみを保持

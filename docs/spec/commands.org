@@ -1,0 +1,287 @@
+#+TITLE: org-tasktree Specification - Commands
+#+STARTUP: showall
+
+* コマンド仕様
+
+** 初期化
+*** org-tasktree-init
+
+**** 目的
+- SQLite データベースの初期化処理を行う。
+
+**** 処理内容
+
+- 以下の処理を順番に実行する。
+
+1. `org-tasktree-database-location` で指定されたパスを取得
+2. 親ディレクトリが存在しない場合は作成
+3. DB ファイルが存在しない場合は新規作成
+4. `nodes` / `node_tags` / `meta` テーブルを作成
+5. `meta` テーブルに初期データを登録
+   - schema_version = "1"
+   - created_at = 現在時刻（ISO 8601）
+6. システム既定 Project「inbox」を `nodes` に登録
+7. `org-tasktree-query-dir` が存在しない場合は作成
+
+**** 実行タイミング
+
+- ユーザーが明示的に実行した場合
+- 他コマンド実行時に DB が存在しない場合は自動実行
+
+**** 副作用
+
+- DB ファイルおよびクエリディレクトリが作成される
+
+** 登録/更新系
+*** org-tasktree-find-project
+**** 目的
+- project の更新/新規追加を行う。
+
+**** 処理内容
+1. nodes テーブルから の project 一覧を取得してミニバッファに表示
+   - 検索条件: node_type='project' and status='OPEN'
+   - ミニバッファのプロンプト表示: `find project:`
+   - 表示形式: `project >` のように階層を ` > ` 区切りで表現
+2. ユーザーが project を入力/選択すると project 編集バッファを開く
+   - ユーザーが新規の project 名を入力した場合、新規登録として扱う。
+   - ユーザーが既存の project 名を入力した場合、更新処理として扱う。
+3. ユーザーが project 内容を編集し<C-c C-c> を押すとデータベースに編集内容を登録する。<C-c C-k>を押すとキャンセルして編集バッファを閉じる。
+
+**** 編集 UI
+
+- `widget.el` を使用して、表示欄と入力欄を分離した編集 UI を生成する。
+- UI 上部に親 Node のパスを表示する（project の場合は空、または root 表記でもよい）。
+- 入力項目:
+  - title（必須）
+  - priority
+  - scheduled
+  - deadline
+  - tags
+- title フィールドにはミニバッファで入力/選択された title を初期表示し、編集可能とする。
+- `TAB` / `S-TAB` で入力欄を移動できる。
+- `C-c C-s` で scheduled 用の `org-read-date` を起動する（`C-g` でキャンセル）。
+- `C-c C-d` で deadline 用の `org-read-date` を起動する（`C-g` でキャンセル）。
+- `C-c C-c` でコミットして編集バッファを閉じる。
+- `C-c C-k` でキャンセルして編集バッファを閉じる。
+- 各入力欄にプレースホルダーを表示し、入力フォーマットとショートカットが分かるようにする。
+
+*重要* :
+- 初期カーソル位置は title の入力欄。
+- 既存ノードの UID と type は表示せず内部で保持する。
+
+*** org-tasktree-find-phase
+**** 目的
+- phase の更新/新規追加を行う。
+
+**** 処理内容
+1. nodes テーブルから の project / phase 情報を取得してミニバッファに表示する。
+   - 検索条件: node_type IN ('project', 'phase') and status='OPEN'
+   - ミニバッファのプロンプト表示: `find node:`
+   - project をディレクトリ、phase をファイルに見立てて`find-file`と同じ操作感で phase を選択できるようにする。
+   - 表示イメージ:
+     - 初期表示: project 一覧を表示（`project >` 形式）
+     - 特定の project を選択して TAB キーを押すと、その project 階層に移動し配下の phase 一覧を表示する。
+     - phase がまだ登録されていない場合は、リストに何も表示しない。
+2. ユーザーが phase を入力/選択すると phase 編集バッファを開く
+   - ユーザーが新規の phase 名を入力した場合、新規登録として扱う。
+   - ユーザーが既存の phase 名を入力した場合、更新処理として扱う。
+3. ユーザーが phase 内容を編集し<C-c C-c> を押すとデータベースに編集内容を登録する。<C-c C-k>を押すとキャンセルして編集バッファを閉じる。
+
+**** 編集 UI
+
+- 編集 UI は `org-tasktree-find-project` と同一（`widget.el` ベース）とし、UI 上部には親 Node のパス（project）を表示する。
+- title フィールドにはミニバッファで入力/選択された title（phase 名）を初期表示する。
+
+*重要* :
+- 初期カーソル位置は title の入力欄。
+- 既存ノードの UID と type は表示せず内部で保持する。
+
+*** org-tasktree-find-group
+**** 目的
+- group の更新/新規追加を行う。
+
+**** 処理内容
+1. nodes テーブルから の project / phase / group 情報を取得してミニバッファに表示する。
+   - 検索条件: node_type IN ('project', 'phase', 'group') and status='OPEN'
+   - ミニバッファのプロンプト表示: `find node:`
+   - project / phase をディレクトリ、group をファイルに見立てて`find-file`と同じ操作感で group を選択できるようにする。
+   - 表示イメージ:
+     - 初期表示: project 一覧を表示（`project >` 形式）
+     - 特定の project を選択して TAB キーを押すと、その project 階層に移動し配下の phase / group 一覧を表示する。
+     - group がまだ登録されていない場合は、リストに何も表示しない。
+2. ユーザーが group を入力/選択すると group 編集バッファを開く
+   - ユーザーが新規の group 名を入力した場合、新規登録として扱う。
+   - ユーザーが既存の group 名を入力した場合、更新処理として扱う。
+3. ユーザーが group 内容を編集し<C-c C-c> を押すとデータベースに編集内容を登録する。<C-c C-k>を押すとキャンセルして編集バッファを閉じる。
+
+**** 編集 UI
+
+- 編集 UI は `org-tasktree-find-project` と同一（`widget.el` ベース）とし、UI 上部には親 Node のパス（project）を表示する。
+- title フィールドにはミニバッファで入力/選択された title（group 名）を初期表示する。
+
+*重要* :
+- 初期カーソル位置は title の入力欄。
+- 既存ノードの UID と type は表示せず内部で保持する。
+
+*** org-tasktree-find-task
+**** 目的
+- task の更新/新規追加を行う。
+- task 配下に task を新規登録できる。
+
+**** 処理内容
+1. nodes テーブルから の project / phase / group / task 情報を取得してミニバッファに表示する。
+   - 検索条件: status='OPEN'
+   - ミニバッファのプロンプト表示: `find task:`
+   - project / phase / group / task (子 node を持つ) をディレクトリ、子 node を持たない task をファイルに見立てて`find-file`と同じ操作感で task を選択できるようにする。
+   - 表示イメージ:
+     - 初期表示: project 一覧を表示（`project >` 形式）
+     - 特定の project /phase / group / task (子持ち) を選択すると、その project 階層に移動し配下の node 一覧を表示する。
+     - 子 node を持つ task はミニバッファ上では末尾に'/'を付けて表示し、子 node を持たない task を区別できるようにする。
+   - task 配下に task を登録する。
+     - 子 task を持たない task 配下に task を登録する場合の操作:
+       - ミニバッファで子を持たない task 名を入力
+         - 'Enter'キーを押すと編集 UI へ遷移する。
+         - 'Shif+Enter'キーを押すとタスクパスに'task >'を追加し、空リストを表示する。その後、新規 task 名を入力して'Enter'キーを押すと編集 UI へ遷移する。
+     - 子 task を持つ task 配下に task を登録/更新する場合の操作:
+       - ミニバッファで子を持つ task 名を入力
+         - 既存の子 task 名を入力するか新規 task 名を入力して'Enter'キーを押すと編集 UI へ遷移する。
+         - task 名を入力せずに'Shif+Enter'キーを押すと親 task の編集 UI へ遷移する。
+2. ユーザーが task を入力/選択すると task 編集バッファを開く
+   - ユーザーが新規の task 名を入力した場合、新規登録として扱う。
+   - ユーザーが既存の task 名を入力した場合、更新処理として扱う。
+   - ユーザーは新規の project/phase/group は指定できない。新規で入力した文字列は、task として扱われる。
+3. ユーザーが task 内容を編集し<C-c C-c> を押すとデータベースに編集内容を登録する。<C-c C-k>を押すとキャンセルして編集バッファを閉じる。
+
+**** 編集 UI
+
+- 編集 UI は `org-tasktree-find-project` と同一（`widget.el` ベース）とし、UI 上部に親 Node のパス（project > phase > group）を表示する。
+- title フィールドにはミニバッファで入力/選択された title（task 名）を初期表示する。
+- scheduled / deadline は手入力と日付選択ダイアログの両方をサポートする。
+  - `C-c C-s` で scheduled、`C-c C-d` で deadline の `org-read-date` を起動する。
+  - `C-g` でキャンセルする。
+- `C-c C-c` 実行時に `scheduled < deadline` を検査する（どちらかが未指定なら検査しない）。
+
+*重要* :
+- 初期カーソル位置は title の入力欄。
+- 既存ノードの UID と type は表示せず内部で保持する。
+
+*** org-tasktree-find-node
+**** 目的
+- 任意の node の更新/新規追加を行う。
+
+**** 処理内容
+1. nodes テーブルから の project / phase / group / task 情報を取得してミニバッファに表示する。
+   - 検索条件: status='OPEN'
+   - ミニバッファのプロンプト表示: `find node:`
+   - ミニバッファのリスト表示:
+     - 各 node をパス形式で表示する。(find コマンドのように'/'区切りで表示)
+       - リスト表示例
+         #+begin_example
+         inbox/
+         project1
+         project1/phase1
+         project1/phase1/group1
+         project1/phase1/group1/task1
+         project1/phase1/group1/task1/child1
+         project2
+         project2/phase2
+         project2/phase2/group2
+         project2/phase2/group2/task2
+         project2/phase2/group2/task2/child2
+         project2/phase2/group2/task2/child2/mago1
+         #+end_example
+     - 'node_type'ごとに色を分けて表示する。
+       - Default 値: 
+         - project: DeepSkyBlue
+         - phase: MediumSeaGreen
+         - group: DarkOrange
+         - task: white
+
+2. ユーザーが node を入力/選択して'Enter'キーを押すと node 編集バッファを開く
+   - ユーザーが既存の node 名を入力した場合、更新処理として扱う。
+   - ユーザーが新規の node 名を入力した場合、新規登録として扱う。
+     - 新規 node は既存の node パスに続けて'/<node_name>'を追記して'Enter'キーを押す。
+   - 注意点:
+     - 新規 node 名に'/'を含めることはできない。('/'は常に path の区切り文字として解釈される)
+       - 末尾につけられた'/'は削除して編集バッファ を表示
+       - node 名の途中に'/'が記述されている場合はアラート表示
+     - 複数階層の新規 node を一気に作成することはできない。
+       - ex:
+         - 既存 node パス: project1/phase1/group1
+         - 新規 node: project1/phase1/group1/task1 -> OK
+         - 新規 node: project1/phase1/group1/task1/child1 -> NG (task1/child1 を一気に作成することはできない)
+
+3. 編集 バッファの表示/入力
+   - 編集バッファは `widget.el` ベースとし、UI 上部に親 node のパス（project > phase > group）を表示する。
+   - 入力項目
+     - node_type
+     - title
+     - priority
+     - scheduled
+     - deadline
+     - tasg
+   - node_type 指定ルール
+     - TOP 階層 node を更新/新規追加する場合は、'project'固定表示 (編集不可)
+     - project 配下の node に指定できるのは、'phase/group/task'
+     - phase 配下の node に指定できるのは、'group/task'
+     - group 配下の node に指定できるのは、'task'
+     - task 配下の node に指定できるのは、'task'
+   - title フィールドにはミニバッファで入力/選択された node パスの末端の node 名を初期表示する。
+   - scheduled / deadline は手入力と日付選択ダイアログの両方をサポートする。
+     - `C-c C-s` で scheduled、`C-c C-d` で deadline の `org-read-date` を起動する。
+     - `C-g` でキャンセルする。
+   - `C-c C-c` 実行時に `scheduled < deadline` を検査する（どちらかが未指定なら検査しない）。
+   - *重要* :
+     - 初期カーソル位置は title の入力欄。
+     - 既存ノードの UID は表示せず内部で保持する。
+
+4. 更新/キャンセル
+   - ユーザーが node 内容を編集し<C-c C-c> を押すとデータベースに編集内容を登録する。
+   - <C-c C-k>を押すとキャンセルしてミニバッファ表示に戻る。
+
+** 検索系
+*** 共通仕様
+- status='OPEN' のタスクのみを対象とする。
+- scheduled / deadline が NULL のタスクは除外する。
+- 日付比較は `DATE(...)` で行い、日付文字列が無効な場合はエラーとして処理を中断し Messages に出力する。
+- 並び順は project > phase > group > task の階層順で、同一階層内は title 昇順。
+
+*** org-tasktree-search-today-task
+**** 目的
+- scheduled が今日になっている task の tasktree を取得する。
+**** 処理内容
+- nodes テーブルから`scheduled=today and status=OPEN`の task と、そのタスクの親 node (project/phase/group)を取得する。
+  - node 情報は重複なく正規化したデータを取得
+  - 所得する属性情報: uid, todo_keyword, title, level, priority, scheduled, deadline, tags
+- 出力専用バッファを開き、org-mode 形式で task tree を展開する
+  - 出力専用バッファは`q`キーで閉じる
+
+**** 目的
+*** org-tasktree-search-before-today-task
+- scheduled が今日以前になっている task の tasktree を取得する。
+**** 処理内容
+- nodes テーブルから`scheduled<=today and status=OPEN`の task と、そのタスクの親 node (project/phase/group)を取得する。
+  - node 情報は重複なく正規化したデータを取得
+  - 所得する属性情報: uid, todo_keyword, title, level, priority, scheduled, deadline, tags
+- 出力専用バッファを開き、org-mode 形式で task tree を展開する
+  - 出力専用バッファは`q`キーで閉じる
+
+*** org-tasktree-search-overdue-task
+**** 目的
+- deadline が昨日以前になっている task の tasktree を取得する。
+**** 処理内容
+- nodes テーブルから`deadline<today and status=OPEN`の task と、そのタスクの親 node (project/phase/group)を取得する。
+  - node 情報は重複なく正規化したデータを取得
+  - 所得する属性情報: uid, todo_keyword, title, level, priority, scheduled, deadline, tags
+- 出力専用バッファを開き、org-mode 形式で task tree を展開する
+  - 出力専用バッファは`q`キーで閉じる
+
+*** org-tasktree-search-next-7day-task
+**** 目的
+- scheduled が明日から 7 日以内になっている task の tasktree を取得する。
+**** 処理内容
+- nodes テーブルから`scheduled between tomorrow and (today+7) status=OPEN`の task と、そのタスクの親 node (project/phase/group)を取得する。
+  - node 情報は重複なく正規化したデータを取得
+  - 所得する属性情報: uid, todo_keyword, title, level, priority, scheduled, deadline, tags
+- 出力専用バッファを開き、org-mode 形式で task tree を展開する
+  - 出力専用バッファは`q`キーで閉じる

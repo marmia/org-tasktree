@@ -1,0 +1,157 @@
+#+TITLE: org-tasktree Specification - Data Model
+#+STARTUP: showall
+
+* DB テーブル仕様
+
+** nodes テーブル
+
+タスクツリーを構成するすべてのノード（Project / Phase / Group / Task）を管理する
+中核テーブル。org-mode 上の見出し 1 つにつき 1 レコードが対応する。
+
+本テーブルは `uid` をキーに INSERT/UPDATE で更新し、`id` は維持する設計とする。
+
+*** フィールド定義
+
+- id           INTEGER PRIMARY KEY
+- uid          TEXT    NOT NULL
+- parent_id    INTEGER
+- node_type    TEXT    NOT NULL   ; project / phase / group / task
+- todo_keyword TEXT              ; PROJ / PHASE / TODO / DONE / nil
+- title        TEXT    NOT NULL
+- level        INTEGER NOT NULL   ; org 見出しのレベル（* の数）
+- priority     TEXT              ; "#A" / "#B" / "#C" など（org の記法をそのまま格納）
+- scheduled    TEXT              ; org の SCHEDULED（ISO 日付文字列）
+- deadline     TEXT              ; org の DEADLINE（ISO 日付文字列）
+- closed_at    TEXT              ; DONE 時の完了日時
+- tags         TEXT              ; org の tag suffix（例: :tag1:tag2:）。正規化は node_tags
+- status       TEXT    NOT NULL   ; OPEN / DONE
+- project_id   INTEGER          ; 所属 Project の id（project ノードでは NULL）
+- phase_id     INTEGER
+- created_at   TEXT    NOT NULL
+- updated_at   TEXT    NOT NULL
+
+- uid はノードの同一性を保証する唯一キーであり、必須である。
+- parent_id / phase_id は NULL を許容する（ルートノードなど）。
+- project_id は project ノードでは NULL を許容し、それ以外のノードでは必須とする。
+- todo_keyword は group ノードでは NULL になる。
+- scheduled / deadline / priority / tags は未設定時 NULL を許容する。
+- tags は `:tag1:tag2:` 形式で保存する（入力は `:tag1:tag2:` / `tag1:tag2` を許容し、コミット時に正規化する）。
+- created_at は既存 UID の場合は維持し、新規 UID の場合は現在時刻で設定する。
+- updated_at は INSERT/UPDATE のたびに現在時刻で更新する。
+
+*** 初期データ
+
+- nodes テーブルには **初期化時に自動生成される inbox Project のみが初期データとして登録される。**
+- inbox の id は 1 に固定とし、title = "inbox" / node_type = project / status = OPEN。
+- inbox は固定 UID を持つ（システム既定値）。
+- Project 未指定タスクの project_id は inbox Project の id(=1) を設定する。
+
+---
+
+** node_tags テーブル
+
+ノードとタグの多対多関係を管理する正規化テーブル。
+タグ検索（特に AND 条件検索）を高速化するために使用する。
+
+本テーブルは nodes 更新時に node_id 単位で DELETE / INSERT により再生成してよい。
+
+*** フィールド定義
+
+- node_id  INTEGER NOT NULL
+- tag      TEXT    NOT NULL
+
+- 主キー: (node_id, tag)
+- 補助インデックス: (tag, node_id)
+- node_id は nodes.id を参照する（外部キー制約 / ON DELETE CASCADE）。
+- タグはすべて TEXT として保持し、正規化用の tags マスタテーブルは持たない。
+- 1 ノードに複数タグがある場合、タグの数だけレコードを持つ。
+
+*** 初期データ
+
+- 初期化時に登録されるデータは **存在しない**。
+- node_tags のレコードは、すべて nodes コミット時に自動生成される。
+- パース規則:
+  - 入力は `:tag1:tag2:` または `tag1:tag2` を許容する
+  - `:` 区切りで分割し、空要素は捨てる
+  - 大文字小文字は入力のまま保持する
+  - 前後空白は trim する
+  - 重複は除去して一意化する
+  - 正規化後の nodes.tags は常に `:tag1:tag2:` 形式で保存する
+
+---
+
+** meta テーブル
+
+SQLite データベース自体の管理情報（スキーマバージョン、作成日時など）を管理する
+キー・バリュー形式の内部管理用テーブル。
+
+タスクデータ（nodes, node_tags）とは直接の関係を持たない。
+
+*** フィールド定義
+
+- key   TEXT NOT NULL
+- value TEXT NOT NULL
+
+- 主キー: key
+- 本テーブルは常に key / value の 2 列構成とし、カラム追加は行わない。
+
+*** 初期データ（初期化時に必ず INSERT される）
+
+初期化処理（org-tasktree-init）実行時に、以下の初期データを登録する。
+
+| key             | value                        | 説明                               |
+|----------------+------------------------------+------------------------------------|
+| schema_version | "1"                          | DB スキーマのメジャーバージョン   |
+| created_at     | "<ISO 8601 形式の日時文字列>" | DB 初回作成日時                    |
+
+- created_at の例:
+  - 2025-12-09T21:15:00+09:00
+- schema_version は文字列として保存する。
+
+* インデックス・制約方針
+
+- uid 用 UNIQUE INDEX: idx_nodes_uid (uid)
+- project タイトル重複禁止: idx_nodes_project_title UNIQUE (title) WHERE node_type = 'project'
+- phase 重複禁止: idx_nodes_phase_title UNIQUE (project_id, title) WHERE node_type = 'phase'
+- task 重複禁止: idx_nodes_task_title UNIQUE (parent_id, title) WHERE node_type = 'task'
+- 検索性能向上:
+  - idx_nodes_status_scheduled (status, scheduled)
+  - idx_nodes_status_deadline (status, deadline)
+  - idx_nodes_parent (parent_id)
+  - idx_node_tags_tag (tag, node_id)
+- 外部キー制約:
+  - node_tags.node_id は nodes.id を参照する外部キーを付与する（ON DELETE CASCADE）。
+  - parent_id / project_id / phase_id には外部キーを付与しない。
+  - DB 接続時に PRAGMA foreign_keys=ON を必須とする。
+
+* UID 運用ルール
+
+- プラグインが展開する全ノードは必ず UID を持つ
+- UID を持たないノードは「ユーザー新規作成ノード」
+- コミット時に UID を必ず採番し、org バッファに即時書き戻す
+- parent_id は org バッファには保持しない
+
+** uid と id の役割分担
+
+本プロジェクトでは、参照（parent_id / project_id / phase_id）は id を用いる。
+一方 uid は「外部/永続識別子」として割り当て後は不変とする。
+
+- 外部公開・永続参照:
+  org 側（org-id）、URL、ログ、エクスポート、将来の連携で「一度割り当てた識別子を変えない」用途に使える。
+- データ移行・マージ耐性:
+  複数 DB やバックアップのマージ時に、id は衝突するが uid は衝突しにくい。
+- 検索・ API の安定性:
+  将来「コマンドが node を指す」時に id だと不安定、uid だと安定。
+
+つまり、uid は「その node を“外に”指すための恒久 ID」、
+id は「DB 内部の参照・最適化（JOIN 用）」という役割分担とする。
+
+* システム既定 Project（inbox）
+
+- inbox は初期化時に自動生成され、常に 1 件のみ存在する。
+- inbox の id は 1 に固定する。
+- inbox は固定 UID を持つ（システム既定値）。
+- node_type = project / title = "inbox" / status = OPEN。
+- ユーザーからの更新・削除は不可。
+- すべての同期スコープにおいて inbox は更新・削除の対象から除外する。
+- Project / Phase 未指定タスクは inbox に所属（project_id = inbox.id）。

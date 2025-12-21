@@ -1,0 +1,24 @@
+#+TITLE: org-tasktree Specification - Overview
+#+STARTUP: showall
+
+* 概要
+org-tasktree は、org-mode を編集 UI とし、SQLite を唯一のマスターデータベースとする
+Emacs 用タスク管理プラグインである。
+
+- org バッファは常に「編集用ビュー」
+- SQLite データベースが single source of truth
+- DB 更新は UPDATE / INSERT を使用し、既存レコードの id を維持する
+
+* 基本コンセプト
+
+- ノードの同一性は UID のみで保証する
+- parent_id は org バッファには保持しない
+
+* タスクの階層構造
+- タスクは階層構造（Project / Phase / Group / Task）を持つ
+- Project 未指定の Task は inbox に収容される
+- TOP 階層には Project のみ作成できる
+- Project 直下には、Phase/Group/Task を作成できる
+- Phase 直下には、Group/Task を作成できる
+- Group 直下には、Task を作成できる
+- Task 直下には、Task を作成できる

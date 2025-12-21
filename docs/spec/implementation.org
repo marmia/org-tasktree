@@ -1,0 +1,19 @@
+#+TITLE: org-tasktree Specification - Implementation Notes
+#+STARTUP: showall
+
+* パフォーマンス前提
+
+- 想定件数: 数千件規模
+- UPDATE / INSERT 方式で十分実用的
+
+* 実装ガイドライン
+
+- 本仕様書のみを唯一の要件定義として実装すること
+- DB アクセスは Emacs 標準 sqlite API（sqlite.el）を使用する
+- DB 接続直後に必ず PRAGMA foreign_keys=ON を実行する
+- すべての DB 書き込みはトランザクション内で行う
+- UID は UUID 形式で生成する
+- 更新は UPDATE / INSERT を採用し、既存レコードの id を維持する
+- 互換性: schema_version=1 の既存 DB は移行不要とする（挙動の変更のみで、DB 破壊は想定しない）
+- org-element を用いたパースを必須とする
+- defcustom を用いて全設定値をユーザー変更可能にする

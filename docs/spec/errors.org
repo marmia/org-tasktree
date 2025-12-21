@@ -1,0 +1,10 @@
+#+TITLE: org-tasktree Specification - Error Handling
+#+STARTUP: showall
+
+* エラーハンドリング方針
+
+- 通常メッセージは `message` で出力する。
+- ユーザーの操作ミスは `user-error` で通知する。
+- システムエラーは `error` を使用する。
+- すべてのエラーは *Messages* に記録されること。
+- エラー発生時は DB 書き換えを中断し、トランザクションをロールバックする（org バッファの内容はそのまま残す）。

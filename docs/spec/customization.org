@@ -1,0 +1,40 @@
+#+TITLE: org-tasktree Specification - Customization
+#+STARTUP: showall
+
+* カスタマイズ変数一覧
+
+** org-tasktree-database-location
+
+- 型: string
+- 説明: SQLite データベースファイルのパス
+- 初期値の決定方法:
+  - 初回起動時に以下のパスが自動設定される。
+
+    (expand-file-name "org-tasktree/tasktree.db" user-emacs-directory)
+
+- 例:
+  - ~/.emacs.d/org-tasktree/tasktree.db
+  - ~/.config/emacs/org-tasktree/tasktree.db
+
+- ユーザーが後から任意の場所に変更してもよい。
+
+** org-tasktree-query-dir
+
+- 型: string
+- 説明: クエリー YAML ファイルの保存先ディレクトリ
+- 初期値の決定方法:
+  - 初回起動時に以下のパスが自動設定される。
+
+    (expand-file-name "org-tasktree/queries/" user-emacs-directory)
+
+- 例:
+  - ~/.emacs.d/org-tasktree/queries/
+  - ~/.config/emacs/org-tasktree/queries/
+
+- ディレクトリは org-tasktree-init 実行時に自動作成される。
+
+** org-tasktree-default-project
+
+- 型: string
+- 説明: Project / Phase 未指定タスクの所属 Project 名
+- デフォルト値: "inbox"

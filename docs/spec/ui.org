@@ -1,0 +1,28 @@
+#+TITLE: org-tasktree Specification - UI
+#+STARTUP: showall
+
+* ミニバッファ実装方針
+- 本プラグインは独自のミニバッファ UI を実装しない。
+- 候補選択は必ず `completing-read`（または `read-file-name`）を使用する。
+- 補完 UI の選択（Completions, Vertico, Ivy, Fido 等）はユーザー環境に委ねる。
+- Marginalia / Vertico など外部拡張との連携は
+  `with-eval-after-load` または `featurep` で存在確認を行い、
+  未インストール環境では何も実行しない。
+  これによりエラーを発生させない。
+
+* 編集バッファ仕様（widget.el）
+- `widget.el` を用いて表示欄と入力欄を分離した編集 UI を生成する。
+- UI 上部に親 Node のパスを表示する（未指定時は root 表記）。
+- 入力項目:
+  - node_type（必須。許可された候補から選択。トップ階層は project 固定）
+  - title（必須）
+  - priority
+  - scheduled
+  - deadline
+  - tags
+- `TAB` / `S-TAB` で入力欄を移動できる。
+- `C-c C-s` で scheduled、`C-c C-d` で deadline の `org-read-date` を起動する（`C-g` でキャンセル）。
+- `C-c C-c` でコミット、`C-c C-k` でキャンセルしてミニバッファ表示に戻る。
+- 初期カーソル位置
+  - project 登録/更新時は、'title'
+  - project 以外の登録/更新時は、'node_type'

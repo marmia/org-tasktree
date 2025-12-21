@@ -1,0 +1,182 @@
+#+title: Plan V02
+
+* v0.2 対応項目
+** DONE ドキュメント整備
+*** DONE ディレクトリ構成の変更
+- docs/spec
+- docs/plan
+*** DONE 仕様書(docs/org-tasktree-spec.org)の分割
+** TODO M11: Group 直下に Group を作成可能にする
+*** TODO M11-1: 実装
+*** TODO M11-2 コードレビュー
+*** TODO M11-3 ユーザーテスト
+** TODO M12: Repeat Task 対応
+*** TODO M12-1 仕様決め
+*** TODO M12-2 仕様書の修正
+*** TODO M12-3 実装
+*** TODO M12-4 コードレビュー
+*** TODO M12-5 ユーザーテスト
+** TODO M13: 初期化処理で Todo キーワード設定
+`org-tasktree-init`で本プラグインで使用する Todo キーワードを設定
+** 新規作成: org-tasktree-sync-buffer
+*** 目的
+- カレントバッファ全体を 1 つのタスクツリーとして
+  SQLite データベースに登録・更新する。
+
+*** 対象スコープ
+
+- カレントバッファ内のすべての org 見出し
+
+*** 処理内容
+
+1. バッファ内のすべての heading を org-element で走査
+2. 各ノードについて以下を実行
+   - UID がない場合は新規採番して org バッファに即時書き戻し
+   - DONE かつ UID なしのノードは無視
+3. 親子関係（parent_id）を org のアウトライン構造から再構築
+4. project_id / phase_id を最寄りの上位ノードから再計算
+5. 対象スコープの UID をすべて収集
+6. トランザクションを開始
+7. 親ノードから順に nodes を INSERT/UPDATE（`uid` が既存なら UPDATE、未登録なら INSERT）
+8. node_tags を対象 node_id について DELETE し、正規化後のタグを INSERT
+9. トランザクションを COMMIT
+
+*** 副作用
+
+- org バッファに UID が自動付与される
+- DB の該当ノード群が INSERT/UPDATE される（既存レコードの id は維持される）
+
+*** 一括登録（sync-*）の DB 更新方式と set/clear/keep
+
+v0.2 以降の一括登録（org-tasktree-sync-buffer/region/subtree）では、
+org ツリー構造の変化により、既存ノードの親子関係（parent_id）や所属（project_id/phase_id）が
+変更されることを許容する。
+
+ただし、本プロジェクトのリレーション参照（parent_id / project_id / phase_id）は nodes.id を用いるため、
+スコープ限定の一括登録において nodes を DELETE / INSERT で再生成すると id が変わり、
+スコープ外ノードとの参照整合性が壊れうる（外部キーを付けていないため静かに破綻しやすい）。
+そのため、sync-* の nodes 更新は uid をキーに INSERT/UPDATE（id 維持）を採用する。
+
+一括登録では「値を設定する」「明示的に NULL にする」「情報不足なので DB を維持する」を区別する必要がある。
+特に parent_id は、スコープ外の親を org 側から辿れない場合があり、単純に nil を NULL とみなすと破壊になる。
+
+- set: 明示的に値を設定する（例: parent_id=123）
+- clear: 明示的に NULL にする（例: parent_id=nil）
+- keep: 情報不足（スコープ外など）なので DB 値を維持する
+
+実装上は keep を通常の nil と区別できる表現（例: :unspecified のような sentinel）で表し、
+DB 層の UPDATE では keep の列を「更新しない（SET 句に含めない）」ことで実現する。
+
+例（project1/phase1/task1 の task1 を project1 直下に移動）:
+- parent_id: set（project1.id）
+- phase_id: clear（NULL）
+- project_id: keep（同一 project 内なら維持）または set（project1.id）
+*** node_type 変更（昇格/降格）は許可しない
+本プロジェクト（自分仕様）では、既存 uid の node_type は不変とする。
+理由は、org-mode の自由度に対して「昇格/降格」を安全に扱うには仕様・実装が複雑になりやすく、
+日常運用では自分がそのような編集を行わない前提で十分だからである。
+
+一括登録（sync-*）や将来の編集 UI で、DB に存在する uid の node_type が org 側の解釈と食い違う場合は、
+user-error として処理を中断する（DB を壊さないことを優先する）。
+
+また、Node を削除するユースケース（物理削除/論理削除/アーカイブ等）は v0.1 では未考慮であり、
+sync-* の設計（スコープ外不変の前提や orphan の扱い）と合わせて v0.2 以降で検討する。
+
+*** priority のローカル環境設定との整合性
+`org-priority-format`に従ってフォーマット展開
+`org-highest-priority/org-lowest-priority`との整合性をどうするか？
+*** `org-tasktree-search-*`の修正
+**** TODO M10-1 修正内容の確認
+- 出力結果バッファを書き込み可能にする
+- PROPERTIES の先頭の余分なスペースを削除
+ 
+***** 現在の PROPERTIES 出力
+以下のように各行の先頭に Space が入っているが、これは不要である。
+```  
+ :PROPERTIES:
+ :UID: 11111111-1111-1111-1111-111111111111
+ :END:
+```  
+
+** 新規作成: org-tasktree-sync-region
+*** 目的
+- 選択されたリージョン内のタスクツリーのみを DB に同期する。
+
+*** 対象スコープ
+
+- リージョン内に含まれるすべての heading
+- 各 heading のサブツリーも自動的に含める
+
+*** 処理内容
+
+- 処理の流れは `org-tasktree-sync-buffer` と同一とするが、
+  対象範囲をリージョンに限定する。
+
+*** 注意点
+
+- リージョン外のノードは一切更新・削除されない
+- 親ノードがスコープ外に存在する場合でも、
+  parent_id は DB 上の既存構造を参照する
+
+** 新規作成: org-tasktree-sync-subtree
+*** 目的
+- カーソル位置の heading をルートとするサブツリーのみを DB に同期する。
+
+*** 対象スコープ
+
+- カーソル位置にある heading
+- そのすべての子孫ノード
+
+*** 処理内容
+
+- 処理の流れは `org-tasktree-sync-buffer` と同一とするが、
+  対象範囲をカレントサブツリーのみに限定する。
+
+*** 適用例
+
+#+begin_src org
+ * Task A
+ ** Task A-1    ← カーソル
+ *** TODO A-1-1
+ *** TODO A-1-2
+ ** Task A-2
+#+end_src
+
+- この場合の同期対象は以下のみとする。
+
+  - Task A
+  - Task A-1
+  - Task A-1-1
+  - Task A-1-2
+
+** 新規作成: org-tasktree-node-delete
+** 新規作成: org-tasktree-project-archive
+** 新規作成: org-tasktree-project-restore
+** 新規作成: org-tasktree-paste-tree
+** 既存コマンドの削除
+- `org-tasktree-find-project`
+- `org-tasktree-find-phase`
+- `org-tasktree-find-group`
+- `org-tasktree-find-task`
+** 上位 Node の status が"DONE"になった場合に下位 Node も"DONE"に設定
+** タスクのメモ追加
+見出し配下にユーザーがメモ書きをした場合に、DB に保存する
+** 編集バッファの入力補完(priority, tags)
+* v0.3 以降
+** 繰り返しタスクの履歴登録
+** CLOSED 表示・履歴管理
+org-mode の以下の履歴情報の扱いを検討
+```
+CLOSED: <2025-12-09 Tue 21:45>
+
+:LOGBOOK:
+CLOCK: [2025-12-01 Mon 12:00]
+CLOCK: [2025-12-02 Tue 09:00]--[2025-12-02 Tue 12:00] => 3:00
+CLOCK: [2025-12-03 Wed 09:30]--[2025-12-03 Wed 10:35] => 1:05
+:END:
+```
+
+** ガントチャートライクな Project / Phase 管理
+** DB マイグレーション機構
+** XDG 対応
+** MELPA 公開対応

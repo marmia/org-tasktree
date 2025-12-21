@@ -1,0 +1,139 @@
+#+TITLE: org-tasktree Specification - Validation
+#+STARTUP: showall
+
+* バリデーション仕様
+** nodes テーブル
+
+*** 必須フィールド（NOT NULL チェック）
+
+- uid
+  - nil / 空文字は禁止。
+  - コミット対象スコープ内で重複しないこと（論理一意性）。
+
+- node_type
+  - 許容値:
+    - "project" / "phase" / "group" / "task"
+  - 上記以外の値はエラー。
+
+- title
+  - nil / 空文字 / 空白のみは禁止。
+  - 禁則文字: スラッシュ(/), 改行（\n/\r）, 制御コード（U+0000–U+001F, U+007F）
+
+- level
+  - 整数であること。
+  - 1 以上であること（0 以下はエラー）。
+
+- status
+  - 許容値:
+    - "OPEN" / "DONE"
+  - 上記以外の値はエラー。
+
+- created_at / updated_at
+  - nil でないこと。
+  - 形式は ISO 8601 形式の文字列を基本とするが、厳密チェックは行わない。
+
+*** 日付関連（scheduled / deadline）
+
+- scheduled / deadline
+  - いずれも NULL を許容する。
+  - DB に保存する値は `YYYY-MM-DD` 形式であること（コミット時に正規化する）。
+  - UI の入力は以下を許容する（手入力・日付選択ダイアログの両方をサポートする）。
+    - `YYYY-MM-DD`
+    - `YYYY/MM/DD`
+    - `MM-DD`（ゼロ埋めは任意）
+    - `MM/DD`（ゼロ埋めは任意）
+    - `DD`（1 桁も可）
+  - 省略形（`MM-DD` / `MM/DD` / `DD`）は「今日を含む未来のうち最も近い日付」に解決して `YYYY-MM-DD` として保存する。
+    - 例: 今日が 2025/12/15 のとき、`1` は `2026-01-01` として保存する。
+  - 両方が存在する場合（いずれも非 NULL）:
+    - `scheduled <= deadline` を満たすこと。
+
+*** priority
+
+- priority
+  - NULL を許容する。
+  - NULL でない場合は、英数字 1 文字であること（例: `A` / `B` / `1`）。
+
+*** tags
+
+- tags
+  - NULL を許容する。
+  - 空文字は NULL とみなす。
+  - 非 NULL の場合:
+    - 入力は `:` 区切り（例: `tag1:tag2`）であること。
+    - 各 tag に使える文字: 半角英数字 / `-` / `_`。
+  - 正規化された実体は node_tags で管理する。
+  - nodes.tags は表示用キャッシュとして `:tag1:tag2:` 形式に正規化して保存してよい（org 展開時に利用する）。
+
+*** リレーション系フィールド
+
+- parent_id
+  - NULL を許容する（ルートノードなど）。
+  - NULL でない場合:
+    - 対応する id を持つノードが DB 内に存在すること。
+
+- project_id
+  - project ノードでは NULL を許容する。
+  - project 以外のノードでは NULL を許容しない。
+  - NULL でない場合は、対応する project ノードの id であること。
+  - Project 未指定の task は inbox Project の id(=1) を設定する。
+
+- phase_id
+  - NULL を許容する。
+  - NULL でない場合:
+    - 対応する id を持つノードが存在すること。
+    - かつ、そのノードの node_type が "phase" であること。
+
+- 外部キー制約
+  - node_tags.node_id は nodes.id を参照する外部キーを付与する（ON DELETE CASCADE）。
+  - parent_id / project_id / phase_id には外部キーを付与しない。
+  - DB 接続時に PRAGMA foreign_keys=ON を必須とする。
+
+*** `DONE` / closed_at
+
+- closed_at
+  - NULL を許容する。
+  - status = "DONE" のときにのみ値を持つことが望ましい。
+
+** node_tags テーブル
+
+*** 必須フィールド
+
+- node_id
+  - nil は禁止。
+  - 整数であること。
+  - 対応する id を持つノードが nodes テーブルに存在すること。
+
+- tag
+  - nil / 空文字は禁止。
+  - 前後の空白はトリムして保存すること。
+
+*** 一意性・整合性
+
+- (node_id, tag) の組み合わせは、1 コミット内では重複しないこと。
+- node_tags の内容は、nodes.tags から再生成できる形に保つことが望ましい。
+
+** meta テーブル
+
+*** 必須フィールド
+
+- key
+  - nil / 空文字は禁止。
+
+- value
+  - nil / 空文字は禁止。
+
+*** 初期データに関するチェック
+
+- 初期化後の meta には少なくとも以下のキーが存在すること。
+
+  - key = "schema_version"
+    - value = "1"
+
+  - key = "created_at"
+    - value = ISO 8601 形式の文字列であることが望ましい。
+
+*** 運用方針
+
+- meta は内部管理用であり、通常の登録/更新系処理からは変更しない。
+- 更新は初期化処理、および将来のマイグレーション処理に限定する。
