@@ -5,6 +5,10 @@
 本ドキュメントは org-tasktree の確定済み仕様のみを整理した仕様書である。
 バージョン別の作業項目や未確定事項は plan 配下に記載する。
 
+* DB 変更時の運用
+- スキーマ変更がある場合は、開発環境の DB を手動で再初期化する。
+- 移行スクリプトは作成しない前提とする。
+
 * 構成
 - [[file:overview.org][overview.org]]
 - [[file:data-model.org][data-model.org]]
@@ -13,7 +17,6 @@
 - [[file:org-format.org][org-format.org]]
 - [[file:errors.org][errors.org]]
 - [[file:commands.org][commands.org]]
-- [[file:search.org][search.org]]
 - [[file:ui.org][ui.org]]
 - [[file:customization.org][customization.org]]
 - [[file:implementation.org][implementation.org]]

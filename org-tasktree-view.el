@@ -107,7 +107,13 @@
       (insert scheduled-line "\n")))
   (let ((props (org-tasktree-view--properties node)))
     (when props
-      (insert props "\n"))))
+      (insert props "\n")))
+  (let ((content (org-tasktree-model-node-content node)))
+    (when (and (stringp content)
+               (string-match-p "\\S-" content))
+      (insert content)
+      (unless (string-suffix-p "\n" content)
+        (insert "\n")))))
 
 (defun org-tasktree-view-display-tree (nodes title)
   "Display NODES as an org tree in a writable buffer titled TITLE."

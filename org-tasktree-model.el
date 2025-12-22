@@ -25,17 +25,17 @@
 
 (cl-defstruct org-tasktree-model-node
   id uid parent-id node-type todo-keyword title level priority
-  scheduled deadline repeat closed-at tags status project-id phase-id
+  scheduled deadline repeat closed-at tags content status project-id phase-id
   created-at updated-at)
 
 (cl-defun org-tasktree-model-node-create
     (&key id uid parent-id node-type todo-keyword title level priority
-          scheduled deadline repeat closed-at tags status project-id phase-id
+          scheduled deadline repeat closed-at tags content status project-id phase-id
           created-at updated-at)
   "Create node from keyword arguments.
 Accepts ID, UID, PARENT-ID, NODE-TYPE, TODO-KEYWORD, TITLE, LEVEL,
 PRIORITY, SCHEDULED, DEADLINE, REPEAT, CLOSED-AT, TAGS, STATUS,
-PROJECT-ID, PHASE-ID, CREATED-AT, and UPDATED-AT."
+CONTENT, PROJECT-ID, PHASE-ID, CREATED-AT, and UPDATED-AT."
   (make-org-tasktree-model-node
    :id id
    :uid uid
@@ -50,6 +50,7 @@ PROJECT-ID, PHASE-ID, CREATED-AT, and UPDATED-AT."
    :repeat repeat
    :closed-at closed-at
    :tags tags
+   :content content
    :status status
    :project-id project-id
    :phase-id phase-id
@@ -64,8 +65,8 @@ PROJECT-ID, PHASE-ID, CREATED-AT, and UPDATED-AT."
   "Create `org-tasktree-model-node' from DB ROW.
 ROW must follow table column order: id, uid, parent_id, node_type,
 TODO keyword, title, level, priority, scheduled, deadline, repeat,
-closed_at, tags, status, project_id, phase_id, created_at, and
-updated_at."
+closed_at, tags, content, status, project_id, phase_id, created_at,
+and updated_at."
   (org-tasktree-model-node-create
    :id (org-tasktree-model--row-nth row 0)
    :uid (org-tasktree-model--row-nth row 1)
@@ -80,11 +81,12 @@ updated_at."
    :repeat (org-tasktree-model--row-nth row 10)
    :closed-at (org-tasktree-model--row-nth row 11)
    :tags (org-tasktree-model--row-nth row 12)
-   :status (org-tasktree-model--row-nth row 13)
-   :project-id (org-tasktree-model--row-nth row 14)
-   :phase-id (org-tasktree-model--row-nth row 15)
-   :created-at (org-tasktree-model--row-nth row 16)
-   :updated-at (org-tasktree-model--row-nth row 17)))
+   :content (org-tasktree-model--row-nth row 13)
+   :status (org-tasktree-model--row-nth row 14)
+   :project-id (org-tasktree-model--row-nth row 15)
+   :phase-id (org-tasktree-model--row-nth row 16)
+   :created-at (org-tasktree-model--row-nth row 17)
+   :updated-at (org-tasktree-model--row-nth row 18)))
 
 (defun org-tasktree-model-node-from-plist (plist)
   "Create `org-tasktree-model-node' from PLIST with keyword keys."
@@ -102,6 +104,7 @@ updated_at."
    :repeat (plist-get plist :repeat)
    :closed-at (plist-get plist :closed-at)
    :tags (plist-get plist :tags)
+   :content (plist-get plist :content)
    :status (plist-get plist :status)
    :project-id (plist-get plist :project-id)
    :phase-id (plist-get plist :phase-id)
@@ -123,6 +126,7 @@ updated_at."
         :repeat (org-tasktree-model-node-repeat node)
         :closed-at (org-tasktree-model-node-closed-at node)
         :tags (org-tasktree-model-node-tags node)
+        :content (org-tasktree-model-node-content node)
         :status (org-tasktree-model-node-status node)
         :project-id (org-tasktree-model-node-project-id node)
         :phase-id (org-tasktree-model-node-phase-id node)
@@ -146,6 +150,7 @@ omitted, starting from `uid'."
                     (org-tasktree-model-node-repeat node)
                     (org-tasktree-model-node-closed-at node)
                     (org-tasktree-model-node-tags node)
+                    (org-tasktree-model-node-content node)
                     (org-tasktree-model-node-status node)
                     (org-tasktree-model-node-project-id node)
                     (org-tasktree-model-node-phase-id node)

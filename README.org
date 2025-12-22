@@ -90,7 +90,7 @@ M-x org-tasktree-init
 
 1. `M-x org-tasktree-find-node` を実行する。
 2. find-file 風の階層補完で Project / Phase / Group を辿り、最後に task 名を入力する。
-3. 開かれた編集バッファで必要項目（priority / scheduled / deadline / tags）を入力し、`C-c C-c` で確定する。
+3. 開かれた編集バッファで必要項目（priority / scheduled / deadline / tags / content）を入力し、`C-c C-c` で確定する。
 4. Project 未指定の task は自動的に Inbox Project に収容される。
 
 ** Inbox に集約して後で整理

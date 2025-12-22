@@ -96,6 +96,27 @@ PARENT-TYPE is a node_type string or nil for top-level."
     map)
   "Keymap used inside widget editable fields.")
 
+(defvar org-tasktree-ui--widget-text-keymap
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map widget-text-keymap)
+    (define-key map (kbd "C-c C-c") #'org-tasktree-ui-widget-edit-accept)
+    (define-key map (kbd "C-c C-k") #'org-tasktree-ui-widget-edit-cancel)
+    (define-key map (kbd "C-c C-s") #'org-tasktree-ui-widget-edit-set-scheduled)
+    (define-key map (kbd "C-c C-d") #'org-tasktree-ui-widget-edit-set-deadline)
+    map)
+  "Keymap used inside widget multiline text fields.")
+
+(defconst org-tasktree-ui--content-width
+  60
+  "Preferred content field width in characters.")
+
+(defun org-tasktree-ui--set-content-margins (window)
+  "Set right margin on WINDOW to fit `org-tasktree-ui--content-width'."
+  (when (window-live-p window)
+    (let* ((body (window-body-width window))
+           (margin (max 0 (- body org-tasktree-ui--content-width))))
+      (set-window-margins window nil margin))))
+
 
 
 
@@ -184,6 +205,7 @@ PARENT-TYPE is a node_type string or nil for top-level."
           :deadline (org-tasktree-model-node-deadline node)
           :repeat (org-tasktree-model-node-repeat node)
           :tags (org-tasktree-model-node-tags node)
+          :content (org-tasktree-model-node-content node)
           :path-titles parent-path
           :project-title project-title
           :project-id project-id
@@ -237,6 +259,7 @@ PARENT-TYPE is a node_type string or nil for top-level."
           :deadline nil
           :repeat nil
           :tags nil
+          :content nil
           :path-titles parent-path-titles
           :project-title project-title
           :project-id project-id
@@ -284,7 +307,7 @@ PARENT-TYPE is a node_type string or nil for top-level."
   (use-local-map org-tasktree-ui-widget-edit-mode-map)
   (setq buffer-read-only nil)
   (overwrite-mode 1)
-  (setq truncate-lines t))
+  (setq truncate-lines nil))
 
 (defun org-tasktree-ui--pos (pos)
   "Return the integer buffer position of POS.
@@ -338,6 +361,20 @@ POS may be an integer or a marker."
     (when w
       (let ((v (widget-value w)))
         (and (stringp v) (string-trim v))))))
+
+(defun org-tasktree-ui--widget-value-raw (key)
+  "Return raw string value for KEY widget without trimming."
+  (let ((w (org-tasktree-ui--widget-get key)))
+    (when w
+      (let ((v (widget-value w)))
+        (and (stringp v) v)))))
+
+(defun org-tasktree-ui--normalize-content (value)
+  "Return VALUE or nil when empty/whitespace."
+  (let ((text (or value "")))
+    (if (string-match-p "\\S-" text)
+        text
+      nil)))
 
 (defun org-tasktree-ui--validate-title (value)
   "Return normalized title string from VALUE or signal `user-error'."
@@ -534,6 +571,9 @@ Accepts YYYY-MM-DD, YYYY/MM/DD, MM-DD, MM/DD, and DD forms."
                     "deadline"))
          (repeat (org-tasktree-ui--validate-repeat
                   (org-tasktree-ui--widget-value :repeat)))
+         (content-raw (org-tasktree-ui--widget-value-raw :content))
+         (content (org-tasktree-ui--normalize-content
+                   (and (stringp content-raw) content-raw)))
          (tags (org-tasktree-ui--validate-tags
                 (org-tasktree-ui--widget-value :tags))))
     (org-tasktree-ui--validate-schedule-deadline scheduled deadline)
@@ -550,6 +590,7 @@ Accepts YYYY-MM-DD, YYYY/MM/DD, MM-DD, MM/DD, and DD forms."
                     :scheduled scheduled
                     :deadline deadline
                     :repeat repeat
+                    :content content
                     :tags tags
                     :status "OPEN"
                     :project-id nil
@@ -575,6 +616,7 @@ Accepts YYYY-MM-DD, YYYY/MM/DD, MM-DD, MM/DD, and DD forms."
                       :scheduled scheduled
                       :deadline deadline
                       :repeat repeat
+                      :content content
                       :tags tags
                       :status "OPEN"
                       :project-id project-id
@@ -643,6 +685,7 @@ Accepts YYYY-MM-DD, YYYY/MM/DD, MM-DD, MM/DD, and DD forms."
                          :scheduled scheduled
                          :deadline deadline
                          :repeat repeat
+                         :content content
                          :tags tags
                          :status "OPEN"
                          :project-id project-id
@@ -717,6 +760,7 @@ Accepts YYYY-MM-DD, YYYY/MM/DD, MM-DD, MM/DD, and DD forms."
                     :scheduled scheduled
                     :deadline deadline
                     :repeat repeat
+                    :content content
                     :tags tags
                     :status "OPEN"
                     :project-id project-id
@@ -745,6 +789,27 @@ KEY, VALUE, and HINT configure the created widget."
     (when hint
       (widget-insert " " (propertize hint 'face 'shadow)))
     (widget-insert "\n")
+    (setq org-tasktree-ui--widget-widgets
+          (plist-put org-tasktree-ui--widget-widgets key w))
+    w))
+
+(defun org-tasktree-ui--widget-insert-multiline-field (label key value hint)
+  "Insert multiline field for LABEL and return widget.
+KEY, VALUE, and HINT configure the created widget."
+  (widget-insert (format "%s:\n" label))
+  (let* ((start (point))
+         (w (widget-create 'text
+                           :format "%v"
+                           :keymap org-tasktree-ui--widget-text-keymap
+                           :value (or value ""))))
+    (when hint
+      (widget-insert "\n")
+      (widget-insert (propertize hint 'face 'shadow)))
+    (widget-insert "\n")
+    (let ((end (point)))
+      (when (< start end)
+        (put-text-property start end 'line-prefix nil)
+        (put-text-property start end 'wrap-prefix nil)))
     (setq org-tasktree-ui--widget-widgets
           (plist-put org-tasktree-ui--widget-widgets key w))
     w))
@@ -784,17 +849,20 @@ KEY, VALUE, and HINT configure the created widget."
      "[A-Za-z0-9]")
     (org-tasktree-ui--widget-insert-field
      "scheduled" :scheduled (plist-get meta :scheduled)
-     "YYYY-MM-DD | YYYY/MM/DD | MM-DD | MM/DD | DD  (C-c C-s)")
+     "YYYY-MM-DD | MM-DD | DD (C-c C-s)")
     (org-tasktree-ui--widget-insert-field
      "deadline" :deadline (plist-get meta :deadline)
-     "YYYY-MM-DD | YYYY/MM/DD | MM-DD | MM/DD | DD  (C-c C-d)")
+     "YYYY-MM-DD | MM-DD | DD (C-c C-d)")
     (when (plist-get meta :show-repeat)
       (org-tasktree-ui--widget-insert-field
        "repeat" :repeat (plist-get meta :repeat)
        "+1d | ++2w | .+3m | +1y/2"))
     (org-tasktree-ui--widget-insert-field
      "tags" :tags (plist-get meta :tags)
-     ":tag1:tag2: | tag1:tag2  ([A-Za-z0-9_-], ':' separated)")
+     ":tag1:tag2: | tag1:tag2")
+    (org-tasktree-ui--widget-insert-multiline-field
+     "content" :content (plist-get meta :content)
+     "multiline")
     (widget-insert "\n")
     (widget-insert
      (propertize "C-c C-c: commit,  C-c C-k: cancel,  TAB/S-TAB: move fields\n"
@@ -892,6 +960,7 @@ This function is intended for use in `after-change-functions'."
     (setq win (pop-to-buffer buf))
     (when (window-live-p win)
       (with-selected-window win
+        (org-tasktree-ui--set-content-margins win)
         (set-window-start win (point-min))
         (set-window-point win (with-current-buffer buf (point)))))
     win))

@@ -25,6 +25,7 @@
 - repeat       TEXT              ; org の SCHEDULE の繰り返し設定
 - closed_at    TEXT              ; DONE 時の完了日時
 - tags         TEXT              ; org の tag suffix（例: :tag1:tag2:）。正規化は node_tags
+- content      TEXT              ; 見出し配下の org 本文（複数行可）
 - status       TEXT    NOT NULL   ; OPEN / DONE
 - project_id   INTEGER          ; 所属 Project の id（project ノードでは NULL）
 - phase_id     INTEGER
@@ -35,7 +36,7 @@
 - parent_id / phase_id は NULL を許容する（ルートノードなど）。
 - project_id は project ノードでは NULL を許容し、それ以外のノードでは必須とする。
 - todo_keyword は group ノードでは NULL になる。
-- priority / scheduled / deadline / repeat / tags は未設定時 NULL を許容する。
+- priority / scheduled / deadline / repeat / tags / content は未設定時 NULL を許容する。
 - tags は `:tag1:tag2:` 形式で保存する（入力は `:tag1:tag2:` / `tag1:tag2` を許容し、コミット時に正規化する）。
 - created_at は既存 UID の場合は維持し、新規 UID の場合は現在時刻で設定する。
 - updated_at は INSERT/UPDATE のたびに現在時刻で更新する。

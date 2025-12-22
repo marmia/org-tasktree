@@ -222,10 +222,10 @@ CACHE-ENTRY is a plist from `org-tasktree-db--existing-cache' or nil."
            '("INSERT INTO nodes("
              "  uid, parent_id, node_type, todo_keyword, title,"
              "  level, priority, scheduled, deadline, repeat, closed_at,"
-             "  tags, status, project_id, phase_id, created_at,"
+             "  tags, content, status, project_id, phase_id, created_at,"
              "  updated_at"
              ") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,"
-             " ?, ?, ?);")
+             " ?, ?, ?, ?);")
            "\n"))
          (sql-update
           (mapconcat
@@ -241,6 +241,7 @@ CACHE-ENTRY is a plist from `org-tasktree-db--existing-cache' or nil."
              "  repeat=?,"
              "  closed_at=?,"
              "  tags=?,"
+             "  content=?,"
              "  status=?,"
              "  project_id=?,"
              "  phase_id=?,"
@@ -262,6 +263,7 @@ CACHE-ENTRY is a plist from `org-tasktree-db--existing-cache' or nil."
                    (org-tasktree-model-node-repeat node)
                    (org-tasktree-model-node-closed-at node)
                    (org-tasktree-model-node-tags node)
+                   (org-tasktree-model-node-content node)
                    (org-tasktree-model-node-status node)
                    (org-tasktree-model-node-project-id node)
                    (org-tasktree-model-node-phase-id node)
@@ -337,6 +339,7 @@ For new UIDs, a row is inserted.  node_tags are replaced per node."
            "  repeat TEXT,"
            "  closed_at TEXT,"
            "  tags TEXT,"
+           "  content TEXT,"
            "  status TEXT NOT NULL,"
            "  project_id INTEGER,"
            "  phase_id INTEGER,"
@@ -410,10 +413,10 @@ For new UIDs, a row is inserted.  node_tags are replaced per node."
       '("INSERT OR IGNORE INTO nodes("
         "  id, uid, parent_id, node_type, todo_keyword, title,"
         "  level, priority, scheduled, deadline, repeat, closed_at, tags,"
-        "  status, project_id, phase_id, created_at,"
+        "  content, status, project_id, phase_id, created_at,"
         "  updated_at"
         ") VALUES(?, ?, NULL, 'project', 'PROJ', 'inbox', 1,"
-        "  NULL, NULL, NULL, NULL, NULL, NULL, 'OPEN',"
+        "  NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'OPEN',"
         "  NULL, NULL, ?, ?);")
       "\n")
      (vector org-tasktree-db--inbox-id

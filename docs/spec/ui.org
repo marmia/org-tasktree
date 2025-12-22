@@ -21,6 +21,7 @@
   - deadline
   - repeat
   - tags
+  - content（複数行入力）
 - `TAB` / `S-TAB` で入力欄を移動できる。
 - `C-c C-s` で scheduled、`C-c C-d` で deadline の `org-read-date` を起動する（`C-g` でキャンセル）。
 - `C-c C-c` でコミット、`C-c C-k` でキャンセルしてミニバッファ表示に戻る。
