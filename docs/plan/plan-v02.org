@@ -45,7 +45,8 @@
 *** DONE M15-3: コードレビュー
 *** DONE M15-4: ユーザーテスト
 ** TODO M16: 編集バッファの微修正
-*** TODO M16-1: 仕様決定 * ドキュメント修正
+*** TODO M16-1: 仕様決定
+`org-tasktree-find-node`で phase/group/task の新規登録をする時は、編集バッファの初期表時のカーソル位置を`note_type`にする。
 *** TODO M16-2: 実装
 *** TODO M16-3: コードレビュー
 *** TODO M16-4: ユーザーテスト

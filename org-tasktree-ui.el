@@ -946,10 +946,14 @@ This function is intended for use in `after-change-functions'."
                 #'org-tasktree-ui--widget-enforce-field-size
                 nil
                 t)
-      (let* ((w (org-tasktree-ui--widget-get :title))
-             (from (and w
-                        (or (ignore-errors (widget-field-start w))
-                            (widget-get w :from))))
+      (let* ((new-node (null (plist-get meta :uid)))
+             (node-type-widget (org-tasktree-ui--widget-get :node-type))
+             (target-widget (if (and new-node node-type-widget)
+                                node-type-widget
+                              (org-tasktree-ui--widget-get :title)))
+             (from (and target-widget
+                        (or (ignore-errors (widget-field-start target-widget))
+                            (widget-get target-widget :from))))
              (pos (or (org-tasktree-ui--pos from)
                       (save-excursion
                         (goto-char (point-min))
