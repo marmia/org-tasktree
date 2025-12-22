@@ -19,6 +19,7 @@
 (require 'org-tasktree-query)
 (require 'org-tasktree-view)
 (require 'org-tasktree-ui)
+(require 'org-tasktree-sync)
 
 (declare-function org-tasktree-ui-edit-node "org-tasktree-ui")
 
@@ -86,6 +87,7 @@
   (org-tasktree-view-display-tree
    (org-tasktree-query-search-next-7day)
    "Next 7 days"))
+
 
 (provide 'org-tasktree)
 ;;; org-tasktree.el ends here

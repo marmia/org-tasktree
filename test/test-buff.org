@@ -1,0 +1,27 @@
+#+title: Sync Test Buff
+
+* PROJ proj1
+:PROPERTIES:
+:UID:      eb1761f3-d26d-4e02-96a2-6fe600ae7afd
+:END:
+** PHASE phase1
+:PROPERTIES:
+:UID:      ebd3a28c-68f9-40ce-bdcd-625907c431a6
+:END:
+*** group1
+:PROPERTIES:
+:UID:      efe00138-f35b-4279-8fac-bd387d872113
+:END:
+**** TODO task1-1
+SCHEDULED: <2025-12-23 Tue>
+:PROPERTIES:
+:UID:      1a9abda5-a346-423b-9d20-1e6508bf51ec
+:END:
+*** group2
+:PROPERTIES:
+:UID:      0c4e5c15-bc45-4d15-846c-d378af1800b8
+:END:
+**** TODO task2-1
+:PROPERTIES:
+:UID:      314600f2-00ba-4923-a8a8-9fa349a01183
+:END:

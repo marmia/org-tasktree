@@ -8,18 +8,17 @@
 - SQLite データベースの初期化処理を行う。
 
 *** 処理内容
-
 - 以下の処理を順番に実行する。
 
-1. `org-tasktree-database-location` で指定されたパスを取得
-2. 親ディレクトリが存在しない場合は作成
-3. DB ファイルが存在しない場合は新規作成
-4. `nodes` / `node_tags` / `meta` テーブルを作成
-5. `meta` テーブルに初期データを登録
-   - schema_version = "1"
-   - created_at = 現在時刻（ISO 8601）
-6. システム既定 Project「inbox」を `nodes` に登録
-7. `org-tasktree-query-dir` が存在しない場合は作成
+- `org-tasktree-database-location` で指定されたパスを取得
+- 親ディレクトリが存在しない場合は作成
+- DB ファイルが存在しない場合は新規作成
+- `nodes` / `node_tags` / `meta` テーブルを作成
+- `meta` テーブルに初期データを登録
+  - schema_version = "1"
+  - created_at = 現在時刻（ISO 8601）
+- システム既定 Project「inbox」を `nodes` に登録
+- `org-tasktree-query-dir` が存在しない場合は作成
 
 *** 実行タイミング
 
@@ -113,11 +112,65 @@
   SQLite データベースに登録・更新する。
 
 *** 対象スコープ
-
 - カレントバッファ内のすべての org 見出し
 
 *** 処理内容
+- org バッファ全体を走査し、見出し単位でノード情報を抽出する。
+  - UID 未設定の見出しは自動で UID を付与する。
+  - content は見出し直下の本文のみを対象とし、PROPERTIES などの drawer と SCHEDULED/DEADLINE 行は除外する。
+- `DEL` フラグ付き見出しは削除対象として扱い、子孫ノードも再帰的に削除する。
+  - UID 未設定の `DEL` 見出しは無視する。
+- 収集したノードを `uid` をキーに INSERT/UPDATE する（id は維持）。
+- parent_id / project_id / phase_id は org ツリーから再計算する。
+  - 親がスコープ外で特定できない場合は DB 値を保持する（keep）。
+  - 新規で project が特定できない場合は inbox に登録する。
 
+** org-tasktree-sync-region
+*** 目的
+- 選択されたリージョン内のタスクツリーのみを DB に同期する。
+
+*** 対象スコープ
+- リージョン内に含まれるすべての heading
+- 子孫ノードはリージョン内に含まれていない限り対象外
+
+*** 処理内容
+- 選択されたリージョン内の見出しのみを対象に同期する。
+  - 子孫ノードはリージョン内に含まれていない限り対象外とする。
+  - parent_id / project_id / phase_id の再計算と keep の扱いは
+    `org-tasktree-sync-buffer` と同様。
+
+** org-tasktree-sync-subtree
+*** 目的
+- カーソル位置の heading をルートとするサブツリーのみを DB に同期する。
+
+*** 対象スコープ
+- カーソル位置にある heading
+- そのすべての子孫ノード
+
+*** 処理内容
+- カーソル位置の見出し配下のタスクツリーを対象に同期する。
+  - 子孫ノードも更新対象に含める。
+  - parent_id / project_id / phase_id の再計算と keep の扱いは
+    `org-tasktree-sync-buffer` と同様。
+
+*** 適用例
+
+#+begin_src org
+ * Task A
+ ** Task A-1    ← カーソル
+ *** TODO A-1-1
+ *** TODO A-1-2
+ ** Task A-2
+#+end_src
+
+- この場合の同期対象は以下のみとする。
+
+  - Task A
+  - Task A-1
+  - Task A-1-1
+  - Task A-1-2
+
+** org-tasktree-node-delete
 * 検索系
 ** 共通仕様
 - status='OPEN' のタスクのみを対象とする。

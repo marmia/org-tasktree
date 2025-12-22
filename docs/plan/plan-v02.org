@@ -39,128 +39,47 @@
 - 見出し間に空行を挿入しない。
 *** DONE M14-5 コードレビュー
 *** DONE M14-6 ユーザーテスト
-** TODO M15: org-mode のコンテンツを登録/更新できるようにする
+** DONE M15: org-mode のコンテンツを登録/更新できるようにする
 *** DONE M15-1: 仕様決定 * ドキュメント修正
 *** DONE M15-2: 実装
 *** DONE M15-3: コードレビュー
 *** DONE M15-4: ユーザーテスト
-** TODO M16: 編集バッファの微修正
-*** TODO M16-1: 仕様決定
+** DONE M16: 編集バッファの微修正
+*** DONE M16-1: 仕様決定
 `org-tasktree-find-node`で phase/group/task の新規登録をする時は、編集バッファの初期表時のカーソル位置を`note_type`にする。
-*** TODO M16-2: 実装
-*** TODO M16-3: コードレビュー
-*** TODO M16-4: ユーザーテスト
-** TODO M17: 新規作成: org-tasktree-sync-buffer
-*** TODO M17-1: 仕様決定 + ドキュメント追記
-**** 目的
-- カレントバッファ全体を 1 つのタスクツリーとして
-  SQLite データベースに登録・更新する。
+*** DONE M16-2: 実装
+*** DONE M16-3: コードレビュー
+*** DONE M16-4: ユーザーテスト
+** TODO M17: 一括更新系関数の新規作成
+*** DONE M17-1: 仕様検討
+*** DONE M17-2: `org-tasktree-sync-buffer`実装
+*** DONE M17-3: ユーザーテスト
+*** DONE M17-4: ドキュメント修正
+*** DONE M17-5: コードレビュー
+*** DONE M17-6: `org-tasktree-sync-region`実装
+*** DONE M17-7: ユーザーテスト
+*** DONE M17-8: ドキュメント修正
+*** DONE M17-9: コードレビュー
+*** DONE M17-10: `org-tasktree-sync-subtree`実装
+*** DONE M17-11: ユーザーテスト
+*** DONE M17-12: ドキュメント修正
+*** DONE M17-13: コードレビュー
+** M18: level の扱い見直し（search 出力の再計算）
+*** TODO 仕様確認
+  - 対応方針: org-tasktree-search-* の出力時に nodes.level を使わず、parent_id から見出しレベルを再計算する。
+  - sync では新規登録時のみ level を従来どおり保存する（org 見出しレベルそのまま）。
+  - 既存 UID の更新時は level を更新しない（DB 値は互換維持用途）。
+  - 目的: 日ごとに org 側の見出し階層が変わっても、DB のツリー整合性が崩れないようにする。
+*** TODO 実装
+*** TODO ユーザーテスト
+*** TODO コードレビュー
 
-**** 対象スコープ
-
-- カレントバッファ内のすべての org 見出し
-
-**** 処理内容
-
-**** 副作用
-
-- org バッファに UID が自動付与される
-- DB の該当ノード群が INSERT/UPDATE される（既存レコードの id は維持される）
-
-**** 一括登録（sync-*）の DB 更新方式と set/clear/keep
-
-v0.2 以降の一括登録（org-tasktree-sync-buffer/region/subtree）では、
-org ツリー構造の変化により、既存ノードの親子関係（parent_id）や所属（project_id/phase_id）が
-変更されることを許容する。
-
-ただし、本プロジェクトのリレーション参照（parent_id / project_id / phase_id）は nodes.id を用いるため、
-スコープ限定の一括登録において nodes を DELETE / INSERT で再生成すると id が変わり、
-スコープ外ノードとの参照整合性が壊れうる（外部キーを付けていないため静かに破綻しやすい）。
-そのため、sync-* の nodes 更新は uid をキーに INSERT/UPDATE（id 維持）を採用する。
-
-一括登録では「値を設定する」「明示的に NULL にする」「情報不足なので DB を維持する」を区別する必要がある。
-特に parent_id は、スコープ外の親を org 側から辿れない場合があり、単純に nil を NULL とみなすと破壊になる。
-
-- set: 明示的に値を設定する（例: parent_id=123）
-- clear: 明示的に NULL にする（例: parent_id=nil）
-- keep: 情報不足（スコープ外など）なので DB 値を維持する
-
-実装上は keep を通常の nil と区別できる表現（例: :unspecified のような sentinel）で表し、
-DB 層の UPDATE では keep の列を「更新しない（SET 句に含めない）」ことで実現する。
-
-例（project1/phase1/task1 の task1 を project1 直下に移動）:
-- parent_id: set（project1.id）
-- phase_id: clear（NULL）
-- project_id: keep（同一 project 内なら維持）または set（project1.id）
-**** node_type 変更（昇格/降格）は許可しない
-本プロジェクト（自分仕様）では、既存 uid の node_type は不変とする。
-理由は、org-mode の自由度に対して「昇格/降格」を安全に扱うには仕様・実装が複雑になりやすく、
-日常運用では自分がそのような編集を行わない前提で十分だからである。
-
-一括登録（sync-*）や将来の編集 UI で、DB に存在する uid の node_type が org 側の解釈と食い違う場合は、
-user-error として処理を中断する（DB を壊さないことを優先する）。
-
-また、Node を削除するユースケース（物理削除/論理削除/アーカイブ等）は v0.1 では未考慮であり、
-sync-* の設計（スコープ外不変の前提や orphan の扱い）と合わせて v0.2 以降で検討する。
-*** TODO M17-2: 実装
-*** TODO M17-3: コードレビュー
-*** TODO M17-4: ユーザーテスト
-
-** 新規作成: org-tasktree-sync-region
-*** 目的
-- 選択されたリージョン内のタスクツリーのみを DB に同期する。
-
-*** 対象スコープ
-
-- リージョン内に含まれるすべての heading
-- 各 heading のサブツリーも自動的に含める
-
-*** 処理内容
-
-- 処理の流れは `org-tasktree-sync-buffer` と同一とするが、
-  対象範囲をリージョンに限定する。
-
-*** 注意点
-
-- リージョン外のノードは一切更新・削除されない
-- 親ノードがスコープ外に存在する場合でも、
-  parent_id は DB 上の既存構造を参照する
-
-** 新規作成: org-tasktree-sync-subtree
-*** 目的
-- カーソル位置の heading をルートとするサブツリーのみを DB に同期する。
-
-*** 対象スコープ
-
-- カーソル位置にある heading
-- そのすべての子孫ノード
-
-*** 処理内容
-
-- 処理の流れは `org-tasktree-sync-buffer` と同一とするが、
-  対象範囲をカレントサブツリーのみに限定する。
-
-*** 適用例
-
-#+begin_src org
- * Task A
- ** Task A-1    ← カーソル
- *** TODO A-1-1
- *** TODO A-1-2
- ** Task A-2
-#+end_src
-
-- この場合の同期対象は以下のみとする。
-
-  - Task A
-  - Task A-1
-  - Task A-1-1
-  - Task A-1-2
-
-** 新規作成: org-tasktree-node-delete
+** 新規作成: org-tasktree-search-unscheduled
+** 新規作成: org-tasktree-search-by-query
+** 新規作成: org-tasktree-find-query
+** 新規作成: org-tasktree-search-*の org-mode 挿入版
 ** 新規作成: org-tasktree-project-archive
 ** 新規作成: org-tasktree-project-restore
-** 新規作成: org-tasktree-paste-tree
 ** 上位 Node の status が"DONE"になった場合に下位 Node も"DONE"に設定
 ** タスクのメモ追加
 見出し配下にユーザーがメモ書きをした場合に、DB に保存する

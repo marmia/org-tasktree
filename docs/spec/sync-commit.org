@@ -10,6 +10,14 @@
 - DONE
 - nil（キーワードなし）
 
+※ 上記キーワードは `org-todo-keywords` に登録されている必要がある。
+
+** 削除フラグ（DEL）
+
+- `DEL` は TODO キーワードではなく、見出し先頭の削除フラグとして扱う。
+- 形式: `* DEL TODO task1` のように `DEL` をアスタリスク直後に置く。
+- `DEL` は `org-todo-keywords` に登録しない。
+
 ** 内部属性
 
 - node_type: project / phase / group / task
@@ -66,6 +74,23 @@
 
 - parent_id は org ツリー構造から毎回再計算
 - project_id / phase_id は最寄りの上位ノードから決定
+- 親がスコープ外で特定できない場合は DB 値を維持する（keep）
+- 新規ノードで project を特定できない場合は inbox に登録する
+
+** UID の付与
+
+- UID 未設定の見出しは sync 時に自動で UID を付与する。
+
+** content の抽出
+
+- content は見出し直下の本文のみを対象とする。
+- PROPERTIES などの drawer と SCHEDULED/DEADLINE 行は除外する。
+
+** 削除（DEL）
+
+- `DEL` フラグが付いた見出しは削除対象とする。
+- 子孫ノードも再帰的に削除する。
+- UID 未設定の `DEL` 見出しは無視する。
 
 ** 繰り返しタスクの扱い
 

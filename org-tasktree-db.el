@@ -32,6 +32,14 @@
   "00000000-0000-0000-0000-000000000001"
   "Fixed UID for the system Inbox project.")
 
+(defun org-tasktree-db-inbox-id ()
+  "Return numeric id for the system Inbox project."
+  org-tasktree-db--inbox-id)
+
+(defun org-tasktree-db-inbox-uid ()
+  "Return UID for the system Inbox project."
+  org-tasktree-db--inbox-uid)
+
 (defconst org-tasktree-db--sqlite-foreign-keys-pragma
   "PRAGMA foreign_keys = ON;"
   "PRAGMA to enable SQLite foreign key constraints.")
@@ -139,6 +147,44 @@ The caller must close the returned connection using
                    cache))))
     cache))
 
+(defun org-tasktree-db-fetch-existing-cache (db uids)
+  "Return existing node cache for UIDS using DB connection."
+  (org-tasktree-db--existing-cache db uids))
+
+(defun org-tasktree-db-commit-nodes-with-db (db nodes &optional cache now)
+  "Insert or update NODES using existing DB connection.
+
+CACHE is an optional hash from UID to cached fields.
+NOW is an optional timestamp string for updated_at."
+  (let* ((uids (delq nil (mapcar #'org-tasktree-model-node-uid nodes)))
+         (cache (or cache (org-tasktree-db--existing-cache db uids)))
+         (now (or now (format-time-string "%FT%T%:z" (current-time))))
+         (prepared (org-tasktree-db--prepare-nodes nodes cache now)))
+    (org-tasktree-db--ensure-unique-uids uids)
+    (dolist (node (org-tasktree-db--sort-nodes prepared))
+      (let* ((uid (org-tasktree-model-node-uid node))
+             (cached (and uid (gethash uid cache))))
+        (org-tasktree-db--upsert-node db node cached)
+        (org-tasktree-db--refresh-node-tags db node)))
+    prepared))
+
+(defun org-tasktree-db-delete-subtree-by-uids (db uids)
+  "Delete nodes (and descendants) for UIDS using DB connection."
+  (when uids
+    (let* ((placeholder (org-tasktree-db--sql-in (length uids)))
+           (sql (format
+                 (mapconcat
+                  #'identity
+                  '("WITH RECURSIVE to_delete(id) AS ("
+                    "  SELECT id FROM nodes WHERE uid IN %s"
+                    "  UNION"
+                    "  SELECT n.id FROM nodes n JOIN to_delete t ON n.parent_id = t.id"
+                    ")"
+                    "DELETE FROM nodes WHERE id IN (SELECT id FROM to_delete);")
+                  "\n")
+                 placeholder)))
+      (sqlite-execute db sql (apply #'vector uids)))))
+
 (defun org-tasktree-db--last-rowid (db)
   "Return last inserted rowid on DB."
   (let ((rows (sqlite-select db "SELECT last_insert_rowid();")))
@@ -178,6 +224,18 @@ checked and preserved."
             (cached-project (plist-get cached :project-id))
             (cached-phase (plist-get cached :phase-id))
             (node-type (org-tasktree-model-node-node-type node)))
+       (when (eq (org-tasktree-model-node-parent-id node) :keep)
+         (if cached-parent
+             (setf (org-tasktree-model-node-parent-id node) cached-parent)
+           (user-error "Parent ID keep failed (uid=%s)" uid)))
+       (when (eq (org-tasktree-model-node-project-id node) :keep)
+         (if cached-project
+             (setf (org-tasktree-model-node-project-id node) cached-project)
+           (user-error "Project ID keep failed (uid=%s)" uid)))
+       (when (eq (org-tasktree-model-node-phase-id node) :keep)
+         (if cached-phase
+             (setf (org-tasktree-model-node-phase-id node) cached-phase)
+           (setf (org-tasktree-model-node-phase-id node) nil)))
        (when (org-tasktree-db--inbox-uid-p uid)
          (user-error "Inbox project is read-only"))
        (when (and cached-id (= cached-id org-tasktree-db--inbox-id))
@@ -186,15 +244,6 @@ checked and preserved."
          (user-error "Node type must not change (uid=%s)" uid))
        (when cached-id
          (setf (org-tasktree-model-node-id node) cached-id))
-       (when (and (null (org-tasktree-model-node-parent-id node))
-                  cached-parent)
-         (setf (org-tasktree-model-node-parent-id node) cached-parent))
-       (when (and (null (org-tasktree-model-node-project-id node))
-                  cached-project)
-         (setf (org-tasktree-model-node-project-id node) cached-project))
-       (when (and (null (org-tasktree-model-node-phase-id node))
-                  cached-phase)
-         (setf (org-tasktree-model-node-phase-id node) cached-phase))
        (when (and (equal node-type "task")
                   (not (numberp (org-tasktree-model-node-project-id node))))
          (setf (org-tasktree-model-node-project-id node)
