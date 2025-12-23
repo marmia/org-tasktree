@@ -50,7 +50,7 @@
 *** DONE M16-2: 実装
 *** DONE M16-3: コードレビュー
 *** DONE M16-4: ユーザーテスト
-** TODO M17: 一括更新系関数の新規作成
+** DONE M17: 一括更新系関数の新規作成
 *** DONE M17-1: 仕様検討
 *** DONE M17-2: `org-tasktree-sync-buffer`実装
 *** DONE M17-3: ユーザーテスト
@@ -64,7 +64,7 @@
 *** DONE M17-11: ユーザーテスト
 *** DONE M17-12: ドキュメント修正
 *** DONE M17-13: コードレビュー
-** M18: level の扱い見直し（search 出力の再計算）
+** DONE M18: level の扱い見直し（search 出力の再計算）
 *** DONE 仕様確認
   - 対応方針: org-tasktree-search-* の出力時に nodes.level を使わず、parent_id から見出しレベルを再計算する。
   - sync では新規登録時のみ level を従来どおり保存する（org 見出しレベルそのまま）。
@@ -72,12 +72,16 @@
   - 目的: 日ごとに org 側の見出し階層が変わっても、DB のツリー整合性が崩れないようにする。
 *** DONE 実装
 *** DONE ユーザーテスト
-*** TODO コードレビュー
-** M19: sync/search 系再テスト
-- org-mode 内 project よりも上位の見出しがあるケース
+*** DONE コードレビュー
+** M19: sync 系コマンドの微修正
+*** DONE 問題点の確認
+- タスクツリーの新規登録で project よりも上位の見出しがあると以下の問題が発生する。
   - `sync-buffer` -> inbox 配下に全て登録される。
-  - `sync-region/subtree` -> - `condition-case: Parent UID missing for selected headline`
-- org-priority-regexp の設定に従って出力
+  - `sync-region/subtree` 以下のメッセージが表示されてタスクツリーが登録されない。
+    - `condition-case: Parent UID missing for selected headline`
+*** DONE 実装
+*** DONE ユーザーテスト
+*** TODO コードレビュー
 ** M20: テスト環境構築
 *** TODO テスト方針確認
   - 目的: テストファースト導入のための 最小構成の自動テスト基盤 を整備する。

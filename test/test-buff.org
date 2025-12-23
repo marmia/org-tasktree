@@ -1,8 +1,21 @@
 #+title: Sync Test Buff
 
-* Test
+* heading 1
 ** PROJ proj1
+:PROPERTIES:
+:UID:      17df853b-f01f-4ff4-bb22-7063ebe6d2f4
+:END:
 *** PHASE phase1
+:PROPERTIES:
+:UID:      1ded3c88-9a1f-4a7e-b7c8-b14ac4af270a
+:END:
 **** group1
-***** TODO task1-1
-SCHEDULED: <2025-12-23 Tue>
+:PROPERTIES:
+:UID:      6179a971-2c55-4fe6-819f-9ff66bdc1bba
+:END:
+***** TODO [#A] task1-1 :test:m19:
+DEADLINE: <2025-12-27 Sat> SCHEDULED: <2025-12-23 Tue .+1d>
+:PROPERTIES:
+:UID:      aaaf2a3c-3413-4238-bbef-b50f4bd1ceef
+:END:
+タスク 1-1 のメモ

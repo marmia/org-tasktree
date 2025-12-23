@@ -254,8 +254,37 @@
                    (parent (or (car effective-stack) parent-placeholder))
                    (parent-type (and parent
                                      (plist-get parent :node-type))))
+              (when (and (equal node-type "project")
+                         (car effective-stack))
+                (let* ((ancestor-begins
+                        (mapcar (lambda (ancestor)
+                                  (plist-get ancestor :begin))
+                                effective-stack))
+                       (ancestor-uids
+                        (seq-filter
+                         #'org-tasktree-sync--nonempty-string-p
+                         (mapcar (lambda (ancestor)
+                                   (plist-get ancestor :uid))
+                                 effective-stack))))
+                  (setq items
+                        (seq-remove
+                         (lambda (item)
+                           (let ((begin (plist-get item :begin)))
+                             (and (integerp begin)
+                                  (member begin ancestor-begins))))
+                         items))
+                  (setq delete-uids
+                        (seq-remove
+                         (lambda (uid)
+                           (member uid ancestor-uids))
+                         delete-uids)))
+                (setq full-stack nil)
+                (setq effective-stack nil)
+                (setq parent nil)
+                (setq parent-type nil))
               (when (and parent-present (null parent-uid)
-                         (null (car effective-stack)))
+                         (null parent)
+                         (not (equal node-type "project")))
                 (user-error "Parent UID missing for selected headline"))
               (org-tasktree-sync--validate-node-type-change
                uid node-type cached-type)
@@ -263,7 +292,8 @@
                 (org-tasktree-sync--validate-parent-type node-type parent-type))
               (let* ((project (cond
                                ((equal node-type "project") nil)
-                               ((and parent (equal parent-type "project")) parent)
+                               ((and parent (equal parent-type "project"))
+                                parent)
                                (parent (plist-get parent :project))
                                (t nil)))
                      (phase (cond
@@ -280,8 +310,10 @@
                                          :existing (and cached t)))))
                 (push item items)
                 (push item effective-stack)))))))
-    (list :items (nreverse items)
-          :delete-uids (nreverse (delete-dups delete-uids)))))
+    (let ((delete-set (delete-dups delete-uids)))
+      (list
+       :items (nreverse items)
+       :delete-uids (nreverse delete-set)))))
 
 (defun org-tasktree-sync--ensure-uid (item)
   "Ensure ITEM has UID, generating and storing when needed."
