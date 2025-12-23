@@ -65,12 +65,41 @@
 *** DONE M17-12: ドキュメント修正
 *** DONE M17-13: コードレビュー
 ** M18: level の扱い見直し（search 出力の再計算）
-*** TODO 仕様確認
+*** DONE 仕様確認
   - 対応方針: org-tasktree-search-* の出力時に nodes.level を使わず、parent_id から見出しレベルを再計算する。
   - sync では新規登録時のみ level を従来どおり保存する（org 見出しレベルそのまま）。
   - 既存 UID の更新時は level を更新しない（DB 値は互換維持用途）。
   - 目的: 日ごとに org 側の見出し階層が変わっても、DB のツリー整合性が崩れないようにする。
-*** TODO 実装
+*** DONE 実装
+*** DONE ユーザーテスト
+*** TODO コードレビュー
+** M19: sync/search 系再テスト
+- org-mode 内 project よりも上位の見出しがあるケース
+  - `sync-buffer` -> inbox 配下に全て登録される。
+  - `sync-region/subtree` -> - `condition-case: Parent UID missing for selected headline`
+- org-priority-regexp の設定に従って出力
+** M20: テスト環境構築
+*** TODO テスト方針確認
+  - 目的: テストファースト導入のための 最小構成の自動テスト基盤 を整備する。
+  - テスト基盤:
+    - Emacs 標準の ert を採用（依存追加なし）。
+    - 実行用スクリプト test/run-ert.sh を追加し、ローカルで一発実行できるようにする。
+  - テスト対象:
+    - org-tasktree-init
+    - org-tasktree-sync-buffer
+    - org-tasktree-sync-subtree
+    - org-tasktree-sync-region
+    - org-tasktree-search-today-task
+    - org-tasktree-search-overdue-task
+    - org-tasktree-search-next-7day-task
+    - org-tasktree-search-before-today-task
+  - 方針:
+    - UI (org-tasktree-find-node) の自動化は対象外。
+    - ロジック層を中心に、必要最小限のリファクタリングで テスト可能な関数を切り出す。
+    - 日付依存のテストは「今日」を固定できる仕組みを用意する（例: current-time 差し替え）。
+  - 既存の手動テストは継続しつつ、ロジック層の自動テストを先行導入する。
+*** TODO リファクタリング
+*** TODO テストケースの実装
 *** TODO ユーザーテスト
 *** TODO コードレビュー
 

@@ -5,6 +5,7 @@
 .dir-locals.el
 *.sql
 .serena/
+.codex/
 
 # Emacs temporary/compiled files
 *~

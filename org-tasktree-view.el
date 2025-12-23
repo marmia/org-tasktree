@@ -10,6 +10,7 @@
 ;;
 ;;; Code:
 
+(require 'cl-lib)
 (require 'org)
 (require 'subr-x)
 (require 'org-tasktree-model)
@@ -56,9 +57,10 @@
   (setq buffer-read-only nil)
   (setq truncate-lines nil))
 
-(defun org-tasktree-view--heading-line (node)
-  "Return org heading line string for NODE."
-  (let* ((level (max 1 (or (org-tasktree-model-node-level node) 1)))
+(defun org-tasktree-view--heading-line (node &optional level)
+  "Return org heading line string for NODE.
+LEVEL overrides the stored `level' field when non-nil."
+  (let* ((level (max 1 (or level (org-tasktree-model-node-level node) 1)))
          (stars (make-string level ?*))
          (todo (or (org-tasktree-model-node-todo-keyword node) ""))
          (todo-part (if (string-empty-p todo)
@@ -99,9 +101,10 @@
     (when uid
       (format ":PROPERTIES:\n:UID: %s\n:END:" uid))))
 
-(defun org-tasktree-view--insert-node (node)
-  "Insert NODE as org-formatted text at point."
-  (insert (org-tasktree-view--heading-line node) "\n")
+(defun org-tasktree-view--insert-node (node &optional level)
+  "Insert NODE as org-formatted text at point.
+LEVEL overrides NODE's stored level for display."
+  (insert (org-tasktree-view--heading-line node level) "\n")
   (let ((scheduled-line (org-tasktree-view--scheduled-line node)))
     (when scheduled-line
       (insert scheduled-line "\n")))
@@ -115,6 +118,35 @@
       (unless (string-suffix-p "\n" content)
         (insert "\n")))))
 
+(defun org-tasktree-view--level-map (nodes)
+  "Return hash table mapping node id to computed org level for NODES."
+  (let ((node-by-id (make-hash-table :test 'equal))
+        (level-by-id (make-hash-table :test 'equal))
+        (visiting (make-hash-table :test 'equal)))
+    (dolist (node nodes)
+      (puthash (org-tasktree-model-node-id node) node node-by-id))
+    (cl-labels
+        ((compute-level (node)
+           (let* ((id (org-tasktree-model-node-id node))
+                  (cached (gethash id level-by-id)))
+             (if cached
+                 cached
+               (when (gethash id visiting)
+                 (puthash id 1 level-by-id))
+               (puthash id t visiting)
+               (let* ((parent-id (org-tasktree-model-node-parent-id node))
+                      (parent (and parent-id
+                                   (gethash parent-id node-by-id)))
+                      (level (if parent
+                                 (1+ (compute-level parent))
+                               1)))
+                 (puthash id level level-by-id)
+                 (remhash id visiting)
+                 level)))))
+      (dolist (node nodes)
+        (compute-level node)))
+    level-by-id))
+
 (defun org-tasktree-view-display-tree (nodes title)
   "Display NODES as an org tree in a writable buffer titled TITLE."
   (let* ((buffer-name (format "%s%s*"
@@ -125,8 +157,11 @@
       (let ((inhibit-read-only t))
         (org-tasktree-view-mode)
         (erase-buffer)
-        (dolist (node nodes)
-          (org-tasktree-view--insert-node node))
+        (let ((level-map (org-tasktree-view--level-map nodes)))
+          (dolist (node nodes)
+            (org-tasktree-view--insert-node
+             node
+             (gethash (org-tasktree-model-node-id node) level-map))))
         (goto-char (point-min))
         (setq buffer-read-only nil)
         (setq-local view-read-only nil)
