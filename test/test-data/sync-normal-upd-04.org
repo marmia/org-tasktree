@@ -1,0 +1,20 @@
+#+title: Test Data - Sync Case Normal Upd 04
+
+* PHASE [#B] phase (after update) :phase:after:upd:
+SCHEDULED: <2026-02-01 Sun> DEADLINE: <2026-02-10 Tue>
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-upd000000002
+:END:
+phase update contents
+** [#B] group (after update) :group:after:upd:
+SCHEDULED: <2026-02-01 Sun> DEADLINE: <2026-02-05 Thu>
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-upd000000003
+:END:
+group update contents
+*** TODO [#B] task (after update) :task:after:upd:
+SCHEDULED: <2026-02-01 Sun .+2d>
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-upd000000004
+:END:
+task update contents

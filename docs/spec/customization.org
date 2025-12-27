@@ -33,8 +33,8 @@
 
 - ディレクトリは org-tasktree-init 実行時に自動作成される。
 
-** org-tasktree-default-project
+** org-tasktree-default-project-name
 
 - 型: string
-- 説明: Project / Phase 未指定タスクの所属 Project 名
+- 説明: Project / Phase 未指定タスクの所属 Project 名（inbox の表示名、init 時のみ反映）
 - デフォルト値: "inbox"

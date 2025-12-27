@@ -1,0 +1,8 @@
+#+title: Test Data - Sync Case Normal Insert 08
+
+* [#B] group1 :sync:test:01:
+DEADLINE: <2026-01-05 Mon> SCHEDULED: <2026-01-01 Thu>
+group1 notes
+** TODO [#A] task1 :sync:test:01:
+SCHEDULED: <2026-01-01 Thu +1d>
+task1 notes

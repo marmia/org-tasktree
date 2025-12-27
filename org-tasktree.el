@@ -39,11 +39,18 @@
   :type 'string
   :group 'org-tasktree)
 
-(defcustom org-tasktree-default-project
+(defcustom org-tasktree-default-project-name
   "inbox"
-  "Default project name for tasks without explicit project or phase."
+  "Default project name for tasks without explicit project or phase.
+This value is used as the inbox title only at initialization time."
   :type 'string
   :group 'org-tasktree)
+
+(defvaralias 'org-tasktree-default-project
+  'org-tasktree-default-project-name)
+(make-obsolete-variable 'org-tasktree-default-project
+                        'org-tasktree-default-project-name
+                        "0.1.0")
 
 (require 'org-tasktree-db)
 

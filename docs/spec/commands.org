@@ -17,7 +17,7 @@
 - `meta` テーブルに初期データを登録
   - schema_version = "1"
   - created_at = 現在時刻（ISO 8601）
-- システム既定 Project「inbox」を `nodes` に登録
+- システム既定 Project（`org-tasktree-default-project-name`）を `nodes` に登録
 - `org-tasktree-query-dir` が存在しない場合は作成
 
 *** 実行タイミング

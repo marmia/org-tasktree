@@ -19,6 +19,7 @@
 (require 'org-tasktree-model)
 
 (defvar org-tasktree-database-location)
+(defvar org-tasktree-default-project-name)
 
 (defconst org-tasktree-db--schema-version
   "1"
@@ -464,12 +465,15 @@ For new UIDs, a row is inserted.  node_tags are replaced per node."
         "  level, priority, scheduled, deadline, repeat, closed_at, tags,"
         "  content, status, project_id, phase_id, created_at,"
         "  updated_at"
-        ") VALUES(?, ?, NULL, 'project', 'PROJ', 'inbox', 1,"
+        ") VALUES(?, ?, NULL, 'project', 'PROJ', ?, 1,"
         "  NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'OPEN',"
         "  NULL, NULL, ?, ?);")
       "\n")
      (vector org-tasktree-db--inbox-id
              org-tasktree-db--inbox-uid
+             (or (and (stringp org-tasktree-default-project-name)
+                      org-tasktree-default-project-name)
+                 "inbox")
              now
              now))
     (let ((rows (sqlite-select
@@ -489,7 +493,7 @@ For new UIDs, a row is inserted.  node_tags are replaced per node."
         (unless (and (equal id org-tasktree-db--inbox-id)
                      (equal uid org-tasktree-db--inbox-uid)
                      (equal node-type "project")
-                     (equal title "inbox")
+                     (stringp title)
                      (equal status "OPEN"))
           (error "Inbox project is invalid or corrupted"))))))
 

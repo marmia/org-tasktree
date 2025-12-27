@@ -16,7 +16,7 @@ Emacs 用タスク管理プラグインである。
 
 * タスクの階層構造
 - タスクは階層構造（Project / Phase / Group / Task）を持つ
-- Project 未指定の Task は inbox に収容される
+- Project 未指定の Task は既定 Project に収容される
 - TOP 階層には Project のみ作成できる
 - Project 直下には、Phase/Group/Task を作成できる
 - Phase 直下には、Group/Task を作成できる

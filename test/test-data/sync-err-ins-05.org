@@ -1,0 +1,12 @@
+#+title: Test Data - Sync Case Error Insert 05
+
+- 見出し構成: project/task/group/task
+* PROJ [#B] proj1 :sync:test:01:
+DEADLINE: <2026-01-20 Tue> SCHEDULED: <2026-01-01 Thu>
+proj1 notes
+** TODO [#A] task1 :sync:test:01:
+SCHEDULED: <2026-01-03 Sat>
+task1 notes
+*** [#B] group1 :sync:test:01:
+**** TODO [#B] task1-1 :sync:test:01:
+SCHEDULED: <2026-01-03 Sat +1d>

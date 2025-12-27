@@ -1,0 +1,8 @@
+#+title: Test Data - Sync Case Normal Upd 06
+
+* TODO [#B] task (after update) :task:after:upd:
+SCHEDULED: <2026-02-01 Sun .+2d>
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-upd000000004
+:END:
+task update contents

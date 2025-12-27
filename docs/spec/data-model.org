@@ -44,7 +44,8 @@
 *** 初期データ
 
 - nodes テーブルには **初期化時に自動生成される inbox Project のみが初期データとして登録される。**
-- inbox の id は 1 に固定とし、title = "inbox" / node_type = project / status = OPEN。
+- inbox の id は 1 に固定とし、title は `org-tasktree-default-project-name` に従う。
+- node_type = project / status = OPEN。
 - inbox は固定 UID を持つ（システム既定値）。
 - Project 未指定タスクの project_id は inbox Project の id(=1) を設定する。
 
@@ -153,7 +154,8 @@ id は「DB 内部の参照・最適化（JOIN 用）」という役割分担と
 - inbox は初期化時に自動生成され、常に 1 件のみ存在する。
 - inbox の id は 1 に固定する。
 - inbox は固定 UID を持つ（システム既定値）。
-- node_type = project / title = "inbox" / status = OPEN。
-- ユーザーからの更新・削除は不可。
+- node_type = project / status = OPEN。
+- title は `org-tasktree-default-project-name` に従う（init 時のみ反映）。
+- ユーザーは title のみ更新可能。削除は不可。
 - すべての同期スコープにおいて inbox は更新・削除の対象から除外する。
 - Project / Phase 未指定タスクは inbox に所属（project_id = inbox.id）。

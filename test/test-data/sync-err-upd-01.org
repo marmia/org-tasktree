@@ -1,0 +1,17 @@
+#+title: Test Data - Sync Case Error Upd 01
+
+* PROJ [#B] proj (after update) :proj:after:upd:
+DEADLINE: <2026-02-20 Fri> SCHEDULED: <2026-02-01 Sun>
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-upd000000001
+:END:
+proj update contents
+** PROJ [#B] proj1-1 (after update) :phase:after:upd:
+SCHEDULED: <2026-02-01 Sun> DEADLINE: <2026-02-10 Tue>
+phase update contents
+*** TODO [#B] task (after update) :task:after:upd:
+SCHEDULED: <2026-02-01 Sun .+2d>
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-upd000000004
+:END:
+task update contents

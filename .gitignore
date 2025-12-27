@@ -6,6 +6,7 @@
 *.sql
 .serena/
 .codex/
+.ck/
 
 # Emacs temporary/compiled files
 *~

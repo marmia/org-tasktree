@@ -1,0 +1,23 @@
+* PROJ [#A] proj1
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-project00001
+:END:
+This is a project node.
+** TODO [#A] task-overdue
+SCHEDULED: <YESTERDAY> DEADLINE: <YESTERDAY>
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-overdue00004
+:END:
+This is a overdue task.
+** TODO [#A] task-today
+SCHEDULED: <TODAY> DEADLINE: <2026-01-20 Tue>
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-today0000002
+:END:
+This is a today task.
+** TODO [#A] task-yesterday
+SCHEDULED: <YESTERDAY> DEADLINE: <2026-01-20 Tue>
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-yesterday003
+:END:
+This is a yesterday task.

@@ -73,7 +73,7 @@
 *** DONE 実装
 *** DONE ユーザーテスト
 *** DONE コードレビュー
-** M19: sync 系コマンドの微修正
+** DONE M19: sync 系コマンドの微修正
 *** DONE 問題点の確認
 - タスクツリーの新規登録で project よりも上位の見出しがあると以下の問題が発生する。
   - `sync-buffer` -> inbox 配下に全て登録される。
@@ -81,35 +81,57 @@
     - `condition-case: Parent UID missing for selected headline`
 *** DONE 実装
 *** DONE ユーザーテスト
-*** TODO コードレビュー
+*** DONE コードレビュー
 ** M20: テスト環境構築
-*** TODO テスト方針確認
-  - 目的: テストファースト導入のための 最小構成の自動テスト基盤 を整備する。
-  - テスト基盤:
-    - Emacs 標準の ert を採用（依存追加なし）。
-    - 実行用スクリプト test/run-ert.sh を追加し、ローカルで一発実行できるようにする。
-  - テスト対象:
-    - org-tasktree-init
-    - org-tasktree-sync-buffer
-    - org-tasktree-sync-subtree
-    - org-tasktree-sync-region
-    - org-tasktree-search-today-task
-    - org-tasktree-search-overdue-task
-    - org-tasktree-search-next-7day-task
-    - org-tasktree-search-before-today-task
+*** DONE 目的
+  - 目的: テストファースト導入のための最小構成の自動テスト基盤を整備する。
+  - 前提: Emacs 標準の ert を採用（依存追加なし）。
+  - 対象:
+    - docs/spec/commands.org に記載の 10 コマンド
   - 方針:
     - UI (org-tasktree-find-node) の自動化は対象外。
-    - ロジック層を中心に、必要最小限のリファクタリングで テスト可能な関数を切り出す。
+    - 10 コマンドの主要ユースケースをすべてカバーする。
+    - テストケース洗い出しに合わせて、必要な範囲のみリファクタリングする。
     - 日付依存のテストは「今日」を固定できる仕組みを用意する（例: current-time 差し替え）。
-  - 既存の手動テストは継続しつつ、ロジック層の自動テストを先行導入する。
-*** TODO リファクタリング
-*** TODO テストケースの実装
-*** TODO ユーザーテスト
-*** TODO コードレビュー
+    - 既存の手動テストは継続しつつ、自動テストを先行導入する。
 
+*** DONE 1. 既存テスト資産の整理
+  - test/ 配下の既存スクリプト・ env 設定の再利用可否を確認する。
+  - 内部ロジックの切り出し対象の洗い出し
+*** DONE 2. 実行スクリプトの追加
+  - test/run-ert.sh を作成する。
+  - DB/Query パスはスクリプト内で設定変更できるようにする。
+  - デフォルトは ./test を使用する。
+*** DONE 3. テスト用ユーティリティの用意
+  - テスト用の一時 DB 作成/削除の手順を標準化する。
+  - 「今日」を固定する仕組み（current-time 差し替え）を準備する。
+*** DONE 4. テストケース実装 (org-tasktree-init)
+  - [x] テストケース設計
+  - [x] テストケース実装
+  - [x] test/run-ert.sh の実行
+  - [x] コードレビュー
+  - [x] コミット
+*** DONE 5. テストケース実装 (org-tasktree-find-node)
+  - [x] テストケース設計
+  - [x] テストケース実装
+  - [x] test/run-ert.sh の実行
+  - [x] コードレビュー
+  - [x] コミット
+*** DONE 6. テストケース実装 (org-tasktree-sync-*)
+  - [x] テストケース設計
+  - [x] テストケース実装
+  - [x] test/run-ert.sh の実行
+  - [x] コードレビュー
+  - [x] コミット
+*** DONE 7. テストケース実装 (org-tasktree-search-*)
+  - [x] テストケース設計
+  - [x] テストケース実装
+  - [x] test/run-ert.sh の実行
+  - [x] コードレビュー
+  - [x] コミット
+*** DONE 8. ドキュメント作成
 ** 新規作成: org-tasktree-search-unscheduled
 ** 新規作成: org-tasktree-search-by-query
-** 新規作成: org-tasktree-find-query
 ** 新規作成: org-tasktree-search-*の org-mode 挿入版
 ** 新規作成: org-tasktree-project-archive
 ** 新規作成: org-tasktree-project-restore

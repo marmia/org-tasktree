@@ -33,14 +33,19 @@
   "Return YYYY-MM-DD string from TIME."
   (format-time-string "%Y-%m-%d" time))
 
+(defvar org-tasktree-query--now-function #'current-time
+  "Function returning current time for query date calculations.")
+
 (defun org-tasktree-query--today ()
   "Return today's date string (local time)."
-  (org-tasktree-query--format-date (current-time)))
+  (org-tasktree-query--format-date
+   (funcall org-tasktree-query--now-function)))
 
 (defun org-tasktree-query--days-from-now (days)
   "Return date string DAYS from now (local time)."
   (org-tasktree-query--format-date
-   (time-add (current-time) (days-to-time days))))
+   (time-add (funcall org-tasktree-query--now-function)
+             (days-to-time days))))
 
 (defun org-tasktree-query--validate-date-field (db field)
   "Signal `user-error' when FIELD contain invalid dates on DB.

@@ -1,0 +1,26 @@
+#+title: Test Data - Sync Case Error Upd 07
+
+* PROJ [#B] proj (after update) :proj:after:upd:
+DEADLINE: <2026-02-20 Fri> SCHEDULED: <2026-02-01 Sun>
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-upd000000001
+:END:
+proj update contents
+** PHASE [#B] phase / after update :phase:after:upd:
+SCHEDULED: <2026-02-01 Sun> DEADLINE: <2026-02-10 Tue>
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-upd000000002
+:END:
+phase update contents
+*** [#B] group (after update) :group:after:upd:
+SCHEDULED: <2026-02-01 Sun> DEADLINE: <2026-02-05 Thu>
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-upd000000003
+:END:
+group update contents
+**** TODO [#B] task (after update) :task:after:upd:
+SCHEDULED: <2026-02-01 Sun .+2d>
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-upd000000004
+:END:
+task update contents

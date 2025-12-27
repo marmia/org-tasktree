@@ -41,6 +41,13 @@
               raw))
     (match-string 0 raw)))
 
+(defun org-tasktree-sync--validate-repeat-raw (raw)
+  "Validate repeat syntax in RAW or signal `user-error'."
+  (when (and raw
+             (string-match "\\(?:\\+\\+\\|\\+\\|\\.\\+\\)" raw)
+             (null (org-tasktree-sync--extract-repeat raw)))
+    (user-error "Repeat must follow org repeat syntax")))
+
 (defun org-tasktree-sync--timestamp-info (timestamp)
   "Return cons of (DATE . REPEAT) for TIMESTAMP element."
   (when timestamp
@@ -48,6 +55,88 @@
            (date (org-tasktree-sync--extract-date raw))
            (repeat (org-tasktree-sync--extract-repeat raw)))
       (cons date repeat))))
+
+(defun org-tasktree-sync--planning-raw (headline)
+  "Return plist with :scheduled-raw and :deadline-raw from HEADLINE."
+  (let* ((contents (org-element-contents headline))
+         (section (seq-find
+                   (lambda (el)
+                     (eq (org-element-type el) 'section))
+                   contents)))
+    (when section
+      (let* ((begin (org-element-property :begin section))
+             (end (org-element-property :end section))
+             (text (and begin end
+                        (buffer-substring-no-properties begin end)))
+             (scheduled-raw nil)
+             (deadline-raw nil)
+             (start 0))
+        (when (and text (string-match-p "\\bSCHEDULED:" text))
+          (setq scheduled-raw ""))
+        (when (and text (string-match-p "\\bDEADLINE:" text))
+          (setq deadline-raw ""))
+        (when text
+          (while (string-match
+                  "\\bSCHEDULED:\\s-*\\(<[^>]*>\\|\\[[^]]*\\]\\)"
+                  text
+                  start)
+            (setq scheduled-raw (match-string 1 text))
+            (setq start (match-end 0)))
+          (setq start 0)
+          (while (string-match
+                  "\\bDEADLINE:\\s-*\\(<[^>]*>\\|\\[[^]]*\\]\\)"
+                  text
+                  start)
+            (setq deadline-raw (match-string 1 text))
+            (setq start (match-end 0))))
+        (list :scheduled-raw scheduled-raw :deadline-raw deadline-raw)))))
+
+(defun org-tasktree-sync--validate-title (value)
+  "Return normalized title string from VALUE or signal `user-error'."
+  (let ((title (and value (string-trim value))))
+    (unless (and title (not (string-empty-p title)))
+      (user-error "Title is required"))
+    (when (string-match-p "/" title)
+      (user-error "Title must not include '/'"))
+    (when (string-match-p "[[:cntrl:]]" title)
+      (user-error "Title must not include control characters"))
+    title))
+
+(defun org-tasktree-sync--validate-priority-cookie (line)
+  "Validate priority cookie in LINE or signal `user-error'."
+  (when (and line (string-match "\\[#\\([^]]+\\)\\]" line))
+    (let ((raw (match-string 1 line)))
+      (unless (string-match-p "\\`[[:alnum:]]\\'" raw)
+        (user-error "Priority must be a single alphanumeric character")))))
+
+(defun org-tasktree-sync--validate-tags (tags line)
+  "Validate TAGS list and LINE suffix or signal `user-error'."
+  (when tags
+    (dolist (tag tags)
+      (unless (string-match-p "\\`[A-Za-z0-9_-]+\\'" tag)
+        (user-error
+         "Tags must be like tag1:tag2 or :tag1:tag2: using [A-Za-z0-9_-]"))))
+  (when (and (null tags) line
+             (string-match-p "\\s-+:[^ \t\r\n]+:$" line))
+    (user-error
+     "Tags must be like tag1:tag2 or :tag1:tag2: using [A-Za-z0-9_-]")))
+
+(defun org-tasktree-sync--validate-planning (scheduled-raw scheduled
+                                                           deadline-raw deadline)
+  "Validate planning fields using raw text.
+SCHEDULED-RAW and DEADLINE-RAW are raw timestamp strings (or empty when
+present).  SCHEDULED and DEADLINE are parsed timestamp elements."
+  (when scheduled-raw
+    (unless scheduled
+      (user-error "Scheduled must be YYYY-MM-DD or nil"))
+    (unless (org-tasktree-sync--extract-date scheduled-raw)
+      (user-error "Scheduled must be YYYY-MM-DD or nil"))
+    (org-tasktree-sync--validate-repeat-raw scheduled-raw))
+  (when deadline-raw
+    (unless deadline
+      (user-error "Deadline must be YYYY-MM-DD or nil"))
+    (unless (org-tasktree-sync--extract-date deadline-raw)
+      (user-error "Deadline must be YYYY-MM-DD or nil"))))
 
 (defun org-tasktree-sync--strip-properties (text)
   "Remove PROPERTIES drawers from TEXT."
@@ -121,6 +210,9 @@
                               (buffer-substring-no-properties
                                (line-beginning-position)
                                (line-end-position)))))
+                 (planning (org-tasktree-sync--planning-raw hl))
+                 (scheduled-raw (plist-get planning :scheduled-raw))
+                 (deadline-raw (plist-get planning :deadline-raw))
                  (delete-flag (and (stringp line)
                                    (string-match-p
                                     (concat "^\\*+\\s-+"
@@ -135,6 +227,7 @@
                              (concat org-tasktree-sync--delete-keyword " ")
                              title)
                           title))
+                 (title (org-tasktree-sync--validate-title title))
                  (priority (org-element-property :priority hl))
                  (tags (org-element-property :tags hl))
                  (scheduled (org-element-property :scheduled hl))
@@ -152,8 +245,12 @@
                            parent))
                  (parent-uid (and parent
                                   (org-with-point-at
-                                      (org-element-property :begin parent)
-                                    (org-entry-get nil "UID")))))
+                           (org-element-property :begin parent)
+                            (org-entry-get nil "UID")))))
+            (org-tasktree-sync--validate-priority-cookie line)
+            (org-tasktree-sync--validate-tags tags line)
+            (org-tasktree-sync--validate-planning
+             scheduled-raw scheduled deadline-raw deadline)
             (list :begin begin
                   :marker marker
                   :level level
@@ -256,32 +353,38 @@
                                      (plist-get parent :node-type))))
               (when (and (equal node-type "project")
                          (car effective-stack))
-                (let* ((ancestor-begins
-                        (mapcar (lambda (ancestor)
-                                  (plist-get ancestor :begin))
-                                effective-stack))
-                       (ancestor-uids
-                        (seq-filter
-                         #'org-tasktree-sync--nonempty-string-p
-                         (mapcar (lambda (ancestor)
-                                   (plist-get ancestor :uid))
-                                 effective-stack))))
-                  (setq items
-                        (seq-remove
-                         (lambda (item)
-                           (let ((begin (plist-get item :begin)))
-                             (and (integerp begin)
-                                  (member begin ancestor-begins))))
-                         items))
-                  (setq delete-uids
-                        (seq-remove
-                         (lambda (uid)
-                           (member uid ancestor-uids))
-                         delete-uids)))
-                (setq full-stack nil)
-                (setq effective-stack nil)
-                (setq parent nil)
-                (setq parent-type nil))
+                (if (seq-some (lambda (ancestor)
+                                (or (equal (plist-get ancestor :node-type)
+                                           "project")
+                                    (plist-get ancestor :project)))
+                              effective-stack)
+                    (user-error "Project must be top level")
+                  (let* ((ancestor-begins
+                          (mapcar (lambda (ancestor)
+                                    (plist-get ancestor :begin))
+                                  effective-stack))
+                         (ancestor-uids
+                          (seq-filter
+                           #'org-tasktree-sync--nonempty-string-p
+                           (mapcar (lambda (ancestor)
+                                     (plist-get ancestor :uid))
+                                   effective-stack))))
+                    (setq items
+                          (seq-remove
+                           (lambda (item)
+                             (let ((begin (plist-get item :begin)))
+                               (and (integerp begin)
+                                    (member begin ancestor-begins))))
+                           items))
+                    (setq delete-uids
+                          (seq-remove
+                           (lambda (uid)
+                             (member uid ancestor-uids))
+                           delete-uids)))
+                  (setq full-stack nil)
+                  (setq effective-stack nil)
+                  (setq parent nil)
+                  (setq parent-type nil)))
               (when (and parent-present (null parent-uid)
                          (null parent)
                          (not (equal node-type "project")))
@@ -484,32 +587,35 @@
 (defun org-tasktree-sync-buffer ()
   "Sync current org buffer into SQLite database."
   (interactive)
-  (org-tasktree-sync--sync-raw-items
-   (org-tasktree-sync--collect-headlines)))
+  (atomic-change-group
+    (org-tasktree-sync--sync-raw-items
+     (org-tasktree-sync--collect-headlines))))
 
 (defun org-tasktree-sync-region (beg end)
   "Sync headlines in region BEG..END."
   (interactive "r")
   (unless (use-region-p)
     (user-error "Region is not active"))
-  (org-with-wide-buffer
-    (let* ((raw-items (org-tasktree-sync--collect-headlines-in-range beg end)))
-      (org-tasktree-sync--sync-raw-items raw-items))))
+  (atomic-change-group
+    (org-with-wide-buffer
+      (let* ((raw-items (org-tasktree-sync--collect-headlines-in-range beg end)))
+        (org-tasktree-sync--sync-raw-items raw-items)))))
 
 (defun org-tasktree-sync-subtree ()
   "Sync subtree at point into SQLite database."
   (interactive)
   (unless (org-at-heading-p)
     (user-error "Point is not at a heading"))
-  (org-with-wide-buffer
-    (save-excursion
-      (org-back-to-heading t)
-      (let* ((beg (point))
-             (end (save-excursion
-                    (org-end-of-subtree t t)
-                    (point)))
-             (raw-items (org-tasktree-sync--collect-headlines-in-range beg end)))
-        (org-tasktree-sync--sync-raw-items raw-items)))))
+  (atomic-change-group
+    (org-with-wide-buffer
+      (save-excursion
+        (org-back-to-heading t)
+        (let* ((beg (point))
+               (end (save-excursion
+                      (org-end-of-subtree t t)
+                      (point)))
+               (raw-items (org-tasktree-sync--collect-headlines-in-range beg end)))
+          (org-tasktree-sync--sync-raw-items raw-items))))))
 
 (provide 'org-tasktree-sync)
 ;;; org-tasktree-sync.el ends here
