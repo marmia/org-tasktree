@@ -130,8 +130,37 @@
   - [x] コードレビュー
   - [x] コミット
 *** DONE 8. ドキュメント作成
-** 新規作成: org-tasktree-search-unscheduled
-** 新規作成: org-tasktree-search-by-query
+** M21: 新規作成 org-tasktree-search-unscheduled-task
+*** DONE 1. 仕様設計
+- 'scheduled'が未設定のタスクを検索して出力バッファに org-mode 形式で
+- 検索条件:
+  - node_type = task
+  - status = OPEN
+  - scheduled = NULL
+
+*** DONE 2. テストケース設計
+- `docs/spec/test-case.org`に`org-tasktree-search-*`のテストケースを追加 
+  - 正常系: case-normal-05
+  - 異常系: case-err-05
+
+*** DONE 3. テストデータ準備
+- 初期登録データ: docs/spec/test-case.org にデータ追加(id=7)
+- 検証用データ: test/test-data/search-normal-05.org
+
+*** DONE 4. ERT テスト実装（先に失敗させる）
+既存の search テストと同じパターンで、出力バッファの比較テストにする。
+
+*** DONE 5. 実装 → テスト Green
+org-tasktree-search-* の既存実装に合わせて関数追加・分岐実装。
+
+*** DONE 6. ユーザーテスト
+- `find-node`で`scheduled = NULL`の task を登録
+- `org-tasktree-search-unscheduled-task`を実行して`scheduled = NULL`のデータが出力されることを確認
+
+*** DONE 7. ドキュメント作成
+- `org-tasktree-search-unscheduled-task`の仕様を`docs/spec/commands.org`に追加
+
+** M22: 新規作成 org-tasktree-search-by-query
 ** 新規作成: org-tasktree-search-*の org-mode 挿入版
 ** 新規作成: org-tasktree-project-archive
 ** 新規作成: org-tasktree-project-restore

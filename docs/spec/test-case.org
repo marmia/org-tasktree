@@ -820,7 +820,7 @@ id, title, node_type, parent_id, status, tags
 #+begin_src lisp
 ;; nodes table
 (
- (
+(
 :id 2 
 :uid "00000000-0000-0000-0000-project00001" 
 :parent-id nil 
@@ -840,7 +840,7 @@ id, title, node_type, parent_id, status, tags
 :phase-id nil 
 :created-at "2025-12-25T00:00:00+09:00"
 :updated-at "2025-12-25T00:00:00+09:00")
- (
+(
 :id 3 
 :uid "00000000-0000-0000-0000-today0000002" 
 :parent-id 2 
@@ -860,7 +860,7 @@ id, title, node_type, parent_id, status, tags
 :phase-id nil 
 :created-at "2025-12-25T00:00:00+09:00" 
 :updated-at "2025-12-25T00:00:00+09:00")
- (
+(
 :id 4 
 :uid "00000000-0000-0000-0000-yesterday003" 
 :parent-id 2 
@@ -880,7 +880,7 @@ id, title, node_type, parent_id, status, tags
 :phase-id nil 
 :created-at "2025-12-25T00:00:00+09:00" 
 :updated-at "2025-12-25T00:00:00+09:00")
- (
+(
 :id 5 
 :uid "00000000-0000-0000-0000-overdue00004" 
 :parent-id 2 
@@ -900,7 +900,7 @@ id, title, node_type, parent_id, status, tags
 :phase-id nil 
 :created-at "2025-12-25T00:00:00+09:00" 
 :updated-at "2025-12-25T00:00:00+09:00")
- (
+(
 :id 6
 :uid "00000000-0000-0000-0000-tomorrow0005" 
 :parent-id 2 
@@ -915,6 +915,26 @@ id, title, node_type, parent_id, status, tags
 :closed-at nil 
 :tags nil
 :content "This is a tomorrow task." 
+:status "OPEN" 
+:project-id 2 
+:phase-id nil 
+:created-at "2025-12-25T00:00:00+09:00" 
+:updated-at "2025-12-25T00:00:00+09:00")
+(
+:id 7
+:uid "00000000-0000-0000-0000-unsche000006" 
+:parent-id 2 
+:node-type "task" 
+:todo-keyword "TODO" 
+:title "task-unscheduled" 
+:level 2 
+:priority "A" 
+:scheduled nil
+:deadline "2026-01-20" 
+:repeat nil 
+:closed-at nil 
+:tags nil
+:content "This is a unscheduled task." 
 :status "OPEN" 
 :project-id 2 
 :phase-id nil 
@@ -962,13 +982,18 @@ id, title, node_type, parent_id, status, tags
 - test/test-data/search-normal-04.org
 **** 期待される結果
 - 出力バッファの内容と検証用テストデータの内容に差分がない。
+*** case-normal-05: org-tasktree-search-unscheduled-task
+**** 検証用テストデータ
+- test/test-data/search-normal-05.org
+**** 期待される結果
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
 ** 異常系
 *** 異常系テストケース共通・テストデータ
 **** 初期データ
 #+begin_src lisp
 ;; nodes table
 (
- (
+(
 :id 2 
 :uid "00000000-0000-0000-0000-project00001" 
 :parent-id nil 
@@ -988,7 +1013,7 @@ id, title, node_type, parent_id, status, tags
 :phase-id nil 
 :created-at "2025-12-25T00:00:00+09:00"
 :updated-at "2025-12-25T00:00:00+09:00")
- (
+(
 :id 3 
 :uid "00000000-0000-0000-0000-today0000002" 
 :parent-id 2 
@@ -1020,6 +1045,10 @@ id, title, node_type, parent_id, status, tags
 **** 期待される結果
 - `user-error` が発生する
 *** case-err-04: org-tasktree-search-next-7day-task
+**** 期待される結果
+- `user-error` が発生する
+
+*** case-err-05: org-tasktree-search-unscheduled-task
 **** 期待される結果
 - `user-error` が発生する
 

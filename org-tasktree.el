@@ -39,18 +39,18 @@
   :type 'string
   :group 'org-tasktree)
 
+(defvaralias 'org-tasktree-default-project
+  'org-tasktree-default-project-name)
+(make-obsolete-variable 'org-tasktree-default-project
+                        'org-tasktree-default-project-name
+                        "0.1.0")
+
 (defcustom org-tasktree-default-project-name
   "inbox"
   "Default project name for tasks without explicit project or phase.
 This value is used as the inbox title only at initialization time."
   :type 'string
   :group 'org-tasktree)
-
-(defvaralias 'org-tasktree-default-project
-  'org-tasktree-default-project-name)
-(make-obsolete-variable 'org-tasktree-default-project
-                        'org-tasktree-default-project-name
-                        "0.1.0")
 
 (require 'org-tasktree-db)
 
@@ -94,6 +94,13 @@ This value is used as the inbox title only at initialization time."
   (org-tasktree-view-display-tree
    (org-tasktree-query-search-next-7day)
    "Next 7 days"))
+
+(defun org-tasktree-search-unscheduled-task ()
+  "Search tasks with no scheduled date."
+  (interactive)
+  (org-tasktree-view-display-tree
+   (org-tasktree-query-search-unscheduled)
+   "Unscheduled"))
 
 
 (provide 'org-tasktree)

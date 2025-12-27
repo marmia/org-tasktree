@@ -236,9 +236,30 @@
                          :status "OPEN"
                          :parent-id project-id
                          :project-id project-id
-                         :phase-id nil)))
+                         :phase-id nil))
+         (task-unscheduled (org-tasktree-model-node-create
+                            :uid "00000000-0000-0000-0000-unsche000006"
+                            :node-type "task"
+                            :todo-keyword "TODO"
+                            :title "task-unscheduled"
+                            :level 2
+                            :priority "A"
+                            :scheduled nil
+                            :deadline "2026-01-20"
+                            :repeat nil
+                            :closed-at nil
+                            :tags nil
+                            :content "This is a unscheduled task."
+                            :status "OPEN"
+                            :parent-id project-id
+                            :project-id project-id
+                            :phase-id nil)))
     (org-tasktree-db-commit-nodes
-     (list task-today task-yesterday task-overdue task-tomorrow))))
+     (list task-today
+           task-yesterday
+           task-overdue
+           task-tomorrow
+           task-unscheduled))))
 
 (defun org-tasktree-search-ert--seed-invalid-date-data ()
   "Seed DB with invalid date test data."
@@ -351,6 +372,16 @@
      "Next 7 days"
      "search-normal-04.org")))
 
+(ert-deftest org-tasktree-search-ert-normal-unscheduled ()
+  "Normal case: search unscheduled tasks."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-normal-data)
+    (save-window-excursion
+      (org-tasktree-search-unscheduled-task))
+    (org-tasktree-search-ert--assert-search-output
+     "Unscheduled"
+     "search-normal-05.org")))
+
 (ert-deftest org-tasktree-search-ert-error-today ()
   "Abnormal case: invalid scheduled values raise `user-error'."
   (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
@@ -374,6 +405,12 @@
   (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
     (org-tasktree-search-ert--seed-invalid-date-data)
     (should-error (org-tasktree-search-next-7day-task))))
+
+(ert-deftest org-tasktree-search-ert-error-unscheduled ()
+  "Abnormal case: invalid scheduled values raise `user-error'."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-invalid-date-data)
+    (should-error (org-tasktree-search-unscheduled-task))))
 
 (provide 'org-tasktree-search-ert)
 ;;; org-tasktree-search-ert.el ends here

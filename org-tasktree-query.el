@@ -215,6 +215,18 @@ Both boundaries are inclusive, and parents are included."
            (org-tasktree-query--days-from-now 7))
    "scheduled"))
 
+(defun org-tasktree-query-search-unscheduled ()
+  "Return tasks with no scheduled date set.
+Parents are included."
+  (org-tasktree-query--fetch
+   (string-join
+    '("status='OPEN'"
+      "AND node_type='task'"
+      "AND scheduled IS NULL")
+    " ")
+   []
+   "scheduled"))
+
 (defun org-tasktree-query-open-tree ()
   "Return OPEN nodes (project/phase/group/task) in preorder."
   (seq-filter

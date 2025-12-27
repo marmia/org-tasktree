@@ -174,7 +174,6 @@
 * 検索系
 ** 共通仕様
 - status='OPEN' のタスクのみを対象とする。
-- scheduled / deadline が NULL のタスクは除外する。
 - 日付比較は `DATE(...)` で行い、日付文字列が無効な場合はエラーとして処理を中断し Messages に出力する。
 - 並び順は project > phase > group > task の階層順で、同一階層内は title 昇順。
 - repeat!=NULL の場合は、tasktree 展開時に'<SCHEDULE yyyy-mm-dd>'に`repeat`に設定されている値を付け足して出力する。
@@ -216,6 +215,16 @@
 - scheduled が明日から 7 日以内になっている task の tasktree を取得する。
 *** 処理内容
 - nodes テーブルから`scheduled between tomorrow and (today+7) status=OPEN`の task と、そのタスクの親 node (project/phase/group)を取得する。
+  - node 情報は重複なく正規化したデータを取得
+  - 所得する属性情報: uid, todo_keyword, title, level, priority, scheduled, deadline, tags, content
+- 出力専用バッファを開き、org-mode 形式で task tree を展開する
+  - 出力専用バッファは`q`キーで閉じる
+
+** org-tasktree-search-unscheduled-task
+*** 目的
+- scheduled が未設定になっている task の tasktree を取得する。
+*** 処理内容
+- nodes テーブルから`scheduled=NULL and status=OPEN`の task と、そのタスクの親 node (project/phase/group)を取得する。
   - node 情報は重複なく正規化したデータを取得
   - 所得する属性情報: uid, todo_keyword, title, level, priority, scheduled, deadline, tags, content
 - 出力専用バッファを開き、org-mode 形式で task tree を展開する
