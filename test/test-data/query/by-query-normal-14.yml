@@ -1,0 +1,4 @@
+node_type: task
+scheduled: >= yesterday and <= tomorrow
+include_ancestor: false
+include_descendants: false

@@ -12,6 +12,7 @@
 
 (require 'ert)
 (require 'org)
+(require 'rx)
 (require 'subr-x)
 (require 'org-tasktree)
 (require 'org-tasktree-db)
@@ -19,6 +20,7 @@
 (require 'org-tasktree-query)
 (require 'org-tasktree-view)
 (require 'org-tasktree-test-helper)
+(require 'org-tasktree-ui-minibuffer)
 
 (defconst org-tasktree-search-ert--base-time
   (encode-time 0 0 0 25 12 2025)
@@ -58,21 +60,29 @@
 
 (defun org-tasktree-search-ert--expand-placeholders (text)
   "Return TEXT with date placeholders replaced."
-  (let* ((today (org-tasktree-search-ert--format-date-with-weekday
-                 org-tasktree-search-ert--base-time))
-         (yesterday (org-tasktree-search-ert--format-date-with-weekday
-                     (org-tasktree-search-ert--time-days-from
-                      org-tasktree-search-ert--base-time -1)))
-         (tomorrow (org-tasktree-search-ert--format-date-with-weekday
+  (let ((case-fold-search t)
+        (regex
+         "<\\(TODAY\\|YESTERDAY\\|TOMORROW\\)\\([+-][0-9]+\\)?\\(d\\)?\\([^>]*\\)>")
+        (pos 0)
+        (parts nil))
+    (while (string-match regex text pos)
+      (let* ((base (match-string 1 text))
+             (delta-str (match-string 2 text))
+             (delta (if delta-str (string-to-number delta-str) 0))
+             (base-offset (pcase (upcase base)
+                            ("TODAY" 0)
+                            ("YESTERDAY" -1)
+                            ("TOMORROW" 1)))
+             (date (org-tasktree-search-ert--format-date
                     (org-tasktree-search-ert--time-days-from
-                     org-tasktree-search-ert--base-time 1))))
-    (setq text (replace-regexp-in-string "<TODAY>" (format "<%s>" today)
-                                         text t t))
-    (setq text (replace-regexp-in-string "<YESTERDAY>" (format "<%s>" yesterday)
-                                         text t t))
-    (setq text (replace-regexp-in-string "<TOMORROW>" (format "<%s>" tomorrow)
-                                         text t t))
-    text))
+                     org-tasktree-search-ert--base-time
+                     (+ base-offset delta))))
+             (suffix (or (match-string 4 text) "")))
+        (push (substring text pos (match-beginning 0)) parts)
+        (push (format "<%s%s>" date suffix) parts)
+        (setq pos (match-end 0))))
+    (push (substring text pos) parts)
+    (apply #'concat (nreverse parts))))
 
 (defun org-tasktree-search-ert--normalize-timestamps (text)
   "Return TEXT with timestamps normalized to include weekday."
@@ -121,6 +131,76 @@
          (buffer (get-buffer buffer-name)))
     (when buffer
       (kill-buffer buffer))))
+
+(defun org-tasktree-search-ert--replace-sql-now (text)
+  "Return TEXT with SQLite now() dates replaced by the base time."
+  (let ((regex
+         (rx "date('now','localtime'"
+             (? ",'" (group (or "+" "-") (+ digit)) " day" (? "s") "'")
+             ")"))
+        (pos 0)
+        (parts nil))
+    (while (string-match regex text pos)
+      (let* ((delta-str (match-string 1 text))
+             (days (if delta-str (string-to-number delta-str) 0))
+             (date (org-tasktree-search-ert--format-date
+                    (org-tasktree-search-ert--time-days-from
+                     org-tasktree-search-ert--base-time days))))
+        (push (substring text pos (match-beginning 0)) parts)
+        (push (format "'%s'" date) parts)
+        (setq pos (match-end 0))))
+    (push (substring text pos) parts)
+    (apply #'concat (nreverse parts))))
+
+(defun org-tasktree-search-ert--exec-sql-file (file)
+  "Execute SQL statements loaded from FILE."
+  (let* ((text (with-temp-buffer
+                 (insert-file-contents file)
+                 (buffer-string)))
+         (text (org-tasktree-search-ert--replace-sql-now text))
+         (stmts (seq-filter
+                 (lambda (s) (string-match-p "\\S-" s))
+                 (mapcar #'string-trim
+                         (split-string text ";" t)))))
+    (org-tasktree-db--with-db db
+      (dolist (stmt stmts)
+        (sqlite-execute db stmt)))))
+
+(defun org-tasktree-search-ert--by-query-sql-path ()
+  "Return absolute path for by-query SQL seed file."
+  (expand-file-name "test/by-query-testdata.sql"
+                    (org-tasktree-search-ert--repo-root)))
+
+(defun org-tasktree-search-ert--by-query-file-path (name)
+  "Return absolute path for query file NAME."
+  (expand-file-name (concat "test/test-data/query/" name)
+                    (org-tasktree-search-ert--repo-root)))
+
+(defun org-tasktree-search-ert--seed-by-query-data ()
+  "Seed DB with by-query test data."
+  (org-tasktree-test-helper-reset-db)
+  (org-tasktree-search-ert--exec-sql-file
+   (org-tasktree-search-ert--by-query-sql-path)))
+
+(defun org-tasktree-search-ert--install-query-file (name)
+  "Copy query file NAME into `org-tasktree-query-dir'."
+  (let* ((src (org-tasktree-search-ert--by-query-file-path name))
+         (dest-dir (org-tasktree-test-helper--query-dir))
+         (dest (expand-file-name name dest-dir)))
+    (make-directory dest-dir t)
+    (copy-file src dest t)))
+
+(defun org-tasktree-search-ert--query-title (name)
+  "Return result buffer title for query file NAME."
+  (file-name-base name))
+
+(defmacro org-tasktree-search-ert-with-query-selection (choice &rest body)
+  "Run BODY with query selection stubbed to return CHOICE."
+  (declare (indent 1))
+  `(cl-letf (((symbol-function 'org-tasktree-ui-minibuffer--completing-read)
+              (lambda (_prompt _cands &rest _args)
+                ,choice)))
+     ,@body))
 
 (defun org-tasktree-search-ert--fetch-node-by-uid (uid)
   "Return node for UID or nil."
@@ -411,6 +491,338 @@
   (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
     (org-tasktree-search-ert--seed-invalid-date-data)
     (should-error (org-tasktree-search-unscheduled-task))))
+
+(ert-deftest org-tasktree-search-ert-normal-by-query-01 ()
+  "Normal case: search by query with all fields specified."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-normal-01.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-normal-01.yml"
+      (save-window-excursion
+        (org-tasktree-search-by-query)))
+    (org-tasktree-search-ert--assert-search-output
+     (org-tasktree-search-ert--query-title "by-query-normal-01.yml")
+     "by-query-normal-01.org")))
+
+(ert-deftest org-tasktree-search-ert-normal-by-query-02 ()
+  "Normal case: search by query for project nodes only."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-normal-02.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-normal-02.yml"
+      (save-window-excursion
+        (org-tasktree-search-by-query)))
+    (org-tasktree-search-ert--assert-search-output
+     (org-tasktree-search-ert--query-title "by-query-normal-02.yml")
+     "by-query-normal-02.org")))
+
+(ert-deftest org-tasktree-search-ert-normal-by-query-03 ()
+  "Normal case: search by query for project/phase nodes."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-normal-03.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-normal-03.yml"
+      (save-window-excursion
+        (org-tasktree-search-by-query)))
+    (org-tasktree-search-ert--assert-search-output
+     (org-tasktree-search-ert--query-title "by-query-normal-03.yml")
+     "by-query-normal-03.org")))
+
+(ert-deftest org-tasktree-search-ert-normal-by-query-04 ()
+  "Normal case: search by query for intermediate nodes (ancestors)."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-normal-04.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-normal-04.yml"
+      (save-window-excursion
+        (org-tasktree-search-by-query)))
+    (org-tasktree-search-ert--assert-search-output
+     (org-tasktree-search-ert--query-title "by-query-normal-04.yml")
+     "by-query-normal-04.org")))
+
+(ert-deftest org-tasktree-search-ert-normal-by-query-05 ()
+  "Normal case: search by query for intermediate nodes (descendants)."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-normal-05.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-normal-05.yml"
+      (save-window-excursion
+        (org-tasktree-search-by-query)))
+    (org-tasktree-search-ert--assert-search-output
+     (org-tasktree-search-ert--query-title "by-query-normal-05.yml")
+     "by-query-normal-05.org")))
+
+(ert-deftest org-tasktree-search-ert-normal-by-query-06 ()
+  "Normal case: search by query for intermediate nodes (ancestors/descendants)."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-normal-06.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-normal-06.yml"
+      (save-window-excursion
+        (org-tasktree-search-by-query)))
+    (org-tasktree-search-ert--assert-search-output
+     (org-tasktree-search-ert--query-title "by-query-normal-06.yml")
+     "by-query-normal-06.org")))
+
+(ert-deftest org-tasktree-search-ert-normal-by-query-07 ()
+  "Normal case: search by query for intermediate nodes only."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-normal-07.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-normal-07.yml"
+      (save-window-excursion
+        (org-tasktree-search-by-query)))
+    (org-tasktree-search-ert--assert-search-output
+     (org-tasktree-search-ert--query-title "by-query-normal-07.yml")
+     "by-query-normal-07.org")))
+
+(ert-deftest org-tasktree-search-ert-normal-by-query-08 ()
+  "Normal case: search by query for leaf nodes (ancestors)."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-normal-08.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-normal-08.yml"
+      (save-window-excursion
+        (org-tasktree-search-by-query)))
+    (org-tasktree-search-ert--assert-search-output
+     (org-tasktree-search-ert--query-title "by-query-normal-08.yml")
+     "by-query-normal-08.org")))
+
+(ert-deftest org-tasktree-search-ert-normal-by-query-09 ()
+  "Normal case: search by query with not operator."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-normal-09.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-normal-09.yml"
+      (save-window-excursion
+        (org-tasktree-search-by-query)))
+    (org-tasktree-search-ert--assert-search-output
+     (org-tasktree-search-ert--query-title "by-query-normal-09.yml")
+     "by-query-normal-09.org")))
+
+(ert-deftest org-tasktree-search-ert-normal-by-query-10 ()
+  "Normal case: search by query with or operator."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-normal-10.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-normal-10.yml"
+      (save-window-excursion
+        (org-tasktree-search-by-query)))
+    (org-tasktree-search-ert--assert-search-output
+     (org-tasktree-search-ert--query-title "by-query-normal-10.yml")
+     "by-query-normal-10.org")))
+
+(ert-deftest org-tasktree-search-ert-normal-by-query-11 ()
+  "Normal case: search by query scheduled fixed date."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-normal-11.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-normal-11.yml"
+      (save-window-excursion
+        (org-tasktree-search-by-query)))
+    (org-tasktree-search-ert--assert-search-output
+     (org-tasktree-search-ert--query-title "by-query-normal-11.yml")
+     "by-query-normal-11.org")))
+
+(ert-deftest org-tasktree-search-ert-normal-by-query-12 ()
+  "Normal case: search by query scheduled >=."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-normal-12.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-normal-12.yml"
+      (save-window-excursion
+        (org-tasktree-search-by-query)))
+    (org-tasktree-search-ert--assert-search-output
+     (org-tasktree-search-ert--query-title "by-query-normal-12.yml")
+     "by-query-normal-12.org")))
+
+(ert-deftest org-tasktree-search-ert-normal-by-query-13 ()
+  "Normal case: search by query scheduled <=."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-normal-13.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-normal-13.yml"
+      (save-window-excursion
+        (org-tasktree-search-by-query)))
+    (org-tasktree-search-ert--assert-search-output
+     (org-tasktree-search-ert--query-title "by-query-normal-13.yml")
+     "by-query-normal-13.org")))
+
+(ert-deftest org-tasktree-search-ert-normal-by-query-14 ()
+  "Normal case: search by query scheduled and range."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-normal-14.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-normal-14.yml"
+      (save-window-excursion
+        (org-tasktree-search-by-query)))
+    (org-tasktree-search-ert--assert-search-output
+     (org-tasktree-search-ert--query-title "by-query-normal-14.yml")
+     "by-query-normal-14.org")))
+
+(ert-deftest org-tasktree-search-ert-normal-by-query-15 ()
+  "Normal case: search by query scheduled with relative date."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-normal-15.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-normal-15.yml"
+      (save-window-excursion
+        (org-tasktree-search-by-query)))
+    (org-tasktree-search-ert--assert-search-output
+     (org-tasktree-search-ert--query-title "by-query-normal-15.yml")
+     "by-query-normal-15.org")))
+
+(ert-deftest org-tasktree-search-ert-normal-by-query-16 ()
+  "Normal case: search by query created_at fixed date."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-normal-16.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-normal-16.yml"
+      (save-window-excursion
+        (org-tasktree-search-by-query)))
+    (org-tasktree-search-ert--assert-search-output
+     (org-tasktree-search-ert--query-title "by-query-normal-16.yml")
+     "by-query-normal-16.org")))
+
+(ert-deftest org-tasktree-search-ert-normal-by-query-17 ()
+  "Normal case: search by query created_at >=."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-normal-17.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-normal-17.yml"
+      (save-window-excursion
+        (org-tasktree-search-by-query)))
+    (org-tasktree-search-ert--assert-search-output
+     (org-tasktree-search-ert--query-title "by-query-normal-17.yml")
+     "by-query-normal-17.org")))
+
+(ert-deftest org-tasktree-search-ert-normal-by-query-18 ()
+  "Normal case: search by query created_at <=."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-normal-18.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-normal-18.yml"
+      (save-window-excursion
+        (org-tasktree-search-by-query)))
+    (org-tasktree-search-ert--assert-search-output
+     (org-tasktree-search-ert--query-title "by-query-normal-18.yml")
+     "by-query-normal-18.org")))
+
+(ert-deftest org-tasktree-search-ert-normal-by-query-19 ()
+  "Normal case: search by query created_at range."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-normal-19.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-normal-19.yml"
+      (save-window-excursion
+        (org-tasktree-search-by-query)))
+    (org-tasktree-search-ert--assert-search-output
+     (org-tasktree-search-ert--query-title "by-query-normal-19.yml")
+     "by-query-normal-19.org")))
+
+(ert-deftest org-tasktree-search-ert-normal-by-query-20 ()
+  "Normal case: search by query created_at relative date."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-normal-20.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-normal-20.yml"
+      (save-window-excursion
+        (org-tasktree-search-by-query)))
+    (org-tasktree-search-ert--assert-search-output
+     (org-tasktree-search-ert--query-title "by-query-normal-20.yml")
+     "by-query-normal-20.org")))
+
+(ert-deftest org-tasktree-search-ert-normal-by-query-21 ()
+  "Normal case: search by query with missing keys."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-normal-21.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-normal-21.yml"
+      (save-window-excursion
+        (org-tasktree-search-by-query)))
+    (org-tasktree-search-ert--assert-search-output
+     (org-tasktree-search-ert--query-title "by-query-normal-21.yml")
+     "by-query-normal-21.org")))
+
+(ert-deftest org-tasktree-search-ert-normal-by-query-22 ()
+  "Normal case: search by query with unknown keys."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-normal-22.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-normal-22.yml"
+      (save-window-excursion
+        (org-tasktree-search-by-query)))
+    (org-tasktree-search-ert--assert-search-output
+     (org-tasktree-search-ert--query-title "by-query-normal-22.yml")
+     "by-query-normal-22.org")))
+
+(ert-deftest org-tasktree-search-ert-normal-by-query-23 ()
+  "Normal case: search by query for all nodes."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-normal-23.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-normal-23.yml"
+      (save-window-excursion
+        (org-tasktree-search-by-query)))
+    (org-tasktree-search-ert--assert-search-output
+     (org-tasktree-search-ert--query-title "by-query-normal-23.yml")
+     "by-query-normal-23.org")))
+
+(ert-deftest org-tasktree-search-ert-error-by-query-01 ()
+  "Abnormal case: invalid query format raises `user-error'."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-err-01.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-err-01.yml"
+      (should-error
+       (save-window-excursion
+         (org-tasktree-search-by-query))
+       :type 'user-error))))
+
+(ert-deftest org-tasktree-search-ert-normal-by-query-empty ()
+  "Normal case: empty query returns all nodes."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-err-02.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-err-02.yml"
+      (save-window-excursion
+        (org-tasktree-search-by-query)))
+    (org-tasktree-search-ert--assert-search-output
+     (org-tasktree-search-ert--query-title "by-query-err-02.yml")
+     "by-query-normal-23.org")))
+
+(ert-deftest org-tasktree-search-ert-error-by-query-03 ()
+  "Abnormal case: invalid scheduled date raises `user-error'."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-err-03.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-err-03.yml"
+      (should-error
+       (save-window-excursion
+         (org-tasktree-search-by-query))
+       :type 'user-error))))
+
+(ert-deftest org-tasktree-search-ert-error-by-query-04 ()
+  "Abnormal case: invalid scheduled format raises `user-error'."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-err-04.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-err-04.yml"
+      (should-error
+       (save-window-excursion
+         (org-tasktree-search-by-query))
+       :type 'user-error))))
+
+(ert-deftest org-tasktree-search-ert-error-by-query-05 ()
+  "Abnormal case: empty values raise `user-error'."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-err-05.yml")
+    (org-tasktree-search-ert-with-query-selection "by-query-err-05.yml"
+      (should-error
+       (save-window-excursion
+         (org-tasktree-search-by-query))
+       :type 'user-error))))
 
 (provide 'org-tasktree-search-ert)
 ;;; org-tasktree-search-ert.el ends here

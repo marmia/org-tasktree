@@ -1,0 +1,15 @@
+* PROJ proj-alpha
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-projalpha01
+:END:
+Project alpha.
+** PHASE phase-alpha
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-phasealpha1
+:END:
+Phase alpha.
+*** group-alpha
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-groupalpha
+:END:
+Group alpha.

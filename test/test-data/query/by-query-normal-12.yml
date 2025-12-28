@@ -1,0 +1,4 @@
+node_type: task
+scheduled: >= 2025-12-25
+include_ancestor: false
+include_descendants: false

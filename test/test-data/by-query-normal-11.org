@@ -1,0 +1,6 @@
+* DONE [#C] task-gamma :bb:
+SCHEDULED: <2025-12-20> DEADLINE: <2025-12-21>
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-taskgamma1
+:END:
+This is task gamma.

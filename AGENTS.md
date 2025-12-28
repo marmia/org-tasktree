@@ -119,17 +119,17 @@ All code is treated as **release-quality at all times**.
 ### Mandatory commands
 
 * Format (auto-fix):
-  `elisp-format.sh FILES...`
+  `elisp-format.sh -- FILES...`
 
 * Lint:
-  `elisp-lint.sh FILES...`
+  `elisp-lint.sh --no-indent -- FILES...`
 
 ### Required workflow
 
 Whenever Codex creates or modifies any `.el` file:
 
 1. Run `elisp-format.sh` on all changed `.el` files.
-2. Run `elisp-lint.sh` on the same files.
+2. Run `elisp-lint.sh --no-indent` on the same files.
 3. After running `elisp-lint.sh`, always run `test/cleanup.sh` to delete `*.elc` files.
 4. If lint fails:
 
@@ -153,6 +153,11 @@ Codex MUST automatically fix the following without confirmation:
 * Fix obvious indentation issues (use Emacs Lisp indentation).
 * `elisp-lint` の `indent` 警告は誤検知が多いため、**無視してよい**。ブロッカーにしない。
 * Prefer reindenting the smallest enclosing top-level form.
+
+### Lint execution notes
+
+* When linting files under `test/`, you may need to add load paths:
+  `elisp-lint.sh --no-indent --load-path . --load-path test -- FILES...`
 
 ### checkdoc issues
 

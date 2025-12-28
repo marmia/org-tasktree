@@ -1,0 +1,10 @@
+* PROJ proj-alpha
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-projalpha01
+:END:
+Project alpha.
+* DONE proj-omega
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-projomega01
+:END:
+Project omega.

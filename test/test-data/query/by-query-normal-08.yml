@@ -1,0 +1,4 @@
+node_type: task
+title: task-beta
+include_ancestor: true
+include_descendants: false

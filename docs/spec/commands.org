@@ -187,8 +187,8 @@
 - nodes テーブルから`scheduled=today and status=OPEN`の task と、そのタスクの親 node (project/phase/group)を取得する。
   - node 情報は重複なく正規化したデータを取得
   - 所得する属性情報: uid, todo_keyword, title, level, priority, scheduled, deadline, tags, content
-- 出力専用バッファを開き、org-mode 形式で task tree を展開する
-  - 出力専用バッファは`q`キーで閉じる
+- 出力バッファを開き、org-mode 形式で task tree を展開する
+  - 出力バッファは`q`キーで閉じる
 
 ** org-tasktree-search-before-today-task
 *** 目的
@@ -197,8 +197,8 @@
 - nodes テーブルから`scheduled<=today and status=OPEN`の task と、そのタスクの親 node (project/phase/group)を取得する。
   - node 情報は重複なく正規化したデータを取得
   - 所得する属性情報: uid, todo_keyword, title, level, priority, scheduled, deadline, tags, content
-- 出力専用バッファを開き、org-mode 形式で task tree を展開する
-  - 出力専用バッファは`q`キーで閉じる
+- 出力バッファを開き、org-mode 形式で task tree を展開する
+  - 出力バッファは`q`キーで閉じる
 
 ** org-tasktree-search-overdue-task
 *** 目的
@@ -207,8 +207,8 @@
 - nodes テーブルから`deadline<today and status=OPEN`の task と、そのタスクの親 node (project/phase/group)を取得する。
   - node 情報は重複なく正規化したデータを取得
   - 所得する属性情報: uid, todo_keyword, title, level, priority, scheduled, deadline, tags, content
-- 出力専用バッファを開き、org-mode 形式で task tree を展開する
-  - 出力専用バッファは`q`キーで閉じる
+- 出力バッファを開き、org-mode 形式で task tree を展開する
+  - 出力バッファは`q`キーで閉じる
 
 ** org-tasktree-search-next-7day-task
 *** 目的
@@ -217,8 +217,8 @@
 - nodes テーブルから`scheduled between tomorrow and (today+7) status=OPEN`の task と、そのタスクの親 node (project/phase/group)を取得する。
   - node 情報は重複なく正規化したデータを取得
   - 所得する属性情報: uid, todo_keyword, title, level, priority, scheduled, deadline, tags, content
-- 出力専用バッファを開き、org-mode 形式で task tree を展開する
-  - 出力専用バッファは`q`キーで閉じる
+- 出力バッファを開き、org-mode 形式で task tree を展開する
+  - 出力バッファは`q`キーで閉じる
 
 ** org-tasktree-search-unscheduled-task
 *** 目的
@@ -227,5 +227,81 @@
 - nodes テーブルから`scheduled=NULL and status=OPEN`の task と、そのタスクの親 node (project/phase/group)を取得する。
   - node 情報は重複なく正規化したデータを取得
   - 所得する属性情報: uid, todo_keyword, title, level, priority, scheduled, deadline, tags, content
-- 出力専用バッファを開き、org-mode 形式で task tree を展開する
-  - 出力専用バッファは`q`キーで閉じる
+- 出力バッファを開き、org-mode 形式で task tree を展開する
+  - 出力バッファは`q`キーで閉じる
+
+** org-tasktree-search-by-query
+*** 目的
+- `org-tasktree-query-dir`配下の YAML クエリーで tasktree を検索・取得する。
+*** 処理内容
+1. `org-tasktree-query-dir`配下の `.yml`/`.yaml` をミニバッファに表示し、選択または新規ファイル名入力でクエリー編集バッファを開く。
+2. クエリー編集バッファは `yaml-mode` を基本とし、`C-c C-c`で検索実行、`C-c C-k`でキャンセルして閉じる。
+3. クエリーフォーマットが不正な場合は `user-error` を出力する。
+4. 検索結果を出力バッファに org-mode 形式で表示する。
+   - 出力バッファは `q` キーで閉じる。
+*** クエリーフォーマット
+#+begin_src yaml
+node_type:
+todo_keyword:
+title:
+priority:
+scheduled:
+deadline:
+repeat:
+closed_at:
+tags:
+content:
+status:
+project_id:
+phase_id:
+created_at:
+updated_at:
+include_ancestor:
+include_descendants:
+#+end_src
+
+- `field_name:` に続けて検索条件を指定する。
+- 検索条件の前後の空白は無視する。
+- 固定値は完全一致検索。
+- 複数項目を指定した場合は AND 検索。
+- 1 項目内に `and` / `or` を指定可能（大文字可）。
+  - `and` は `or` より優先して評価する。
+  - 括弧は扱わない。
+- 未クォートの空白区切りは AND として扱う。
+  - 例: `title: foo bar` → `foo AND bar`
+- 空白を含めた文字列を検索したい場合は、ダブルクオートまたはシングルクォートで囲む。
+  - 例: `title: "Hello World"` / `title: 'We are the world.'`
+- 文字列として `and` / `or` / `not` を使いたい場合はクォートで囲む。
+  - 例: `title: "and"`
+- クォート内では `\"` / `\'` / `\\` をエスケープとして扱う。
+- 比較記号（`<` `>` `=` `<=` `>=` `<>`）と `not` キーワードは検索条件の先頭に付ける。
+  - 例: `scheduled: <= 2026-01-10`
+  - 例: `tags: not NULL`
+- `NULL` で検索したい場合は `NULL` を記述する。
+  - 文字列 "NULL" を検索したい場合は `\NULL` と記述する。
+- ワイルドカード `*` `?` を使用できる。
+  - `*` は任意長、`?` は 1 文字として扱う。
+  - `\*` `\?` はリテラルとして扱う。
+  - ワイルドカード検索は大文字小文字を区別しない。
+- 日付に指定可能な形式は `yyyy-MM-dd` または `yyyy/MM/dd`。
+  - `today`/`yesterday`/`tomorrow`（大文字小文字可）を指定できる。
+  - `today+7d` / `today +7d` のように日数を加減算できる。
+  - 上記以外の形式は `user-error` とする。
+- `tags` 検索は `nodes.tags` に対して検索を行う。
+  - クエリー指定はスペース区切り。
+  - 指定した tag を **全て含む** node を対象とする。
+    - 例: `aa bb` → `aa:bb:cc` は対象、`aa:cc`/`bb:cc` は対象外。
+- `include_ancestor` / `include_descendants` は true/false（大文字可）。
+  - 未指定時の既定値は両方 true。
+- `include_ancestor=true` の場合、該当 node の祖先を含める。
+- `include_descendants=true` の場合、該当 node の全子孫を含める。
+- 両方 false の場合、該当 node のみを出力する。
+  - 出力は「検索結果に含まれる node のみ」でツリーを再構成する。
+  - 親が含まれていない node は root として出力する。
+- バリデーションは以下のみ実施する。
+  - scheduled / deadline / created_at / updated_at
+  - include_ancestor / include_descendants
+- クエリーファイル新規作成時は、バッファ内に全キー項目をセットする。
+  - 値は、`include_ancestor`, `include_descendants` に`true`を設定し、他のキー項目の値は空値にする。
+- 上記以外の項目は指定値をそのまま検索条件として使用する。
+  - SQL インジェクションに対して最低限の対策を実施する。

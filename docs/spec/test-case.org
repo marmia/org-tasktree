@@ -1052,6 +1052,501 @@ id, title, node_type, parent_id, status, tags
 **** 期待される結果
 - `user-error` が発生する
 
+* org-tasktree-search-by-query
+** テスト共通手順
+- 最初に初期化処理(org-tasktree-test-helper-reset-db)を実行
+- 初期データを投入
+- クエリーファイルから検索条件を取得
+- 検索処理を実行
+- 結果検証
+** テストケース共通・テストデータ
+*** 初期データ
+#+begin_src lisp
+;; nodes table
+(
+(:id 2
+ :uid "00000000-0000-0000-0000-projalpha01"
+ :parent-id nil
+ :node-type "project"
+ :todo-keyword "PROJ"
+ :title "proj-alpha"
+ :level 1
+ :priority nil
+ :scheduled nil
+ :deadline nil
+ :repeat nil
+ :closed-at nil
+ :tags nil
+ :content "Project alpha."
+ :status "OPEN"
+ :project-id nil
+ :phase-id nil
+ :created-at "2025-12-20T00:00:00+09:00"
+ :updated-at "2025-12-24T00:00:00+09:00")
+(:id 3
+ :uid "00000000-0000-0000-0000-phasealpha1"
+ :parent-id 2
+ :node-type "phase"
+ :todo-keyword "PHASE"
+ :title "phase-alpha"
+ :level 2
+ :priority nil
+ :scheduled nil
+ :deadline nil
+ :repeat nil
+ :closed-at nil
+ :tags nil
+ :content "Phase alpha."
+ :status "OPEN"
+ :project-id 2
+ :phase-id nil
+ :created-at "2025-12-21T00:00:00+09:00"
+ :updated-at "2025-12-24T00:00:00+09:00")
+(:id 4
+ :uid "00000000-0000-0000-0000-groupalpha"
+ :parent-id 3
+ :node-type "group"
+ :todo-keyword nil
+ :title "group-alpha"
+ :level 3
+ :priority nil
+ :scheduled nil
+ :deadline nil
+ :repeat nil
+ :closed-at nil
+ :tags nil
+ :content "Group alpha."
+ :status "OPEN"
+ :project-id 2
+ :phase-id 3
+ :created-at "2025-12-22T00:00:00+09:00"
+ :updated-at "2025-12-24T00:00:00+09:00")
+(:id 5
+ :uid "00000000-0000-0000-0000-taskalpha1"
+ :parent-id 4
+ :node-type "task"
+ :todo-keyword "TODO"
+ :title "task-alpha"
+ :level 4
+ :priority "A"
+ :scheduled (today)
+ :deadline (today +7d)
+ :repeat ".+1d"
+ :closed-at nil
+ :tags "aa:bb:cc"
+ :content "This is task alpha."
+ :status "OPEN"
+ :project-id 2
+ :phase-id 3
+ :created-at "2025-12-23T00:00:00+09:00"
+ :updated-at "2025-12-24T00:00:00+09:00")
+(:id 6
+ :uid "00000000-0000-0000-0000-taskbeta01"
+ :parent-id 5
+ :node-type "task"
+ :todo-keyword "TODO"
+ :title "task-beta"
+ :level 5
+ :priority "B"
+ :scheduled (yesterday)
+ :deadline (today)
+ :repeat nil
+ :closed-at nil
+ :tags "aa:cc"
+ :content "Hello World."
+ :status "OPEN"
+ :project-id 2
+ :phase-id 3
+ :created-at "2025-12-24T00:00:00+09:00"
+ :updated-at "2025-12-24T00:00:00+09:00")
+(:id 7
+ :uid "00000000-0000-0000-0000-taskgamma1"
+ :parent-id 4
+ :node-type "task"
+ :todo-keyword "DONE"
+ :title "task-gamma"
+ :level 4
+ :priority "C"
+ :scheduled "2025-12-20"
+ :deadline "2025-12-21"
+ :repeat nil
+ :closed-at "2025-12-22T00:00:00+09:00"
+ :tags "bb"
+ :content "This is task gamma."
+ :status "DONE"
+ :project-id 2
+ :phase-id 3
+ :created-at "2025-12-25T00:00:00+09:00"
+ :updated-at "2025-12-25T00:00:00+09:00")
+(:id 8
+ :uid "00000000-0000-0000-0000-groupbeta1"
+ :parent-id 3
+ :node-type "group"
+ :todo-keyword nil
+ :title "group-beta"
+ :level 3
+ :priority nil
+ :scheduled nil
+ :deadline nil
+ :repeat nil
+ :closed-at nil
+ :tags nil
+ :content "Group beta."
+ :status "OPEN"
+ :project-id 2
+ :phase-id 3
+ :created-at "2025-12-26T00:00:00+09:00"
+ :updated-at "2025-12-26T00:00:00+09:00")
+(:id 9
+ :uid "00000000-0000-0000-0000-taskdelta1"
+ :parent-id 8
+ :node-type "task"
+ :todo-keyword "TODO"
+ :title "task-delta"
+ :level 4
+ :priority "A"
+ :scheduled (tomorrow)
+ :deadline (today +7d)
+ :repeat nil
+ :closed-at nil
+ :tags "aa:bb"
+ :content "This is task delta."
+ :status "OPEN"
+ :project-id 2
+ :phase-id 3
+ :created-at "2025-12-26T00:00:00+09:00"
+ :updated-at "2025-12-26T00:00:00+09:00")
+(:id 10
+ :uid "00000000-0000-0000-0000-phasebeta1"
+ :parent-id 2
+ :node-type "phase"
+ :todo-keyword "PHASE"
+ :title "phase-beta"
+ :level 2
+ :priority nil
+ :scheduled nil
+ :deadline nil
+ :repeat nil
+ :closed-at nil
+ :tags nil
+ :content "Phase beta."
+ :status "OPEN"
+ :project-id 2
+ :phase-id nil
+ :created-at "2025-12-18T00:00:00+09:00"
+ :updated-at "2025-12-24T00:00:00+09:00")
+(:id 11
+ :uid "00000000-0000-0000-0000-groupgamma"
+ :parent-id 10
+ :node-type "group"
+ :todo-keyword nil
+ :title "group-gamma"
+ :level 3
+ :priority nil
+ :scheduled nil
+ :deadline nil
+ :repeat nil
+ :closed-at nil
+ :tags nil
+ :content "Group gamma."
+ :status "OPEN"
+ :project-id 2
+ :phase-id 10
+ :created-at "2025-12-19T00:00:00+09:00"
+ :updated-at "2025-12-24T00:00:00+09:00")
+(:id 12
+ :uid "00000000-0000-0000-0000-taskeps01"
+ :parent-id 11
+ :node-type "task"
+ :todo-keyword "TODO"
+ :title "task-epsilon"
+ :level 4
+ :priority "B"
+ :scheduled (today +7d)
+ :deadline "2026-01-10"
+ :repeat nil
+ :closed-at nil
+ :tags "cc"
+ :content "This is task epsilon."
+ :status "OPEN"
+ :project-id 2
+ :phase-id 10
+ :created-at "2026-01-01T00:00:00+09:00"
+ :updated-at "2026-01-02T00:00:00+09:00")
+(:id 20
+ :uid "00000000-0000-0000-0000-projomega01"
+ :parent-id nil
+ :node-type "project"
+ :todo-keyword "DONE"
+ :title "proj-omega"
+ :level 1
+ :priority nil
+ :scheduled nil
+ :deadline nil
+ :repeat nil
+ :closed-at "2025-12-10T00:00:00+09:00"
+ :tags nil
+ :content "Project omega."
+ :status "DONE"
+ :project-id nil
+ :phase-id nil
+ :created-at "2025-11-30T00:00:00+09:00"
+ :updated-at "2025-12-10T00:00:00+09:00")
+(:id 21
+ :uid "00000000-0000-0000-0000-taskomega1"
+ :parent-id 20
+ :node-type "task"
+ :todo-keyword "DONE"
+ :title "task-omega"
+ :level 2
+ :priority "C"
+ :scheduled "2025-12-05"
+ :deadline "2025-12-06"
+ :repeat nil
+ :closed-at "2025-12-10T00:00:00+09:00"
+ :tags "aa"
+ :content "This is task omega."
+ :status "DONE"
+ :project-id 20
+ :phase-id nil
+ :created-at "2025-12-05T00:00:00+09:00"
+ :updated-at "2025-12-10T00:00:00+09:00")
+)
+#+end_src
+
+- ':scheduled, ':deadline の設定値がプレースホルダーになっているケースがあるので、
+  テスト実行時に適切な日付に変換してから初期データを登録する必要がある。
+- プレースホルダーに設定する日付の書式は、'yyyy-MM-dd にする。
+- プレースホルダー例
+  - `:scheduled (today)` -> 'today'をテスト実行時のローカルマシンの今日の日付に変換
+  - `:scheduled (yesterday)` -> 'yesterday'をテスト実行時のローカルマシンの昨日の日付に変換
+  - `:deadline (yesterday)` -> 'yesterday'をテスト実行時のローカルマシンの昨日の日付に変換
+  - `:scheduled (tomorrow)` -> 'tomorrow'をテスト実行時のローカルマシンの明日の日付に変換
+  - `:scheduled (today +7d)` -> 'today +7d' をテスト実行時のローカルマシンの今日の 7 日後の日付に変換
+- `:scheduled (yesterday -5d)` -> 'yesterday -5d' をテスト実行時のローカルマシンの昨日の 5 日前の日付に変換
+
+*** クエリーデータ
+- test/test-data/query/by-query-normal-0?.yml
+- test/test-data/query/by-query-err-0?.yml
+
+*** 検証用データ
+- ファイル名:
+  - test/test-data/by-query-normal-??.org
+- 'SCHEDULED', 'DEADLINE'の設定値がプレースホルダーになっているケースがあるので、
+  テスト実行時に適切な日付に変換してから比較検証を行う必要がある。
+- プレースホルダーに設定する日付の書式は、Unicode Date Format Pattern (yyyy-MM-dd EEE)にする。
+- プレースホルダー例
+  - 'SCHEDULED: <TODAY>' -> 'TODAY'をテスト実行時のローカルマシンの今日の日付に変換
+  - 'SCHEDULED: <YESTERDAY>' -> 'YESTERDAY'をテスト実行時のローカルマシンの昨日の日付に変換
+  - 'DEADLINE: <YESTERDAY>' -> 'YESTERDAY'をテスト実行時のローカルマシンの昨日の日付に変換
+  - 'SCHEDULED: <TOMORROW>' -> 'TOMORROW'をテスト実行時のローカルマシンの明日の日付に変換
+  - 'SCHEDULED: <TODAY+7>' -> 'TODAY'をテスト実行時のローカルマシンの今日の 7 日後の日付に変換
+  - 'SCHEDULED: <YESTERDAY-5>' -> 'YESTERDAY'をテスト実行時のローカルマシンの昨日の 5 日前の日付に変換
+
+** 正常系
+*** case-normal-01: 全項目指定検索
+**** クエリーファイル
+- test/test-data/query/by-query-normal-01.yml
+**** 検証用テストデータ
+- test/test-data/by-query-normal-01.org
+**** 期待される結果
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
+*** case-normal-02: project node のみ検索
+**** クエリーファイル
+- test/test-data/query/by-query-normal-02.yml
+**** 検証用テストデータ
+- test/test-data/by-query-normal-02.org
+**** 期待される結果
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
+*** case-normal-03: project / phase node のみ検索
+**** クエリーファイル
+- test/test-data/query/by-query-normal-03.yml
+**** 検証用テストデータ
+- test/test-data/by-query-normal-03.org
+**** 期待される結果
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
+*** case-normal-04: 中間 node 検索 (先祖有り)
+**** クエリーファイル
+- test/test-data/query/by-query-normal-04.yml
+**** 検証用テストデータ
+- test/test-data/by-query-normal-04.org
+**** 期待される結果
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
+*** case-normal-05: 中間 node 検索 (子孫有り)
+**** クエリーファイル
+- test/test-data/query/by-query-normal-05.yml
+**** 検証用テストデータ
+- test/test-data/by-query-normal-05.org
+**** 期待される結果
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
+*** case-normal-06: 中間 node 検索 (先祖/子孫有り)
+**** クエリーファイル
+- test/test-data/query/by-query-normal-06.yml
+**** 検証用テストデータ
+- test/test-data/by-query-normal-06.org
+**** 期待される結果
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
+*** case-normal-07: 中間 node 検索 (先祖/子孫無し)
+**** クエリーファイル
+- test/test-data/query/by-query-normal-07.yml
+**** 検証用テストデータ
+- test/test-data/by-query-normal-07.org
+**** 期待される結果
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
+*** case-normal-08: 末端 node 検索 (先祖有り)
+**** クエリーファイル
+- test/test-data/query/by-query-normal-08.yml
+**** 検証用テストデータ
+- test/test-data/by-query-normal-08.org
+**** 期待される結果
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
+*** case-normal-09: not 指定検索
+**** クエリーファイル
+- test/test-data/query/by-query-normal-09.yml
+**** 検証用テストデータ
+- test/test-data/by-query-normal-09.org
+**** 期待される結果
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
+*** case-normal-10: or 指定検索
+**** クエリーファイル
+- test/test-data/query/by-query-normal-10.yml
+**** 検証用テストデータ
+- test/test-data/by-query-normal-10.org
+**** 期待される結果
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
+*** case-normal-11: scheduled 指定検索 (固定日付指定)
+**** クエリーファイル
+- test/test-data/query/by-query-normal-11.yml
+**** 検証用テストデータ
+- test/test-data/by-query-normal-11.org
+**** 期待される結果
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
+*** case-normal-12: scheduled 指定検索 (>=)
+**** クエリーファイル
+- test/test-data/query/by-query-normal-12.yml
+**** 検証用テストデータ
+- test/test-data/by-query-normal-12.org
+**** 期待される結果
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
+*** case-normal-13: scheduled 指定検索 (<=)
+**** クエリーファイル
+- test/test-data/query/by-query-normal-13.yml
+**** 検証用テストデータ
+- test/test-data/by-query-normal-13.org
+**** 期待される結果
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
+*** case-normal-14: scheduled 指定検索 (and)
+**** クエリーファイル
+- test/test-data/query/by-query-normal-14.yml
+**** 検証用テストデータ
+- test/test-data/by-query-normal-14.org
+**** 期待される結果
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
+*** case-normal-15: scheduled 指定検索 (today/yesterday/tomorrow 指定)
+**** クエリーファイル
+- test/test-data/query/by-query-normal-15.yml
+**** 検証用テストデータ
+- test/test-data/by-query-normal-15.org
+**** 期待される結果
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
+*** case-normal-16: created_at 指定検索 (固定日付指定)
+**** クエリーファイル
+- test/test-data/query/by-query-normal-16.yml
+**** 検証用テストデータ
+- test/test-data/by-query-normal-16.org
+**** 期待される結果
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
+*** case-normal-17: created_at 指定検索 (>=)
+**** クエリーファイル
+- test/test-data/query/by-query-normal-17.yml
+**** 検証用テストデータ
+- test/test-data/by-query-normal-17.org
+**** 期待される結果
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
+*** case-normal-18: created_at 指定検索 (<=)
+**** クエリーファイル
+- test/test-data/query/by-query-normal-18.yml
+**** 検証用テストデータ
+- test/test-data/by-query-normal-18.org
+**** 期待される結果
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
+*** case-normal-19: created_at 指定検索 (and)
+**** クエリーファイル
+- test/test-data/query/by-query-normal-19.yml
+**** 検証用テストデータ
+- test/test-data/by-query-normal-19.org
+**** 期待される結果
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
+*** case-normal-20: created_at 指定検索 (today/yesterday/tomorrow 指定)
+**** クエリーファイル
+- test/test-data/query/by-query-normal-20.yml
+**** 検証用テストデータ
+- test/test-data/by-query-normal-20.org
+**** 期待される結果
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
+*** case-normal-21: 検索条件に指定しない項目を YAML から削除して検索
+**** クエリーファイル
+- test/test-data/query/by-query-normal-21.yml
+**** 検証用テストデータ
+- test/test-data/by-query-normal-21.org
+**** 期待される結果
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
+*** case-normal-22: YAML 形式不正 (未定義の項目)
+**** クエリーファイル
+- test/test-data/query/by-query-normal-22.yml
+**** 検証用テストデータ
+- test/test-data/by-query-normal-22.org
+**** 期待される結果
+- 未定義の項目を無視して検索処理が実行される。
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
+
+*** case-normal-23: 全件検索 (明示指定)
+**** クエリーファイル
+- test/test-data/query/by-query-normal-23.yml
+**** 検証用テストデータ
+- test/test-data/by-query-normal-23.org
+**** 期待される結果
+- 全 node が検索される。
+  - 例: `status: OPEN or DONE` のように全件検索を明示的に指定する。
+  - 全件 node 検索 = 全タスクツリー検索となるので、`include_ancestor`, `include_descendants` の値は考慮しなくて良い。
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
+
+*** case-normal-24: 全件検索 (空ファイル)
+**** クエリーファイル
+- test/test-data/query/by-query-err-02.yml
+**** 検証用テストデータ
+- test/test-data/by-query-normal-23.org
+**** 期待される結果
+- 空ファイルのクエリーは全件検索として扱う。
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
+
+** 異常系
+*** case-err-01: YAML 形式不正 (中身が ini 形式)
+**** クエリーファイル
+- test/test-data/query/by-query-err-01.yml
+**** 期待される結果
+- `user-error` が発生する
+
+*** case-err-02: 欠番(正常系テスト 24 に移動)
+
+*** case-err-03: 日付形式不正 (存在しない日付)
+**** クエリーファイル
+- test/test-data/query/by-query-err-03.yml
+**** 期待される結果
+- `user-error` が発生する
+
+*** case-err-04: 日付形式不正 (dd のみ指定)
+**** クエリーファイル
+- test/test-data/query/by-query-err-04.yml
+**** 期待される結果
+- `user-error` が発生する
+
+*** case-err-05: 全項目が空値 (キーのみ)
+**** クエリーファイル
+- test/test-data/query/by-query-err-05.yml
+**** 期待される結果
+- `user-error` が発生する
+
 * システムエラー
 ** 異常系
 *** case-syserr1: DB が初期化されていない。

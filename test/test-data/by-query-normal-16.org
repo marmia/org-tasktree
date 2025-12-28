@@ -1,0 +1,6 @@
+* TODO [#A] task-alpha :aa:bb:cc:
+SCHEDULED: <TODAY .+1d> DEADLINE: <TODAY+7>
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-taskalpha1
+:END:
+This is task alpha.

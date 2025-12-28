@@ -1,0 +1,4 @@
+node_type: task
+scheduled: <= today
+include_ancestor: false
+include_descendants: false

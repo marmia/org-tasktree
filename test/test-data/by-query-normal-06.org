@@ -1,0 +1,33 @@
+* PROJ proj-alpha
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-projalpha01
+:END:
+Project alpha.
+** PHASE phase-alpha
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-phasealpha1
+:END:
+Phase alpha.
+*** group-alpha
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-groupalpha
+:END:
+Group alpha.
+**** TODO [#A] task-alpha :aa:bb:cc:
+SCHEDULED: <TODAY .+1d> DEADLINE: <TODAY+7>
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-taskalpha1
+:END:
+This is task alpha.
+***** TODO [#B] task-beta :aa:cc:
+SCHEDULED: <YESTERDAY> DEADLINE: <TODAY>
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-taskbeta01
+:END:
+Hello World.
+**** DONE [#C] task-gamma :bb:
+SCHEDULED: <2025-12-20> DEADLINE: <2025-12-21>
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-taskgamma1
+:END:
+This is task gamma.

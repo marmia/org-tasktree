@@ -1,0 +1,18 @@
+* TODO [#A] task-alpha :aa:bb:cc:
+SCHEDULED: <TODAY .+1d> DEADLINE: <TODAY+7>
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-taskalpha1
+:END:
+This is task alpha.
+* TODO [#B] task-beta :aa:cc:
+SCHEDULED: <YESTERDAY> DEADLINE: <TODAY>
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-taskbeta01
+:END:
+Hello World.
+* TODO [#A] task-delta :aa:bb:
+SCHEDULED: <TOMORROW> DEADLINE: <TODAY+7>
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-taskdelta1
+:END:
+This is task delta.

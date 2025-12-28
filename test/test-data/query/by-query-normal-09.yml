@@ -1,0 +1,4 @@
+node_type: task
+priority: not A
+include_ancestor: false
+include_descendants: false

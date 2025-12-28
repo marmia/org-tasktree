@@ -1,0 +1,5 @@
+* group-alpha
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-groupalpha
+:END:
+Group alpha.

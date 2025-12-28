@@ -1,0 +1,17 @@
+node_type: task
+todo_keyword: TODO
+title: task-alpha
+priority: A
+scheduled: today
+deadline: today +7d
+repeat: .+1d
+closed_at: NULL
+tags: aa bb cc
+content: "This is task alpha."
+status: OPEN
+project_id: 2
+phase_id: 3
+created_at: 2025-12-23
+updated_at: 2025-12-24
+include_ancestor: true
+include_descendants: true

@@ -1,0 +1,4 @@
+node_type: group
+title: group-alpha
+include_ancestor: false
+include_descendants: false
