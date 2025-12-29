@@ -25,6 +25,7 @@
   'org-tasktree-ui-completion-color-task
   'org-tasktree-ui-minibuffer-completion-color-task
   "0.1.0")
+
 (define-obsolete-variable-alias
   'org-tasktree-ui-completion-color-project
   'org-tasktree-ui-minibuffer-completion-color-project
@@ -95,6 +96,27 @@ PARENT-TYPE is a node_type string or nil for top-level."
     (define-key map (kbd "C-c C-d") #'org-tasktree-ui-widget-edit-set-deadline)
     map)
   "Keymap used inside widget editable fields.")
+
+(defvar org-tasktree-ui--widget-node-type-keymap
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map org-tasktree-ui--widget-field-keymap)
+    (define-key map (kbd "/") #'org-tasktree-ui--node-type-complete)
+    map)
+  "Keymap used inside the node_type widget field.")
+
+(defvar org-tasktree-ui--widget-tags-keymap
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map org-tasktree-ui--widget-field-keymap)
+    (define-key map (kbd "/") #'org-tasktree-ui--tags-complete)
+    map)
+  "Keymap used inside the tags widget field.")
+
+(defun org-tasktree-ui--completion-table-with-metadata (table metadata)
+  "Return completion TABLE that supplies METADATA."
+  (lambda (string pred action)
+    (if (eq action 'metadata)
+        (cons 'metadata metadata)
+      (complete-with-action action table string pred))))
 
 (defvar org-tasktree-ui--widget-text-keymap
   (let ((map (make-sparse-keymap)))
@@ -249,7 +271,7 @@ PARENT-TYPE is a node_type string or nil for top-level."
                         (org-tasktree-ui--node-type-symbol default)
                       'node)))
     (list :type meta-type
-          :node-type default
+          :node-type (and fixed default)
           :node-type-fixed fixed
           :node-type-options (unless fixed options)
           :uid nil
@@ -793,6 +815,23 @@ KEY, VALUE, and HINT configure the created widget."
           (plist-put org-tasktree-ui--widget-widgets key w))
     w))
 
+(defun org-tasktree-ui--widget-insert-field-with-keymap
+    (label key value hint keymap)
+  "Insert one editable field with KEYMAP and return widget.
+LABEL, KEY, VALUE, and HINT configure the created widget."
+  (widget-insert (format "%-10s " (concat label ":")))
+  (let ((w (widget-create 'editable-field
+                          :size 40
+                          :format "%v"
+                          :keymap keymap
+                          :value (or value ""))))
+    (when hint
+      (widget-insert " " (propertize hint 'face 'shadow)))
+    (widget-insert "\n")
+    (setq org-tasktree-ui--widget-widgets
+          (plist-put org-tasktree-ui--widget-widgets key w))
+    w))
+
 (defun org-tasktree-ui--widget-insert-multiline-field (label key value hint)
   "Insert multiline field for LABEL and return widget.
 KEY, VALUE, and HINT configure the created widget."
@@ -824,9 +863,10 @@ KEY, VALUE, and HINT configure the created widget."
       (when (and (stringp node-type) (not (string-empty-p node-type)))
         (widget-insert (format "%-10s %s (fixed)\n" "node_type:" node-type))))
      (options
-      (org-tasktree-ui--widget-insert-field
+      (org-tasktree-ui--widget-insert-field-with-keymap
        "node_type" :node-type node-type
-       (format "required: %s" (string-join options "|"))))
+       (format "required: %s" (string-join options "|"))
+       org-tasktree-ui--widget-node-type-keymap))
      (node-type
       (org-tasktree-ui--widget-insert-field
        "node_type" :node-type node-type "required"))
@@ -857,9 +897,10 @@ KEY, VALUE, and HINT configure the created widget."
       (org-tasktree-ui--widget-insert-field
        "repeat" :repeat (plist-get meta :repeat)
        "+1d | ++2w | .+3m | +1y/2"))
-    (org-tasktree-ui--widget-insert-field
+    (org-tasktree-ui--widget-insert-field-with-keymap
      "tags" :tags (plist-get meta :tags)
-     ":tag1:tag2: | tag1:tag2")
+     ":tag1:tag2: | tag1:tag2"
+     org-tasktree-ui--widget-tags-keymap)
     (org-tasktree-ui--widget-insert-multiline-field
      "content" :content (plist-get meta :content)
      "multiline")
@@ -878,6 +919,142 @@ KEY, VALUE, and HINT configure the created widget."
           (widget-value-set w (or date ""))
           (widget-setup)))
     (quit nil)))
+
+(defun org-tasktree-ui--node-type-field-range ()
+  "Return cons of node_type field bounds or nil."
+  (let ((w (org-tasktree-ui--widget-get :node-type)))
+    (when w
+      (let ((from (org-tasktree-ui--pos
+                   (or (ignore-errors (widget-field-start w))
+                       (widget-get w :from))))
+            (to (org-tasktree-ui--pos
+                 (or (ignore-errors (widget-field-end w))
+                     (widget-get w :to)))))
+        (when (and (integerp from) (integerp to) (< from to))
+          (cons from to))))))
+
+(defun org-tasktree-ui--node-type-capf ()
+  "Return completion data for node_type field, or nil."
+  (let* ((options (plist-get org-tasktree-ui--edit-metadata
+                             :node-type-options))
+         (range (and (listp options)
+                     (org-tasktree-ui--node-type-field-range))))
+    (when (and range
+               (>= (point) (car range))
+               (<= (point) (cdr range)))
+      (let* ((start (car range))
+             (end (cdr range))
+             (raw (buffer-substring-no-properties start end))
+             (trimmed (replace-regexp-in-string "[ \t\n\r]+\\'" "" raw))
+             (trimmed-end (+ start (length trimmed)))
+             (collection
+              (org-tasktree-ui--completion-table-with-metadata
+               options
+               '((display-sort-function . identity)
+                 (cycle-sort-function . identity)))))
+        (list start trimmed-end collection :exclusive 'no)))))
+
+(defun org-tasktree-ui--node-type-complete ()
+  "Trigger completion for node_type field."
+  (interactive)
+  (let ((range (org-tasktree-ui--node-type-field-range)))
+    (when range
+      (let* ((start (car range))
+             (end (cdr range))
+             (raw (buffer-substring-no-properties start end))
+             (trimmed (replace-regexp-in-string "[ \t\n\r]+\\'" "" raw)))
+        (goto-char (+ start (length trimmed))))))
+  (let ((completion-at-point-functions
+         (list #'org-tasktree-ui--node-type-capf))
+        (completion-styles '(basic)))
+    (completion-at-point)))
+
+(defun org-tasktree-ui--tags-field-range ()
+  "Return cons of tags field bounds or nil."
+  (let ((w (org-tasktree-ui--widget-get :tags)))
+    (when w
+      (let ((from (org-tasktree-ui--pos
+                   (or (ignore-errors (widget-field-start w))
+                       (widget-get w :from))))
+            (to (org-tasktree-ui--pos
+                 (or (ignore-errors (widget-field-end w))
+                     (widget-get w :to)))))
+        (when (and (integerp from) (integerp to) (< from to))
+          (cons from to))))))
+
+(defun org-tasktree-ui--tags-normalize-field ()
+  "Normalize current tags widget value in-place."
+  (let ((w (org-tasktree-ui--widget-get :tags)))
+    (when w
+      (let* ((raw (widget-value w))
+             (normalized (car (org-tasktree-model-normalize-tags raw))))
+        (widget-value-set w (or normalized ""))
+        (widget-setup)))))
+
+(defun org-tasktree-ui--tags-candidates ()
+  "Return normalized, sorted tag candidates from the database."
+  (let (tags)
+    (org-tasktree-db--with-db db
+      (let ((rows (sqlite-select
+                   db
+                   "SELECT DISTINCT tag FROM node_tags ORDER BY tag ASC;"
+                   nil)))
+        (dolist (row rows)
+          (let* ((raw (if (vectorp row) (aref row 0) (car row)))
+                 (tag (and (stringp raw) (string-trim raw))))
+            (when (and (stringp tag)
+                       (not (string-empty-p tag))
+                       (string-match-p "\\`[A-Za-z0-9_-]+\\'" tag))
+              (push tag tags))))))
+    (setq tags (cdr (org-tasktree-model-normalize-tags tags)))
+    (sort (copy-sequence tags) #'string<)))
+
+(defun org-tasktree-ui--tags-completion-range ()
+  "Return (START . END) for tag completion within the tags field."
+  (let ((range (org-tasktree-ui--tags-field-range)))
+    (when range
+      (let* ((start (car range))
+             (end (cdr range))
+             (raw (buffer-substring-no-properties start end))
+             (trimmed (replace-regexp-in-string "[ \t\n\r]+\\'" "" raw))
+             (trimmed-end (+ start (length trimmed)))
+             (suffix-start
+              (if (string-match "\\(?:^\\|.*:\\)\\([^:]*\\)\\'" trimmed)
+                  (+ start (match-beginning 1))
+                start)))
+        (cons suffix-start trimmed-end)))))
+
+(defun org-tasktree-ui--tags-capf ()
+  "Return completion data for tags field, or nil."
+  (let* ((field-range (org-tasktree-ui--tags-field-range))
+         (in-field (and field-range
+                        (>= (point) (car field-range))
+                        (<= (point) (cdr field-range))))
+         (cands (and in-field (org-tasktree-ui--tags-candidates)))
+         (range (and in-field (org-tasktree-ui--tags-completion-range))))
+    (when (and range cands)
+      (list (car range)
+            (cdr range)
+            (org-tasktree-ui--completion-table-with-metadata
+             cands
+             '((display-sort-function . identity)
+               (cycle-sort-function . identity)))
+            :exclusive 'no
+            :exit-function
+            (lambda (_string status)
+              (when (eq status 'finished)
+                (org-tasktree-ui--tags-normalize-field)))))))
+
+(defun org-tasktree-ui--tags-complete ()
+  "Trigger completion for tags field."
+  (interactive)
+  (let ((range (org-tasktree-ui--tags-completion-range)))
+    (when range
+      (goto-char (cdr range))))
+  (let ((completion-at-point-functions
+         (list #'org-tasktree-ui--tags-capf))
+        (completion-styles '(basic)))
+    (completion-at-point)))
 
 (defun org-tasktree-ui-widget-edit-set-scheduled ()
   "Prompt date and set scheduled field."
@@ -942,6 +1119,14 @@ This function is intended for use in `after-change-functions'."
         (org-tasktree-ui--render-widget-form meta)
         (widget-setup)
         (org-tasktree-ui--widget-lock-buffer))
+      (add-hook 'completion-at-point-functions
+                #'org-tasktree-ui--node-type-capf
+                nil
+                t)
+      (add-hook 'completion-at-point-functions
+                #'org-tasktree-ui--tags-capf
+                nil
+                t)
       (add-hook 'after-change-functions
                 #'org-tasktree-ui--widget-enforce-field-size
                 nil

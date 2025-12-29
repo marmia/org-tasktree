@@ -160,6 +160,23 @@ TYPE is one of the symbols `project', `phase', `group', or `task'."
   (setq org-tasktree-ui-minibuffer--last-exit-kind :shift-enter)
   (org-tasktree-ui-minibuffer--minibuffer-accept))
 
+(defun org-tasktree-ui-minibuffer--vertico-selected-candidate ()
+  "Return selected candidate string when Vertico is active, or nil."
+  (when (and (featurep 'vertico)
+             (boundp 'vertico--candidates)
+             (boundp 'vertico--index))
+    (let* ((index vertico--index)
+           (cands vertico--candidates)
+           (cand (cond
+                  ((and (integerp index) (>= index 0) (vectorp cands)
+                        (< index (length cands)))
+                   (aref cands index))
+                  ((and (integerp index) (>= index 0) (listp cands))
+                   (nth index cands))
+                  (t nil))))
+      (when (stringp cand)
+        (substring-no-properties cand)))))
+
 (defun org-tasktree-ui-minibuffer--minibuffer-accept ()
   "Handle RET in org-tasktree minibuffer."
   (interactive)
@@ -168,6 +185,11 @@ TYPE is one of the symbols `project', `phase', `group', or `task'."
         (exit-minibuffer)
       (condition-case err
           (progn
+            (when (string-empty-p (minibuffer-contents-no-properties))
+              (let ((candidate (org-tasktree-ui-minibuffer--vertico-selected-candidate)))
+                (when (and candidate (not (string-empty-p candidate)))
+                  (delete-minibuffer-contents)
+                  (insert candidate))))
             (funcall fn (minibuffer-contents-no-properties))
             (exit-minibuffer))
         (user-error

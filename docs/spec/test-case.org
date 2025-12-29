@@ -54,25 +54,24 @@
 - `org-tasktree-database-location`を`/aaa.db`に設定
 **** 期待される結果
 - "*Messages*"バッファにシステムエラーメッセージが出力される
-- メッセージ内容は実際の出力に合わせて確定する（unverified）  
+
 *** case2: org-tasktree-database-location 未設定による初期化失敗
 **** 前提条件
 - `org-tasktree-database-location`が未設定(NULL)
 **** 期待される結果
 - "*Messages*"バッファにシステムエラーメッセージが出力される
-- メッセージ内容は実際の出力に合わせて確定する（unverified）  
+
 *** case3: 無効な org-tasktree-query-dir による初期化失敗
 **** 前提条件
 - `org-tasktree-query-dir`を`/aaa`に設定
 **** 期待される結果
 - "*Messages*"バッファにシステムエラーメッセージが出力される
-- メッセージ内容は実際の出力に合わせて確定する（unverified）  
+
 *** case4: org-tasktree-query-dir 未設定による初期化失敗
 **** 前提条件
 - `org-tasktree-query-dir`が未設定(NULL)
 **** 期待される結果
 - "*Messages*"バッファにシステムエラーメッセージが出力される
-- メッセージ内容は実際の出力に合わせて確定する（unverified）  
 
 * org-tasktree-find-node
 ** 正常系

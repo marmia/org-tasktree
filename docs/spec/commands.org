@@ -94,6 +94,7 @@
      - group 配下の node に指定できるのは、'group/task'
      - task 配下の node に指定できるのは、'task'
    - title フィールドにはミニバッファで入力/選択された node パスの末端の node 名を初期表示する。
+   - node_type / tags は入力欄に'/'を入力すると補完リストを表示する。TAB キーでリスト移動、Enter キーで選択可能。
    - scheduled / deadline は手入力と日付選択ダイアログの両方をサポートする。
      - `C-c C-s` で scheduled、`C-c C-d` で deadline の `org-read-date` を起動する。
      - `C-g` でキャンセルする。
