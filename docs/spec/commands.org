@@ -170,7 +170,6 @@
   - Task A-1-1
   - Task A-1-2
 
-** org-tasktree-node-delete
 * 検索系
 ** 共通仕様
 - status='OPEN' のタスクのみを対象とする。
@@ -223,8 +222,21 @@
 ** org-tasktree-search-unscheduled-task
 *** 目的
 - scheduled が未設定になっている task の tasktree を取得する。
+
 *** 処理内容
 - nodes テーブルから`scheduled=NULL and status=OPEN`の task と、そのタスクの親 node (project/phase/group)を取得する。
+  - node 情報は重複なく正規化したデータを取得
+  - 所得する属性情報: uid, todo_keyword, title, level, priority, scheduled, deadline, tags, content
+- 出力バッファを開き、org-mode 形式で task tree を展開する
+  - 出力バッファは`q`キーで閉じる
+
+** org-tasktree-search-all
+*** 目的
+- nodes テーブルから全データを取得して出力バッファに org-mode 形式で出力する。
+- status=DONE のデータも出力する。
+
+*** 処理内容
+- nodes テーブルから全データを取得する。
   - node 情報は重複なく正規化したデータを取得
   - 所得する属性情報: uid, todo_keyword, title, level, priority, scheduled, deadline, tags, content
 - 出力バッファを開き、org-mode 形式で task tree を展開する

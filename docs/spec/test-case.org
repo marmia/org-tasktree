@@ -940,6 +940,66 @@ id, title, node_type, parent_id, status, tags
 :phase-id nil 
 :created-at "2025-12-25T00:00:00+09:00" 
 :updated-at "2025-12-25T00:00:00+09:00")
+(
+:id 8
+:uid "00000000-0000-0000-0000-phase0000007" 
+:parent-id 2 
+:node-type "phase" 
+:todo-keyword "PHASE" 
+:title "phase1" 
+:level 2
+:priority nil
+:scheduled nil
+:deadline nil
+:repeat nil 
+:closed-at nil 
+:tags nil
+:content "This is a phase." 
+:status "OPEN" 
+:project-id 2 
+:phase-id nil 
+:created-at "2025-12-25T00:00:00+09:00" 
+:updated-at "2025-12-25T00:00:00+09:00")
+(
+:id 9
+:uid "00000000-0000-0000-0000-group0000008" 
+:parent-id 8
+:node-type "group" 
+:todo-keyword nil
+:title "group1" 
+:level 3
+:priority nil
+:scheduled nil
+:deadline nil
+:repeat nil 
+:closed-at nil 
+:tags nil
+:content "This is a group." 
+:status "OPEN" 
+:project-id 2 
+:phase-id 8
+:created-at "2025-12-25T00:00:00+09:00" 
+:updated-at "2025-12-25T00:00:00+09:00")
+(
+:id 10
+:uid "00000000-0000-0000-0000-done00000009" 
+:parent-id 9
+:node-type "task" 
+:todo-keyword "DONE"
+:title "task-done" 
+:level 4
+:priority nil
+:scheduled nil
+:deadline nil
+:repeat nil 
+:closed-at nil 
+:tags nil
+:content "This is a done task." 
+:status "DONE" 
+:project-id 2 
+:phase-id 8
+:created-at "2025-12-25T00:00:00+09:00" 
+:updated-at "2025-12-25T00:00:00+09:00")
  )
 #+end_src
 
@@ -987,6 +1047,12 @@ id, title, node_type, parent_id, status, tags
 - test/test-data/search-normal-05.org
 **** 期待される結果
 - 出力バッファの内容と検証用テストデータの内容に差分がない。
+*** case-normal-06: org-tasktree-search-all
+**** 検証用テストデータ
+- test/test-data/search-normal-06.org
+**** 期待される結果
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
+
 ** 異常系
 *** 異常系テストケース共通・テストデータ
 **** 初期データ
@@ -1035,6 +1101,7 @@ id, title, node_type, parent_id, status, tags
 :updated-at "2025-12-25T00:00:00+09:00")
  )
 #+end_src
+
 *** case-err-01: org-tasktree-search-today-task
 **** 期待される結果
 - `user-error` が発生する
@@ -1049,6 +1116,10 @@ id, title, node_type, parent_id, status, tags
 - `user-error` が発生する
 
 *** case-err-05: org-tasktree-search-unscheduled-task
+**** 期待される結果
+- `user-error` が発生する
+
+*** case-err-06: org-tasktree-search-all
 **** 期待される結果
 - `user-error` が発生する
 

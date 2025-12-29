@@ -105,6 +105,13 @@ This value is used as the inbox title only at initialization time."
    (org-tasktree-query-search-unscheduled)
    "Unscheduled"))
 
+(defun org-tasktree-search-all ()
+  "Search all nodes including DONE."
+  (interactive)
+  (org-tasktree-view-display-tree
+   (org-tasktree-query-search-all)
+   "All"))
+
 (defvar-local org-tasktree-search-by-query--file nil
   "Query file path for the current query edit buffer.")
 

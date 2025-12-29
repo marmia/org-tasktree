@@ -244,12 +244,67 @@
                    :parent-id nil
                    :project-id nil
                    :phase-id nil))
-         (project-node (org-tasktree-search-ert--insert-node project))
-         (project-id (org-tasktree-model-node-id project-node))
-         (today (org-tasktree-query--today))
-         (yesterday (org-tasktree-query--days-from-now -1))
-         (tomorrow (org-tasktree-query--days-from-now 1))
-         (task-today (org-tasktree-model-node-create
+        (project-node (org-tasktree-search-ert--insert-node project))
+        (project-id (org-tasktree-model-node-id project-node))
+        (phase (org-tasktree-model-node-create
+                :uid "00000000-0000-0000-0000-phase0000007"
+                :node-type "phase"
+                :todo-keyword "PHASE"
+                :title "phase1"
+                :level 2
+                :priority nil
+                :scheduled nil
+                :deadline nil
+                :repeat nil
+                :closed-at nil
+                :tags nil
+                :content "This is a phase."
+                :status "OPEN"
+                :parent-id project-id
+                :project-id project-id
+                :phase-id nil))
+        (phase-node (org-tasktree-search-ert--insert-node phase))
+        (phase-id (org-tasktree-model-node-id phase-node))
+        (group (org-tasktree-model-node-create
+                :uid "00000000-0000-0000-0000-group0000008"
+                :node-type "group"
+                :todo-keyword nil
+                :title "group1"
+                :level 3
+                :priority nil
+                :scheduled nil
+                :deadline nil
+                :repeat nil
+                :closed-at nil
+                :tags nil
+                :content "This is a group."
+                :status "OPEN"
+                :parent-id phase-id
+                :project-id project-id
+                :phase-id phase-id))
+        (group-node (org-tasktree-search-ert--insert-node group))
+        (group-id (org-tasktree-model-node-id group-node))
+        (task-done (org-tasktree-model-node-create
+                    :uid "00000000-0000-0000-0000-done00000009"
+                    :node-type "task"
+                    :todo-keyword "DONE"
+                    :title "task-done"
+                    :level 4
+                    :priority nil
+                    :scheduled nil
+                    :deadline nil
+                    :repeat nil
+                    :closed-at nil
+                    :tags nil
+                    :content "This is a done task."
+                    :status "DONE"
+                    :parent-id group-id
+                    :project-id project-id
+                    :phase-id phase-id))
+        (today (org-tasktree-query--today))
+        (yesterday (org-tasktree-query--days-from-now -1))
+        (tomorrow (org-tasktree-query--days-from-now 1))
+        (task-today (org-tasktree-model-node-create
                       :uid "00000000-0000-0000-0000-today0000002"
                       :node-type "task"
                       :todo-keyword "TODO"
@@ -335,7 +390,8 @@
                             :project-id project-id
                             :phase-id nil)))
     (org-tasktree-db-commit-nodes
-     (list task-today
+     (list task-done
+           task-today
            task-yesterday
            task-overdue
            task-tomorrow
@@ -462,6 +518,16 @@
      "Unscheduled"
      "search-normal-05.org")))
 
+(ert-deftest org-tasktree-search-ert-normal-all ()
+  "Normal case: search all nodes."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-normal-data)
+    (save-window-excursion
+      (org-tasktree-search-all))
+    (org-tasktree-search-ert--assert-search-output
+     "All"
+     "search-normal-06.org")))
+
 (ert-deftest org-tasktree-search-ert-error-today ()
   "Abnormal case: invalid scheduled values raise `user-error'."
   (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
@@ -491,6 +557,12 @@
   (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
     (org-tasktree-search-ert--seed-invalid-date-data)
     (should-error (org-tasktree-search-unscheduled-task))))
+
+(ert-deftest org-tasktree-search-ert-error-all ()
+  "Abnormal case: invalid scheduled values raise `user-error'."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-invalid-date-data)
+    (should-error (org-tasktree-search-all))))
 
 (ert-deftest org-tasktree-search-ert-normal-by-query-01 ()
   "Normal case: search by query with all fields specified."

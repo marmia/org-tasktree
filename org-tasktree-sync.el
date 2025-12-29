@@ -496,7 +496,7 @@ present).  SCHEDULED and DEADLINE are parsed timestamp elements."
          (phase-id (org-tasktree-sync--resolve-phase-id
                     item parent parent-id phase-map))
          (todo (plist-get item :todo))
-         (todo-keyword (if (equal node-type "group") nil todo))
+         (todo-keyword todo)
          (priority (plist-get item :priority))
          (scheduled-info (plist-get item :scheduled))
          (deadline-info (plist-get item :deadline))

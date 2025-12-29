@@ -278,6 +278,14 @@ Parents are included."
    []
    "scheduled"))
 
+(defun org-tasktree-query-search-all ()
+  "Return all nodes including DONE.
+Parents are included."
+  (org-tasktree-db--with-db db
+    (org-tasktree-query--validate-date-field db "scheduled")
+    (org-tasktree-query--validate-date-field db "deadline"))
+  (org-tasktree-query--fetch "1=1" []))
+
 (defun org-tasktree-query-default-template ()
   "Return default query YAML template string."
   (string-join

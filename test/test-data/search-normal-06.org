@@ -1,0 +1,54 @@
+* PROJ inbox
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-000000000001
+:END:
+* PROJ [#A] proj1
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-project00001
+:END:
+This is a project node.
+** PHASE phase1
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-phase0000007
+:END:
+This is a phase.
+*** group1
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-group0000008
+:END:
+This is a group.
+**** DONE task-done
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-done00000009
+:END:
+This is a done task.
+** TODO [#A] task-overdue
+SCHEDULED: <YESTERDAY> DEADLINE: <YESTERDAY>
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-overdue00004
+:END:
+This is a overdue task.
+** TODO [#A] task-today
+SCHEDULED: <TODAY> DEADLINE: <2026-01-20 Tue>
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-today0000002
+:END:
+This is a today task.
+** TODO [#A] task-tomorrow
+SCHEDULED: <TOMORROW> DEADLINE: <2026-01-20 Tue>
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-tomorrow0005
+:END:
+This is a tomorrow task.
+** TODO [#A] task-unscheduled
+DEADLINE: <2026-01-20 Tue>
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-unsche000006
+:END:
+This is a unscheduled task.
+** TODO [#A] task-yesterday
+SCHEDULED: <YESTERDAY> DEADLINE: <2026-01-20 Tue>
+:PROPERTIES:
+:UID: 00000000-0000-0000-0000-yesterday003
+:END:
+This is a yesterday task.
