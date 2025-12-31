@@ -336,6 +336,7 @@ present).  SCHEDULED and DEADLINE are parsed timestamp elements."
             (let* ((parent-uid (plist-get raw :parent-uid))
                    (parent-present (plist-get raw :parent-present))
                    (parent-cached (and parent-uid (gethash parent-uid cache)))
+                   (scope-limited (plist-get raw :scope-limited))
                    (parent-placeholder
                     (when (and (null (car effective-stack)) parent-uid)
                       (unless parent-cached
@@ -387,7 +388,8 @@ present).  SCHEDULED and DEADLINE are parsed timestamp elements."
                   (setq parent-type nil)))
               (when (and parent-present (null parent-uid)
                          (null parent)
-                         (not (equal node-type "project")))
+                         (not (equal node-type "project"))
+                         (not scope-limited))
                 (user-error "Parent UID missing for selected headline"))
               (org-tasktree-sync--validate-node-type-change
                uid node-type cached-type)
@@ -577,12 +579,16 @@ present).  SCHEDULED and DEADLINE are parsed timestamp elements."
 
 (defun org-tasktree-sync--collect-headlines-in-range (beg end)
   "Return headline plists whose begin is within BEG..END."
-  (let ((items (org-tasktree-sync--collect-headlines)))
-    (seq-filter
-     (lambda (item)
-       (let ((pos (plist-get item :begin)))
-         (and (integerp pos) (<= beg pos) (< pos end))))
-     items)))
+  (let* ((items (org-tasktree-sync--collect-headlines))
+         (in-range
+          (seq-filter
+           (lambda (item)
+             (let ((pos (plist-get item :begin)))
+               (and (integerp pos) (<= beg pos) (< pos end))))
+           items)))
+    (mapcar (lambda (item)
+              (plist-put item :scope-limited t))
+            in-range)))
 
 (defun org-tasktree-sync-buffer ()
   "Sync current org buffer into SQLite database."
