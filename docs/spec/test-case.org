@@ -54,7 +54,7 @@ id, title, parent_id, status, tags
 1, work, NULL, OPEN, :project:
 2, design, 1, OPEN, :phase:
 3, alpha, 2, OPEN, :group:
-4, task1, 3, OPEN, :unit-test:task1:
+4, task1, 3, OPEN, :unit_test:task1:
 5, child1, 4, OPEN, NULL
 11, caps-project, 1, OPEN, :Project:
 12, mixed-phase-group, 1, OPEN, :phase:group:
@@ -62,7 +62,7 @@ id, title, parent_id, status, tags
 6, archive, NULL, DONE, :project:
 7, archive-phase, 6, DONE, :phase:
 8, archive-group, 7, DONE, :group:
-9, archive-task, 8, DONE, :unit-test:task2:
+9, archive-task, 8, DONE, :unit_test:task2:
 10, archive-child, 9, DONE, NULL
 ```
 **** 手順（実装想定）
@@ -86,7 +86,7 @@ id, title, parent_id, status, tags
 ```csv
 id, title, parent_id, status, tags
 1, work, NULL, OPEN, :project:
-11, task3, 1, OPEN, :unit-test:task3:
+11, task3, 1, OPEN, :unit_test:task3:
 ```
 **** 手順（実装想定）
 - 親パスが存在する状態で、`org-tasktree-ui-minibuffer--completing-read` を
@@ -111,7 +111,7 @@ id, title, parent_id, status, tags
 
 ```csv
 id, title, parent_id, status, tags
-11, task3-upd, 1, OPEN, :unit-test:task3-upd:
+11, task3-upd, 1, OPEN, :unit_test:task3_upd:
 ```
 
 ** 異常系
@@ -449,7 +449,7 @@ id, title, parent_id, status, tags
 - DB は更新されない
 **** case-err-upd10: tags 禁足文字使用
 ***** テストデータ
-- tag に使える文字: 半角英数字 / `-` / `_`
+- tag に使える文字: 半角英数字 / `_` / `@` / `#` / `%`
 - 入力データ: test/test-data/sync-err-upd-10.org
 ***** 期待される結果
 - `user-error` が発生する

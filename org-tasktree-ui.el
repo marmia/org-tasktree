@@ -391,11 +391,11 @@ POS may be an integer or a marker."
     (cond
      ((or (null t0) (string-empty-p t0)) nil)
      ((string-match-p
-       "\\`\\(?::\\)?[A-Za-z0-9_-]+\\(?::[A-Za-z0-9_-]+\\)*\\(?::\\)?\\'"
+       "\\`\\(?::\\)?[A-Za-z0-9_@#%]+\\(?::[A-Za-z0-9_@#%]+\\)*\\(?::\\)?\\'"
        t0)
       (car (org-tasktree-model-normalize-tags t0)))
      (t (user-error
-         "Tags must be like tag1:tag2 or :tag1:tag2: using [A-Za-z0-9_-]")))))
+         "Tags must be like tag1:tag2 or :tag1:tag2: using [A-Za-z0-9_@#%]")))))
 
 (defun org-tasktree-ui--validate-repeat (value)
   "Return normalized repeat string from VALUE or nil."
@@ -800,7 +800,7 @@ KEY, VALUE, and HINT configure the created widget."
                  (tag (and (stringp raw) (string-trim raw))))
             (when (and (stringp tag)
                        (not (string-empty-p tag))
-                       (string-match-p "\\`[A-Za-z0-9_-]+\\'" tag))
+                       (string-match-p "\\`[A-Za-z0-9_@#%]+\\'" tag))
               (push tag tags))))))
     (setq tags (cdr (org-tasktree-model-normalize-tags tags)))
     (sort (copy-sequence tags) #'string<)))

@@ -118,7 +118,7 @@ and TAGS are the org tags."
                 :todo-keyword "TODO"
                 :status "OPEN"
                 :parent-id :keep
-                :tags ":unit-test:task1:"))
+                :tags ":unit_test:task1:"))
          (child (org-tasktree-find-node-ert--make-node
                  :uid "55555555-5555-4555-8555-555555555555"
                  :title "child1"

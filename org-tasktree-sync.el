@@ -113,13 +113,13 @@
   "Validate TAGS list and LINE suffix or signal `user-error'."
   (when tags
     (dolist (tag tags)
-      (unless (string-match-p "\\`[A-Za-z0-9_-]+\\'" tag)
+      (unless (string-match-p "\\`[A-Za-z0-9_@#%]+\\'" tag)
         (user-error
-         "Tags must be like tag1:tag2 or :tag1:tag2: using [A-Za-z0-9_-]"))))
+         "Tags must be like tag1:tag2 or :tag1:tag2: using [A-Za-z0-9_@#%]"))))
   (when (and (null tags) line
              (string-match-p "\\s-+:[^ \t\r\n]+:$" line))
     (user-error
-     "Tags must be like tag1:tag2 or :tag1:tag2: using [A-Za-z0-9_-]")))
+     "Tags must be like tag1:tag2 or :tag1:tag2: using [A-Za-z0-9_@#%]")))
 
 (defun org-tasktree-sync--validate-planning (scheduled-raw scheduled
                                                            deadline-raw deadline)

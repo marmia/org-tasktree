@@ -118,7 +118,31 @@
 *** DONE ユーザーテスト
 *** DONE コードレビュー
 
-** TODO M27: tags のバリデーション仕様を org-mode の仕様に合わせる
+** DONE M27: tags のバリデーション仕様を org-mode の仕様に合わせる
+*** DONE 修正内容の確認
+- tags に指定可能な文字を以下のように変更する。
+  - 現在の仕様: 英数字 (a-z A-Z 0-9) `_` `-`
+  - 新仕様: 英数字 (a-z A-Z 0-9) `_` `@` `#` `%`
+*** DONE ドキュメント修正
+- docs/spec/validation.org (64 行目)
+- docs/spec/test-case.org
+  - `org-tasktree-find-node` 異常系 case8
+  - `org-tasktree-sync-*` 異常系 case-err-upd10
+*** DONE テストデータ + テストコード修正
+*** DONE 実装
+*** DONE ERT テスト
+*** DONE ユーザーテスト
+*** DONE コードレビュー
+
+** TODO M28: tags バリデーションエラー時のメッセージ修正
+*** TODO 修正内容の確認
+- 現状のメッセージ: user-error: Not enough arguments for format string
+  - このメッセージでは、どの項目で入力エラーになっているのか分からない。
+*** TODO 実装
+*** TODO ERT テスト
+*** TODO ユーザーテスト
+*** TODO コードレビュー
+
 ** TODO Airtable との連携
 ** 上位 Node の status が"DONE"になった場合に下位 Node も"DONE"に設定
 ** 繰り返しタスクの履歴登録

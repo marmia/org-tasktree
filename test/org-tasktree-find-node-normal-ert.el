@@ -71,7 +71,7 @@
                 :todo-keyword "DONE"
                 :status "DONE"
                 :parent-id :keep
-                :tags ":unit-test:task2:"))
+                :tags ":unit_test:task2:"))
          (child (org-tasktree-find-node-ert--make-node
                  :uid "dddddddd-dddd-4ddd-8ddd-dddddddddddd"
                  :title "archive-child"
@@ -191,7 +191,7 @@
                       (:scheduled . "")
                       (:deadline . "")
                       (:repeat . "")
-                      (:tags . "unit-test:task1-upd")
+                      (:tags . "unit_test:task1_upd")
                       (:content . "updated content")))
         (puthash (car pair) (cdr pair) table))
       (cl-letf (((symbol-function 'org-tasktree-ui--widget-value)
@@ -205,7 +205,7 @@
                      "task1-upd"))
            (updated-tags (org-tasktree-find-node-normal-ert--row-nth updated 4)))
       (should (equal "task1-upd" (org-tasktree-find-node-normal-ert--row-nth updated 3)))
-      (should (equal ":unit-test:task1-upd:" updated-tags)))))
+      (should (equal ":unit_test:task1_upd:" updated-tags)))))
 
 (provide 'org-tasktree-find-node-normal-ert)
 ;;; org-tasktree-find-node-normal-ert.el ends here
