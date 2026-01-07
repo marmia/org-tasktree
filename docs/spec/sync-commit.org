@@ -4,13 +4,10 @@
 * `TODO` キーワードと内部状態のマッピング仕様
 ** org 側 TODO キーワード
 
-- PROJ
-- PHASE
-- TODO
-- DONE
-- nil（キーワードなし）
-
-※ 上記キーワードは `org-todo-keywords` に登録されている必要がある。
+- org-mode 側で定義されている TODO キーワードをそのまま使用する。
+- プラグイン側でキーワードの制約は行わない。
+- `nodes.todo_keyword` には見出しの TODO キーワードをそのまま保存する。
+- nil（キーワードなし）を許容する。
 
 ** 削除フラグ（DEL）
 
@@ -20,27 +17,16 @@
 
 ** 内部属性
 
-- node_type: project / phase / group / task
 - status: OPEN / DONE
 
 ** status の決定
 
-- org-todo = DONE → status = DONE
+- org-todo が done 状態 → status = DONE
 - それ以外 → status = OPEN
 
-** node_type の決定
+** 新規ノード（UID 未設定）かつ done 状態の扱い
 
-- PROJ  → project
-- PHASE → phase
-- TODO  → task
-- nil   → group
-- DONE  →
-  - 既存 UID がある場合: DB 上の node_type を維持
-  - 新規 UID がない DONE: task とみなす
-
-** 新規ノード（UID 未設定）かつ DONE の扱い
-
-- UID を持たない見出しで、org-todo が DONE の場合は完全に無視する
+- UID を持たない見出しで、org-todo が done 状態の場合は完全に無視する
   - UID 採番しない
   - DB に INSERT しない
 
@@ -54,28 +40,26 @@
 ** create/update の境界
 
 - `uid` が DB に存在する場合は update（UPDATE）として扱う。
-- `uid` が DB に存在しない場合は create（INSERT）として扱う。
+- `uid` が DB に存在しない場合は user-error とする。
+- UID 未設定の見出しのみ create（INSERT）として扱う。
 
 ** UPDATE 可能列 / 禁止列（nodes）
 
 - 禁止（不変）:
   - id
   - uid
-  - node_type
   - created_at
 - 更新可能:
-  - parent_id / project_id / phase_id
-  - todo_keyword / level / title
-  - priority / scheduled / deadline / tags
+  - parent_id
+  - todo_keyword / title
+  - priority / scheduled / deadline / repeat / tags / content
   - status / closed_at
   - updated_at（UPDATE のたびに現在時刻）
 
 ** 親子関係の再構築
 
 - parent_id は org ツリー構造から毎回再計算
-- project_id / phase_id は最寄りの上位ノードから決定
 - 親がスコープ外で特定できない場合は DB 値を維持する（keep）
-- 新規ノードで project を特定できない場合は inbox に登録する
 
 ** UID の付与
 
@@ -104,9 +88,9 @@
 
 ** insert / update フロー
 
-1. スコープ内ノードを収集（既存レコードの id / node_type / parent_id / project_id / phase_id / created_at をキャッシュ）
-2. 親子関係（parent_id / project_id / phase_id）を org ツリーから再計算（親がスコープ外で org 側から特定できない場合はキャッシュ値を維持）
+1. スコープ内ノードを収集（既存レコードの id / parent_id / created_at をキャッシュ）
+2. 親子関係（parent_id）を org ツリーから再計算（親がスコープ外で org 側から特定できない場合はキャッシュ値を維持）
 3. トランザクション開始
-4. 親ノードから順に、`uid` が既存の場合は UPDATE、未登録の場合は INSERT（id/uid/node_type/created_at は不変、updated_at は現在時刻）
-5. node_tags を対象 node_id について DELETE し、正規化後のタグを INSERT
+4. 親ノードから順に、`uid` が既存の場合は UPDATE、未登録の場合は INSERT（id/uid/created_at は不変、updated_at は現在時刻）
+5. node_tags を対象 node_id について DELETE し、tags 文字列からパースしたタグを INSERT
 6. COMMIT

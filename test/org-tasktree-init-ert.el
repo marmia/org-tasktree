@@ -6,7 +6,7 @@
 ;;; Commentary:
 ;;
 ;; ERT tests covering the main use cases for `org-tasktree-init'.
-;; The tests focus on database initialization, inbox creation, and idempotency.
+;; The tests focus on database initialization and idempotency.
 ;;
 
 ;;; Code:
@@ -22,16 +22,28 @@
   "Return ROW element at INDEX for lists or vectors."
   (if (vectorp row) (aref row index) (nth index row)))
 
-(defun org-tasktree-init-ert--select-inbox-row ()
-  "Return the inbox row from the nodes table."
+(defun org-tasktree-init-ert--table-row-count (table)
+  "Return row count for TABLE."
   (org-tasktree-db--with-db db
-    (car (sqlite-select
-          db
-          (string-join
-           '("SELECT id, uid, parent_id, node_type, todo_keyword, title,"
-             " status, project_id, phase_id"
-             " FROM nodes WHERE id = 1 LIMIT 1;")
-           "")))))
+    (org-tasktree-init-ert--row-nth
+     (car (sqlite-select
+           db
+           (format "SELECT COUNT(*) FROM %s;" table)))
+     0)))
+
+(defun org-tasktree-init-ert--table-columns (table)
+  "Return column names for TABLE."
+  (org-tasktree-db--with-db db
+    (mapcar
+     (lambda (row) (org-tasktree-init-ert--row-nth row 1))
+     (sqlite-select db (format "PRAGMA table_info(%s);" table)))))
+
+(defun org-tasktree-init-ert--user-version ()
+  "Return PRAGMA user_version value."
+  (org-tasktree-db--with-db db
+    (org-tasktree-init-ert--row-nth
+     (car (sqlite-select db "PRAGMA user_version;"))
+     0)))
 
 (defun org-tasktree-init-ert--table-exists-p (name)
   "Return non-nil when table NAME exists."
@@ -44,41 +56,33 @@
      name)))
 
 (ert-deftest org-tasktree-init-ert-normal-create-db ()
-  "Normal case: init creates DB/queries, schema tables, and inbox row."
+  "Normal case: init creates DB/queries and schema tables."
   (org-tasktree-test-helper-reset-db)
   (should (file-exists-p org-tasktree-database-location))
   (should (file-directory-p org-tasktree-query-dir))
   (should (org-tasktree-init-ert--table-exists-p "nodes"))
   (should (org-tasktree-init-ert--table-exists-p "node_tags"))
-  (should (org-tasktree-init-ert--table-exists-p "meta"))
-  (let ((row (org-tasktree-init-ert--select-inbox-row)))
-    (should row)
-    (should (= 1 (org-tasktree-init-ert--row-nth row 0)))
-    (should (equal "00000000-0000-0000-0000-000000000001"
-                   (org-tasktree-init-ert--row-nth row 1)))
-    (should (null (org-tasktree-init-ert--row-nth row 2)))
-    (should (equal "project" (org-tasktree-init-ert--row-nth row 3)))
-    (should (equal "PROJ" (org-tasktree-init-ert--row-nth row 4)))
-    (should (equal "inbox" (org-tasktree-init-ert--row-nth row 5)))
-    (should (equal "OPEN" (org-tasktree-init-ert--row-nth row 6)))
-    (should (null (org-tasktree-init-ert--row-nth row 7)))
-    (should (null (org-tasktree-init-ert--row-nth row 8)))))
+  (should-not (org-tasktree-init-ert--table-exists-p "meta"))
+  (should (= 0 (org-tasktree-init-ert--table-row-count "nodes")))
+  (should (= 0 (org-tasktree-init-ert--table-row-count "node_tags")))
+  (should (= 2 (org-tasktree-init-ert--user-version)))
+  (should
+   (equal
+    '("id" "uid" "parent_id" "todo_keyword" "title" "priority"
+      "scheduled" "deadline" "repeat" "closed_at" "tags" "content"
+      "status" "created_at" "updated_at")
+    (org-tasktree-init-ert--table-columns "nodes"))))
 
 (ert-deftest org-tasktree-init-ert-normal-idempotent ()
-  "Normal case: re-running init keeps the inbox row intact."
+  "Normal case: re-running init keeps schema and data intact."
   (org-tasktree-test-helper-reset-db)
-  (let ((before (org-tasktree-init-ert--select-inbox-row)))
+  (let ((before-version (org-tasktree-init-ert--user-version))
+        (before-count (org-tasktree-init-ert--table-row-count "nodes")))
     (org-tasktree-init)
-    (let ((after (org-tasktree-init-ert--select-inbox-row)))
-      (should (equal before after)))))
-
-(ert-deftest org-tasktree-init-ert-normal-default-project-name ()
-  "Normal case: init uses `org-tasktree-default-project-name' for inbox title."
-  (let ((org-tasktree-default-project-name "test"))
-    (org-tasktree-test-helper-reset-db)
-    (let ((row (org-tasktree-init-ert--select-inbox-row)))
-      (should row)
-      (should (equal "test" (org-tasktree-init-ert--row-nth row 5))))))
+    (let ((after-version (org-tasktree-init-ert--user-version))
+          (after-count (org-tasktree-init-ert--table-row-count "nodes")))
+      (should (= before-version after-version))
+      (should (= before-count after-count)))))
 
 (ert-deftest org-tasktree-init-ert-abnormal-invalid-db-path ()
   "Abnormal case: init fails with an invalid database path."

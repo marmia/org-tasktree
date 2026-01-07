@@ -230,6 +230,11 @@ present).  SCHEDULED and DEADLINE are parsed timestamp elements."
                  (title (org-tasktree-sync--validate-title title))
                  (priority (org-element-property :priority hl))
                  (tags (org-element-property :tags hl))
+                 (tags-raw (and line
+                                (string-match
+                                 "\\s-+\\(:[^ \t\r\n]+:\\)\\s-*\\'"
+                                 line)
+                                (match-string 1 line)))
                  (scheduled (org-element-property :scheduled hl))
                  (deadline (org-element-property :deadline hl))
                  (content (org-tasktree-sync--extract-content hl))
@@ -259,6 +264,7 @@ present).  SCHEDULED and DEADLINE are parsed timestamp elements."
                   :title title
                   :priority (and priority (char-to-string priority))
                   :tags tags
+                  :tags-raw tags-raw
                   :scheduled (org-tasktree-sync--timestamp-info scheduled)
                   :deadline (org-tasktree-sync--timestamp-info deadline)
                   :content content
@@ -266,42 +272,9 @@ present).  SCHEDULED and DEADLINE are parsed timestamp elements."
                   :parent-uid parent-uid
                   :parent-present (and parent t))))))))
 
-(defun org-tasktree-sync--node-type-from-todo (todo uid cached-type)
-  "Return node_type string from TODO, UID, and CACHED-TYPE."
-  (cond
-   ((string= todo "PROJ") "project")
-   ((string= todo "PHASE") "phase")
-   ((string= todo "TODO") "task")
-   ((string= todo "DONE")
-    (or cached-type "task"))
-   ((and (null todo) (org-tasktree-sync--nonempty-string-p uid))
-    "group")
-   ((null todo) "group")
-   (t (user-error "Unsupported TODO keyword: %s" todo))))
-
 (defun org-tasktree-sync--status-from-todo (todo)
   "Return status string from TODO keyword."
   (if (string= todo "DONE") "DONE" "OPEN"))
-
-(defun org-tasktree-sync--validate-node-type-change (uid node-type cached-type)
-  "Signal an error when UID has a different NODE-TYPE than CACHED-TYPE."
-  (when (and cached-type (not (equal cached-type node-type)))
-    (user-error "Node type must not change (uid=%s)" uid)))
-
-(defun org-tasktree-sync--validate-parent-type (node-type parent-type)
-  "Validate NODE-TYPE under PARENT-TYPE or signal `user-error'."
-  (pcase node-type
-    ("project" nil)
-    ("phase"
-     (unless (equal parent-type "project")
-       (user-error "Phase parent must be project")))
-    ("group"
-     (unless (member parent-type '("project" "phase" "group"))
-       (user-error "Group parent must be project, phase, or group")))
-    ("task"
-     (unless (member parent-type '("project" "phase" "group" "task"))
-       (user-error "Task parent must be project, phase, group, or task")))
-    (_ (user-error "Unknown node_type: %s" node-type))))
 
 (defun org-tasktree-sync--build-items (raw-items cache)
   "Return plist with :items and :delete-uids from RAW-ITEMS and CACHE."
@@ -314,8 +287,10 @@ present).  SCHEDULED and DEADLINE are parsed timestamp elements."
              (todo (plist-get raw :todo))
              (uid (plist-get raw :uid))
              (cached (and uid (gethash uid cache)))
-             (cached-type (plist-get cached :node-type))
              (delete-self (and (plist-get raw :delete) uid)))
+        (when (and (org-tasktree-sync--nonempty-string-p uid)
+                   (not cached))
+          (user-error "UID not found in DB (uid=%s)" uid))
         (while (and full-stack
                     (>= (plist-get (car full-stack) :level) level))
           (pop full-stack))
@@ -342,77 +317,17 @@ present).  SCHEDULED and DEADLINE are parsed timestamp elements."
                       (unless parent-cached
                         (user-error
                          "Parent UID not found in DB (uid=%s)" parent-uid))
-                      (list :uid parent-uid
-                            :node-type (plist-get parent-cached :node-type)
-                            :project-id (plist-get parent-cached :project-id)
-                            :phase-id (plist-get parent-cached :phase-id))))
-                   (node-type (org-tasktree-sync--node-type-from-todo
-                               todo uid cached-type))
+                      (list :uid parent-uid)))
                    (status (org-tasktree-sync--status-from-todo todo))
-                   (parent (or (car effective-stack) parent-placeholder))
-                   (parent-type (and parent
-                                     (plist-get parent :node-type))))
-              (when (and (equal node-type "project")
-                         (car effective-stack))
-                (if (seq-some (lambda (ancestor)
-                                (or (equal (plist-get ancestor :node-type)
-                                           "project")
-                                    (plist-get ancestor :project)))
-                              effective-stack)
-                    (user-error "Project must be top level")
-                  (let* ((ancestor-begins
-                          (mapcar (lambda (ancestor)
-                                    (plist-get ancestor :begin))
-                                  effective-stack))
-                         (ancestor-uids
-                          (seq-filter
-                           #'org-tasktree-sync--nonempty-string-p
-                           (mapcar (lambda (ancestor)
-                                     (plist-get ancestor :uid))
-                                   effective-stack))))
-                    (setq items
-                          (seq-remove
-                           (lambda (item)
-                             (let ((begin (plist-get item :begin)))
-                               (and (integerp begin)
-                                    (member begin ancestor-begins))))
-                           items))
-                    (setq delete-uids
-                          (seq-remove
-                           (lambda (uid)
-                             (member uid ancestor-uids))
-                           delete-uids)))
-                  (setq full-stack nil)
-                  (setq effective-stack nil)
-                  (setq parent nil)
-                  (setq parent-type nil)))
+                   (parent (or (car effective-stack) parent-placeholder)))
               (when (and parent-present (null parent-uid)
                          (null parent)
-                         (not (equal node-type "project"))
                          (not scope-limited))
                 (user-error "Parent UID missing for selected headline"))
-              (org-tasktree-sync--validate-node-type-change
-               uid node-type cached-type)
-              (when parent-type
-                (org-tasktree-sync--validate-parent-type node-type parent-type))
-              (let* ((project (cond
-                               ((equal node-type "project") nil)
-                               ((and parent (equal parent-type "project"))
-                                parent)
-                               (parent (plist-get parent :project))
-                               (t nil)))
-                     (phase (cond
-                             ((equal node-type "phase") nil)
-                             ((and parent (equal parent-type "phase")) parent)
-                             (parent (plist-get parent :phase))
-                             (t nil)))
-                     (item (append raw
-                                   (list :node-type node-type
-                                         :status status
-                                         :parent parent
-                                         :project project
-                                         :phase phase
-                                         :existing (and cached t)))))
+              (let ((item (append raw
+                                  (list :status status
+                                        :parent parent
+                                        :existing (and cached t)))))
                 (push item items)
                 (push item effective-stack)))))))
     (let ((delete-set (delete-dups delete-uids)))
@@ -441,62 +356,16 @@ present).  SCHEDULED and DEADLINE are parsed timestamp elements."
       (or (and parent-uid (gethash parent-uid uid->id))
           (user-error "Parent ID not resolved for uid=%s" parent-uid)))))
 
-(defun org-tasktree-sync--resolve-project-id (item parent parent-id project-map)
-  "Return project_id for ITEM using PARENT, PARENT-ID, and PROJECT-MAP."
-  (if (equal (plist-get item :node-type) "project")
-      nil
-    (cond
-     (parent
-      (let ((parent-type (plist-get parent :node-type))
-            (parent-project-id
-             (or (and (plist-get parent :uid)
-                      (gethash (plist-get parent :uid) project-map))
-                 (plist-get parent :project-id))))
-        (cond
-         ((equal parent-type "project") parent-id)
-         ((eq parent-project-id :keep) :keep)
-         ((numberp parent-project-id) parent-project-id)
-         (t :keep))))
-     ((plist-get item :existing)
-      :keep)
-     (t (org-tasktree-db-inbox-id)))))
-
-(defun org-tasktree-sync--resolve-phase-id (item parent parent-id phase-map)
-  "Return phase_id for ITEM using PARENT, PARENT-ID, and PHASE-MAP."
-  (if (equal (plist-get item :node-type) "phase")
-      nil
-    (cond
-     (parent
-      (let ((parent-type (plist-get parent :node-type))
-            (parent-phase-id
-             (or (and (plist-get parent :uid)
-                      (gethash (plist-get parent :uid) phase-map))
-                 (plist-get parent :phase-id))))
-        (cond
-         ((equal parent-type "phase") parent-id)
-         ((eq parent-phase-id :keep) :keep)
-         ((numberp parent-phase-id) parent-phase-id)
-         (t nil))))
-     ((plist-get item :existing)
-      :keep)
-     (t nil))))
-
-(defun org-tasktree-sync--item->node (item uid->id project-map phase-map)
-  "Convert ITEM to `org-tasktree-model-node' using UID->ID, PROJECT-MAP, and PHASE-MAP."
+(defun org-tasktree-sync--item->node (item uid->id)
+  "Convert ITEM to `org-tasktree-model-node' using UID->ID."
   (let* ((uid (org-tasktree-sync--ensure-uid item))
          (existing (plist-get item :existing))
          (parent (plist-get item :parent))
          (parent-id (org-tasktree-sync--resolve-parent-id parent uid->id))
-         (node-type (plist-get item :node-type))
          (parent-id (cond
                      (parent-id parent-id)
-                     ((equal node-type "project") nil)
                      (existing :keep)
-                     (t (org-tasktree-db-inbox-id))))
-         (project-id (org-tasktree-sync--resolve-project-id
-                      item parent parent-id project-map))
-         (phase-id (org-tasktree-sync--resolve-phase-id
-                    item parent parent-id phase-map))
+                     (t nil)))
          (todo (plist-get item :todo))
          (todo-keyword todo)
          (priority (plist-get item :priority))
@@ -505,19 +374,19 @@ present).  SCHEDULED and DEADLINE are parsed timestamp elements."
          (scheduled (car scheduled-info))
          (repeat (cdr scheduled-info))
          (deadline (car deadline-info))
+         (tags-raw (plist-get item :tags-raw))
          (tags (plist-get item :tags))
-         (tags (when tags
-                 (car (org-tasktree-model-normalize-tags tags))))
+         (tags (cond
+                (tags-raw tags-raw)
+                (tags (org-tasktree-model-tags->org-string tags))
+                (t nil)))
          (content (plist-get item :content))
-         (level (plist-get item :level))
          (status (plist-get item :status)))
     (org-tasktree-model-node-create
      :uid uid
      :parent-id parent-id
-     :node-type node-type
      :todo-keyword todo-keyword
      :title (plist-get item :title)
-     :level level
      :priority priority
      :scheduled scheduled
      :deadline deadline
@@ -525,9 +394,7 @@ present).  SCHEDULED and DEADLINE are parsed timestamp elements."
      :closed-at nil
      :tags tags
      :content content
-     :status status
-     :project-id project-id
-     :phase-id phase-id)))
+     :status status)))
 
 (defun org-tasktree-sync--sync-raw-items (raw-items)
   "Sync RAW-ITEMS into the database."
@@ -546,36 +413,31 @@ present).  SCHEDULED and DEADLINE are parsed timestamp elements."
              (delete-uids (plist-get build :delete-uids))
              (now (format-time-string "%FT%T%:z" (current-time)))
              (uid->id (make-hash-table :test 'equal))
-             (project-map (make-hash-table :test 'equal))
-             (phase-map (make-hash-table :test 'equal)))
+             (delete-count (org-tasktree-db-count-subtree-by-uids
+                            db delete-uids)))
+        (dolist (uid uids)
+          (when (and (org-tasktree-sync--nonempty-string-p uid)
+                     (not (gethash uid cache)))
+            (user-error "UID not found in DB (uid=%s)" uid)))
         (maphash
          (lambda (uid data)
            (let ((id (plist-get data :id)))
              (when (numberp id)
                (puthash uid id uid->id))))
          cache)
-        (when (seq-find (lambda (uid) (equal uid (org-tasktree-db-inbox-uid)))
-                        delete-uids)
-          (user-error "Inbox project cannot be deleted"))
         (org-tasktree-db-delete-subtree-by-uids db delete-uids)
         (dolist (item items)
-          (let* ((node (org-tasktree-sync--item->node
-                        item uid->id project-map phase-map))
+          (let* ((node (org-tasktree-sync--item->node item uid->id))
                  (prepared (org-tasktree-db-commit-nodes-with-db
                             db (list node) cache now))
                  (saved (car prepared))
                  (saved-id (org-tasktree-model-node-id saved))
                  (saved-uid (org-tasktree-model-node-uid saved)))
             (when (numberp saved-id)
-              (puthash saved-uid saved-id uid->id)
-              (puthash saved-uid
-                       (org-tasktree-model-node-project-id saved)
-                       project-map)
-              (puthash saved-uid
-                       (org-tasktree-model-node-phase-id saved)
-                       phase-map))))
-        (message "org-tasktree: sync completed (%d nodes)"
-                 (length items))))))
+              (puthash saved-uid saved-id uid->id))))
+        (message "org-tasktree: sync completed (updated %d, deleted %d)"
+                 (length items)
+                 delete-count)))))
 
 (defun org-tasktree-sync--collect-headlines-in-range (beg end)
   "Return headline plists whose begin is within BEG..END."

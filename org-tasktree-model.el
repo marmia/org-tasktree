@@ -1,5 +1,5 @@
 ;;; org-tasktree-model.el --- Data model for org-tasktree -*- lexical-binding: t; -*-
-;; Package-Requires: ((emacs "29.1"))
+;; Package-Requires: ((emacs "29.1") (org "9.6"))
 ;; URL: https://github.com/marmia/org-tasktree
 ;; Version: 0.1.0
 
@@ -15,35 +15,29 @@
 (require 'subr-x)
 (require 'org)
 
-(defconst org-tasktree-model--allowed-node-types
-  '("project" "phase" "group" "task")
-  "Allowed `node_type' values.")
-
 (defconst org-tasktree-model--allowed-statuses
   '("OPEN" "DONE")
   "Allowed `status' values.")
 
 (cl-defstruct org-tasktree-model-node
-  id uid parent-id node-type todo-keyword title level priority
-  scheduled deadline repeat closed-at tags content status project-id phase-id
+  id uid parent-id todo-keyword title priority
+  scheduled deadline repeat closed-at tags content status
   created-at updated-at)
 
 (cl-defun org-tasktree-model-node-create
-    (&key id uid parent-id node-type todo-keyword title level priority
-          scheduled deadline repeat closed-at tags content status project-id phase-id
+    (&key id uid parent-id todo-keyword title priority
+          scheduled deadline repeat closed-at tags content status
           created-at updated-at)
   "Create node from keyword arguments.
-Accepts ID, UID, PARENT-ID, NODE-TYPE, TODO-KEYWORD, TITLE, LEVEL,
-PRIORITY, SCHEDULED, DEADLINE, REPEAT, CLOSED-AT, TAGS, STATUS,
-CONTENT, PROJECT-ID, PHASE-ID, CREATED-AT, and UPDATED-AT."
+Accepts ID, UID, PARENT-ID, TODO-KEYWORD, TITLE, PRIORITY, SCHEDULED,
+DEADLINE, REPEAT, CLOSED-AT, TAGS, STATUS, CONTENT, CREATED-AT, and
+UPDATED-AT."
   (make-org-tasktree-model-node
    :id id
    :uid uid
    :parent-id parent-id
-   :node-type node-type
    :todo-keyword todo-keyword
    :title title
-   :level level
    :priority priority
    :scheduled scheduled
    :deadline deadline
@@ -52,8 +46,6 @@ CONTENT, PROJECT-ID, PHASE-ID, CREATED-AT, and UPDATED-AT."
    :tags tags
    :content content
    :status status
-   :project-id project-id
-   :phase-id phase-id
    :created-at created-at
    :updated-at updated-at))
 
@@ -63,30 +55,25 @@ CONTENT, PROJECT-ID, PHASE-ID, CREATED-AT, and UPDATED-AT."
 
 (defun org-tasktree-model-node-from-db-row (row)
   "Create `org-tasktree-model-node' from DB ROW.
-ROW must follow table column order: id, uid, parent_id, node_type,
-TODO keyword, title, level, priority, scheduled, deadline, repeat,
-closed_at, tags, content, status, project_id, phase_id, created_at,
-and updated_at."
+ROW must follow table column order: id, uid, parent_id, todo_keyword,
+title, priority, scheduled, deadline, repeat, closed_at, tags,
+content, status, created_at, and updated_at."
   (org-tasktree-model-node-create
    :id (org-tasktree-model--row-nth row 0)
    :uid (org-tasktree-model--row-nth row 1)
    :parent-id (org-tasktree-model--row-nth row 2)
-   :node-type (org-tasktree-model--row-nth row 3)
-   :todo-keyword (org-tasktree-model--row-nth row 4)
-   :title (org-tasktree-model--row-nth row 5)
-   :level (org-tasktree-model--row-nth row 6)
-   :priority (org-tasktree-model--row-nth row 7)
-   :scheduled (org-tasktree-model--row-nth row 8)
-   :deadline (org-tasktree-model--row-nth row 9)
-   :repeat (org-tasktree-model--row-nth row 10)
-   :closed-at (org-tasktree-model--row-nth row 11)
-   :tags (org-tasktree-model--row-nth row 12)
-   :content (org-tasktree-model--row-nth row 13)
-   :status (org-tasktree-model--row-nth row 14)
-   :project-id (org-tasktree-model--row-nth row 15)
-   :phase-id (org-tasktree-model--row-nth row 16)
-   :created-at (org-tasktree-model--row-nth row 17)
-   :updated-at (org-tasktree-model--row-nth row 18)))
+   :todo-keyword (org-tasktree-model--row-nth row 3)
+   :title (org-tasktree-model--row-nth row 4)
+   :priority (org-tasktree-model--row-nth row 5)
+   :scheduled (org-tasktree-model--row-nth row 6)
+   :deadline (org-tasktree-model--row-nth row 7)
+   :repeat (org-tasktree-model--row-nth row 8)
+   :closed-at (org-tasktree-model--row-nth row 9)
+   :tags (org-tasktree-model--row-nth row 10)
+   :content (org-tasktree-model--row-nth row 11)
+   :status (org-tasktree-model--row-nth row 12)
+   :created-at (org-tasktree-model--row-nth row 13)
+   :updated-at (org-tasktree-model--row-nth row 14)))
 
 (defun org-tasktree-model-node-from-plist (plist)
   "Create `org-tasktree-model-node' from PLIST with keyword keys."
@@ -94,10 +81,8 @@ and updated_at."
    :id (plist-get plist :id)
    :uid (plist-get plist :uid)
    :parent-id (plist-get plist :parent-id)
-   :node-type (plist-get plist :node-type)
    :todo-keyword (plist-get plist :todo-keyword)
    :title (plist-get plist :title)
-   :level (plist-get plist :level)
    :priority (plist-get plist :priority)
    :scheduled (plist-get plist :scheduled)
    :deadline (plist-get plist :deadline)
@@ -106,8 +91,6 @@ and updated_at."
    :tags (plist-get plist :tags)
    :content (plist-get plist :content)
    :status (plist-get plist :status)
-   :project-id (plist-get plist :project-id)
-   :phase-id (plist-get plist :phase-id)
    :created-at (plist-get plist :created-at)
    :updated-at (plist-get plist :updated-at)))
 
@@ -116,10 +99,8 @@ and updated_at."
   (list :id (org-tasktree-model-node-id node)
         :uid (org-tasktree-model-node-uid node)
         :parent-id (org-tasktree-model-node-parent-id node)
-        :node-type (org-tasktree-model-node-node-type node)
         :todo-keyword (org-tasktree-model-node-todo-keyword node)
         :title (org-tasktree-model-node-title node)
-        :level (org-tasktree-model-node-level node)
         :priority (org-tasktree-model-node-priority node)
         :scheduled (org-tasktree-model-node-scheduled node)
         :deadline (org-tasktree-model-node-deadline node)
@@ -128,8 +109,6 @@ and updated_at."
         :tags (org-tasktree-model-node-tags node)
         :content (org-tasktree-model-node-content node)
         :status (org-tasktree-model-node-status node)
-        :project-id (org-tasktree-model-node-project-id node)
-        :phase-id (org-tasktree-model-node-phase-id node)
         :created-at (org-tasktree-model-node-created-at node)
         :updated-at (org-tasktree-model-node-updated-at node)))
 
@@ -140,10 +119,8 @@ omitted, starting from `uid'."
   (let ((vals (list (org-tasktree-model-node-id node)
                     (org-tasktree-model-node-uid node)
                     (org-tasktree-model-node-parent-id node)
-                    (org-tasktree-model-node-node-type node)
                     (org-tasktree-model-node-todo-keyword node)
                     (org-tasktree-model-node-title node)
-                    (org-tasktree-model-node-level node)
                     (org-tasktree-model-node-priority node)
                     (org-tasktree-model-node-scheduled node)
                     (org-tasktree-model-node-deadline node)
@@ -152,8 +129,6 @@ omitted, starting from `uid'."
                     (org-tasktree-model-node-tags node)
                     (org-tasktree-model-node-content node)
                     (org-tasktree-model-node-status node)
-                    (org-tasktree-model-node-project-id node)
-                    (org-tasktree-model-node-phase-id node)
                     (org-tasktree-model-node-created-at node)
                     (org-tasktree-model-node-updated-at node))))
     (apply #'vector (if include-id vals (cdr vals)))))
@@ -161,6 +136,14 @@ omitted, starting from `uid'."
 (defun org-tasktree-model--string-nonempty-p (value)
   "Return non-nil when VALUE is a non-empty string."
   (and (stringp value) (not (string-empty-p value))))
+
+(defun org-tasktree-model--valid-uid-p (uid)
+  "Return non-nil when UID matches UUID format."
+  (and (stringp uid)
+       (string-match-p
+        "\\`[0-9a-fA-F]\\{8\\}-[0-9a-fA-F]\\{4\\}-[0-9a-fA-F]\\{4\\}-\
+[0-9a-fA-F]\\{4\\}-[0-9a-fA-F]\\{12\\}\\'"
+        uid)))
 
 (defun org-tasktree-model--valid-date-p (value)
   "Return non-nil when VALUE matches YYYY-MM-DD format."
@@ -237,12 +220,8 @@ Returns NODE when validation succeeds."
   (unless (org-tasktree-model-node-p node)
     (user-error "NODE is not an `org-tasktree-model-node'"))
   (let ((uid (org-tasktree-model-node-uid node))
-        (node-type (org-tasktree-model-node-node-type node))
         (title (org-tasktree-model-node-title node))
-        (level (org-tasktree-model-node-level node))
         (status (org-tasktree-model-node-status node))
-        (project-id (org-tasktree-model-node-project-id node))
-        (phase-id (org-tasktree-model-node-phase-id node))
         (priority (org-tasktree-model-node-priority node))
         (scheduled (org-tasktree-model-node-scheduled node))
         (deadline (org-tasktree-model-node-deadline node))
@@ -252,23 +231,15 @@ Returns NODE when validation succeeds."
         (updated-at (org-tasktree-model-node-updated-at node)))
     (unless (org-tasktree-model--string-nonempty-p uid)
       (user-error "UID is required"))
-    (unless (member node-type org-tasktree-model--allowed-node-types)
-      (user-error "Node type must be one of %S"
-                  org-tasktree-model--allowed-node-types))
+    (unless (org-tasktree-model--valid-uid-p uid)
+      (user-error "UID must be UUID format"))
     (unless (org-tasktree-model--string-nonempty-p title)
       (user-error "Title is required"))
     (unless (org-tasktree-model--title-valid-p title)
       (user-error "Title must not include control characters"))
-    (unless (and (integerp level) (>= level 1))
-      (user-error "Level must be integer >= 1"))
     (unless (member status org-tasktree-model--allowed-statuses)
       (user-error "Status must be one of %S"
                   org-tasktree-model--allowed-statuses))
-    (when (and (not (equal node-type "project"))
-               (not (numberp project-id)))
-      (user-error "Project ID is required for non-project nodes"))
-    (when (and phase-id (not (numberp phase-id)))
-      (user-error "Phase ID must be a number or nil"))
     (when (and scheduled
                (not (org-tasktree-model--valid-date-p scheduled)))
       (user-error "Scheduled must be YYYY-MM-DD or nil"))

@@ -1,4 +1,3 @@
-node_type: group
-title: group-alpha
+title: task-beta
 include_ancestor: true
-include_descendants: true
+include_descendants: false

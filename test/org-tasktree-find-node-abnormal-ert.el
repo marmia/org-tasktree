@@ -35,88 +35,75 @@ VALUES is an alist of (KEY . VALUE).  FN is a function of no arguments."
   "Seed a single project and return its id."
   (org-tasktree-test-helper-reset-db)
   (let* ((project (org-tasktree-find-node-ert--make-node
-                   :uid "abnormal-project-1"
-                   :node-type "project"
+                   :uid "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
                    :title "project1"
-                   :level 1
-                   :todo-keyword "PROJ"
+                   :todo-keyword nil
                    :status "OPEN"
                    :parent-id nil
-                   :project-id nil
-                   :phase-id nil))
+                   :tags ":project:"))
          (saved (org-tasktree-find-node-ert--insert-node project)))
     (org-tasktree-model-node-id saved)))
 
-(ert-deftest org-tasktree-find-node-abnormal-ert-invalid-node-type ()
-  "Abnormal case: invalid node_type should signal `user-error'."
-  (org-tasktree-find-node-abnormal-ert--seed-project)
-  (let ((meta (list :type 'node :node-type-options '("task" "group"))))
-    (org-tasktree-find-node-abnormal-ert--with-widget-values
-     '((:node-type . "foo")
-       (:title . "x"))
-     (lambda ()
-       (should-error (org-tasktree-ui--submit-widget meta))))))
-
 (ert-deftest org-tasktree-find-node-abnormal-ert-empty-title ()
   "Abnormal case: empty title should signal `user-error'."
-  (org-tasktree-find-node-abnormal-ert--seed-project)
-  (let ((meta (list :type 'node :node-type-options '("task"))))
+  (let* ((project-id (org-tasktree-find-node-abnormal-ert--seed-project))
+         (meta (org-tasktree-find-node-ert--meta-for-node
+                :parent-id project-id)))
     (org-tasktree-find-node-abnormal-ert--with-widget-values
-     '((:node-type . "task")
-       (:title . "  "))
+     '((:title . "  "))
      (lambda ()
        (should-error (org-tasktree-ui--submit-widget meta))))))
 
 (ert-deftest org-tasktree-find-node-abnormal-ert-invalid-title ()
   "Abnormal case: title with '/' should signal `user-error'."
-  (org-tasktree-find-node-abnormal-ert--seed-project)
-  (let ((meta (list :type 'node :node-type-options '("task"))))
+  (let* ((project-id (org-tasktree-find-node-abnormal-ert--seed-project))
+         (meta (org-tasktree-find-node-ert--meta-for-node
+                :parent-id project-id)))
     (org-tasktree-find-node-abnormal-ert--with-widget-values
-     '((:node-type . "task")
-       (:title . "a/b"))
+     '((:title . "a/b"))
      (lambda ()
        (should-error (org-tasktree-ui--submit-widget meta))))))
 
 (ert-deftest org-tasktree-find-node-abnormal-ert-invalid-priority ()
   "Abnormal case: invalid priority should signal `user-error'."
-  (org-tasktree-find-node-abnormal-ert--seed-project)
-  (let ((meta (list :type 'node :node-type-options '("task"))))
+  (let* ((project-id (org-tasktree-find-node-abnormal-ert--seed-project))
+         (meta (org-tasktree-find-node-ert--meta-for-node
+                :parent-id project-id)))
     (org-tasktree-find-node-abnormal-ert--with-widget-values
-     '((:node-type . "task")
-       (:title . "task")
+     '((:title . "task")
        (:priority . "AA"))
      (lambda ()
        (should-error (org-tasktree-ui--submit-widget meta))))))
 
 (ert-deftest org-tasktree-find-node-abnormal-ert-invalid-scheduled ()
   "Abnormal case: invalid scheduled date should signal `user-error'."
-  (org-tasktree-find-node-abnormal-ert--seed-project)
-  (let ((meta (list :type 'node :node-type-options '("task"))))
+  (let* ((project-id (org-tasktree-find-node-abnormal-ert--seed-project))
+         (meta (org-tasktree-find-node-ert--meta-for-node
+                :parent-id project-id)))
     (org-tasktree-find-node-abnormal-ert--with-widget-values
-     '((:node-type . "task")
-       (:title . "task")
+     '((:title . "task")
        (:scheduled . "2025-02-30"))
      (lambda ()
        (should-error (org-tasktree-ui--submit-widget meta))))))
 
 (ert-deftest org-tasktree-find-node-abnormal-ert-invalid-deadline ()
   "Abnormal case: invalid deadline date should signal `user-error'."
-  (org-tasktree-find-node-abnormal-ert--seed-project)
-  (let ((meta (list :type 'node :node-type-options '("task"))))
+  (let* ((project-id (org-tasktree-find-node-abnormal-ert--seed-project))
+         (meta (org-tasktree-find-node-ert--meta-for-node
+                :parent-id project-id)))
     (org-tasktree-find-node-abnormal-ert--with-widget-values
-     '((:node-type . "task")
-       (:title . "task")
+     '((:title . "task")
        (:deadline . "2025-02-30"))
      (lambda ()
        (should-error (org-tasktree-ui--submit-widget meta))))))
 
 (ert-deftest org-tasktree-find-node-abnormal-ert-schedule-after-deadline ()
   "Abnormal case: scheduled after deadline should signal `user-error'."
-  (org-tasktree-find-node-abnormal-ert--seed-project)
-  (let ((meta (list :type 'node :node-type-options '("task"))))
+  (let* ((project-id (org-tasktree-find-node-abnormal-ert--seed-project))
+         (meta (org-tasktree-find-node-ert--meta-for-node
+                :parent-id project-id)))
     (org-tasktree-find-node-abnormal-ert--with-widget-values
-     '((:node-type . "task")
-       (:title . "task")
+     '((:title . "task")
        (:scheduled . "2025-12-31")
        (:deadline . "2025-12-01"))
      (lambda ()
@@ -124,70 +111,34 @@ VALUES is an alist of (KEY . VALUE).  FN is a function of no arguments."
 
 (ert-deftest org-tasktree-find-node-abnormal-ert-invalid-repeat ()
   "Abnormal case: invalid repeat should signal `user-error'."
-  (org-tasktree-find-node-abnormal-ert--seed-project)
-  (let ((meta (list :type 'node :node-type-options '("task"))))
+  (let* ((project-id (org-tasktree-find-node-abnormal-ert--seed-project))
+         (meta (org-tasktree-find-node-ert--meta-for-node
+                :parent-id project-id)))
     (org-tasktree-find-node-abnormal-ert--with-widget-values
-     '((:node-type . "task")
-       (:title . "task")
+     '((:title . "task")
        (:repeat . "1d"))
      (lambda ()
        (should-error (org-tasktree-ui--submit-widget meta))))))
 
 (ert-deftest org-tasktree-find-node-abnormal-ert-invalid-tags ()
   "Abnormal case: invalid tags should signal `user-error'."
-  (org-tasktree-find-node-abnormal-ert--seed-project)
-  (let ((meta (list :type 'node :node-type-options '("task"))))
+  (let* ((project-id (org-tasktree-find-node-abnormal-ert--seed-project))
+         (meta (org-tasktree-find-node-ert--meta-for-node
+                :parent-id project-id)))
     (org-tasktree-find-node-abnormal-ert--with-widget-values
-     '((:node-type . "task")
-       (:title . "task")
+     '((:title . "task")
        (:tags . "tag1,tag2"))
      (lambda ()
        (should-error (org-tasktree-ui--submit-widget meta))))))
 
-(ert-deftest org-tasktree-find-node-abnormal-ert-phase-missing-project ()
-  "Abnormal case: phase without project should signal `user-error'."
-  (org-tasktree-test-helper-reset-db)
-  (let ((meta (org-tasktree-find-node-ert--meta-for-phase
-               :project-title "missing-project")))
+(ert-deftest org-tasktree-find-node-abnormal-ert-parent-missing ()
+  "Abnormal case: missing parent should signal `user-error'."
+  (let ((meta (org-tasktree-find-node-ert--meta-for-node
+               :parent-id 9999)))
     (org-tasktree-find-node-abnormal-ert--with-widget-values
-     '((:title . "phase1"))
+     '((:title . "task1"))
      (lambda ()
        (should-error (org-tasktree-ui--submit-widget meta))))))
-
-(ert-deftest org-tasktree-find-node-abnormal-ert-group-missing-parent ()
-  "Abnormal case: group with missing parent should signal `user-error'."
-  (let ((project-id (org-tasktree-find-node-abnormal-ert--seed-project)))
-    (let ((meta (org-tasktree-find-node-ert--meta-for-group
-                 :project-id project-id
-                 :parent-id 9999
-                 :project-title "project1")))
-      (org-tasktree-find-node-abnormal-ert--with-widget-values
-       '((:title . "group1"))
-       (lambda ()
-         (should-error (org-tasktree-ui--submit-widget meta)))))))
-
-(ert-deftest org-tasktree-find-node-abnormal-ert-task-missing-parent ()
-  "Abnormal case: task with missing parent should signal `user-error'."
-  (let ((project-id (org-tasktree-find-node-abnormal-ert--seed-project)))
-    (let ((meta (org-tasktree-find-node-ert--meta-for-task
-                 :project-id project-id
-                 :parent-id 9999)))
-      (org-tasktree-find-node-abnormal-ert--with-widget-values
-       '((:title . "task1"))
-       (lambda ()
-         (should-error (org-tasktree-ui--submit-widget meta)))))))
-
-(ert-deftest org-tasktree-find-node-abnormal-ert-task-invalid-phase ()
-  "Abnormal case: task with invalid phase should signal `user-error'."
-  (let ((project-id (org-tasktree-find-node-abnormal-ert--seed-project)))
-    (let ((meta (org-tasktree-find-node-ert--meta-for-task
-                 :project-id project-id
-                 :phase-id 9999
-                 :parent-id project-id)))
-      (org-tasktree-find-node-abnormal-ert--with-widget-values
-       '((:title . "task1"))
-       (lambda ()
-         (should-error (org-tasktree-ui--submit-widget meta)))))))
 
 (provide 'org-tasktree-find-node-abnormal-ert)
 ;;; org-tasktree-find-node-abnormal-ert.el ends here

@@ -50,24 +50,17 @@ VALUES must be an alist of (KEY . VALUE) pairs."
        ,@body)))
 
 (cl-defun org-tasktree-find-node-ert--make-node
-    (&key uid node-type title level todo-keyword status parent-id
-          project-id phase-id tags)
+    (&key uid title todo-keyword status parent-id tags)
   "Return a basic node with required fields set.
-UID is the node identifier, NODE-TYPE is the node type, TITLE is the name,
-LEVEL is the outline depth, TODO-KEYWORD is the org keyword, STATUS is the
-node status, PARENT-ID is the parent identifier, PROJECT-ID is the owning
-project, PHASE-ID is the phase identifier when present, and TAGS are the org
-tags."
+UID is the node identifier, TITLE is the name, TODO-KEYWORD is the org
+keyword, STATUS is the node status, PARENT-ID is the parent identifier,
+and TAGS are the org tags."
   (org-tasktree-model-node-create
    :uid uid
-   :node-type node-type
    :title title
-   :level level
    :todo-keyword todo-keyword
    :status status
    :parent-id parent-id
-   :project-id project-id
-   :phase-id phase-id
    :tags tags))
 
 (defun org-tasktree-find-node-ert--commit-nodes (nodes)
@@ -81,10 +74,9 @@ tags."
     (let ((row (car (sqlite-select
                      db
                      (string-join
-                      '("SELECT id, uid, parent_id, node_type, todo_keyword,"
-                        " title, level, priority, scheduled, deadline, repeat,"
-                        " closed_at, tags, content, status, project_id,"
-                        " phase_id, created_at, updated_at"
+                      '("SELECT id, uid, parent_id, todo_keyword, title,"
+                        " priority, scheduled, deadline, repeat, closed_at,"
+                        " tags, content, status, created_at, updated_at"
                         " FROM nodes WHERE uid = ? LIMIT 1;")
                       "")
                      (vector uid)))))
@@ -99,124 +91,87 @@ tags."
 
 (defun org-tasktree-find-node-ert--seed-open-tree ()
   "Seed a sample open tree for find-node test."
-  (let* ((project-uid "test-project-1")
-         (phase-uid "test-phase-1")
-         (group-uid "test-group-1")
-         (task-uid "test-task-1")
-         (child-uid "test-child-1")
-         (project (org-tasktree-find-node-ert--make-node
-                   :uid project-uid
-                   :node-type "project"
-                   :title "project1"
-                   :level 1
-                   :todo-keyword "PROJ"
+  (let* ((project (org-tasktree-find-node-ert--make-node
+                   :uid "11111111-1111-4111-8111-111111111111"
+                   :title "work"
+                   :todo-keyword nil
                    :status "OPEN"
                    :parent-id nil
-                   :project-id nil
-                   :phase-id nil))
+                   :tags ":project:"))
          (phase (org-tasktree-find-node-ert--make-node
-                 :uid phase-uid
-                 :node-type "phase"
-                 :title "phase1"
-                 :level 2
-                 :todo-keyword "PHASE"
-                 :status "OPEN"
-                 :parent-id :keep
-                 :project-id :keep
-                 :phase-id nil))
-         (group (org-tasktree-find-node-ert--make-node
-                 :uid group-uid
-                 :node-type "group"
-                 :title "group1"
-                 :level 3
+                 :uid "22222222-2222-4222-8222-222222222222"
+                 :title "design"
                  :todo-keyword nil
                  :status "OPEN"
                  :parent-id :keep
-                 :project-id :keep
-                 :phase-id :keep))
+                 :tags ":phase:"))
+         (group (org-tasktree-find-node-ert--make-node
+                 :uid "33333333-3333-4333-8333-333333333333"
+                 :title "alpha"
+                 :todo-keyword nil
+                 :status "OPEN"
+                 :parent-id :keep
+                 :tags ":group:"))
          (task (org-tasktree-find-node-ert--make-node
-                :uid task-uid
-                :node-type "task"
+                :uid "44444444-4444-4444-8444-444444444444"
                 :title "task1"
-                :level 4
                 :todo-keyword "TODO"
                 :status "OPEN"
                 :parent-id :keep
-                :project-id :keep
-                :phase-id :keep
                 :tags ":unit-test:task1:"))
          (child (org-tasktree-find-node-ert--make-node
-                 :uid child-uid
-                 :node-type "task"
+                 :uid "55555555-5555-4555-8555-555555555555"
                  :title "child1"
-                 :level 5
                  :todo-keyword "TODO"
                  :status "OPEN"
                  :parent-id :keep
-                 :project-id :keep
-                 :phase-id :keep)))
+                 :tags nil))
+         (caps-project (org-tasktree-find-node-ert--make-node
+                        :uid "66666666-6666-4666-8666-666666666666"
+                        :title "caps-project"
+                        :todo-keyword nil
+                        :status "OPEN"
+                        :parent-id :keep
+                        :tags ":Project:"))
+         (mixed-phase-group (org-tasktree-find-node-ert--make-node
+                             :uid "77777777-7777-4777-8777-777777777777"
+                             :title "mixed-phase-group"
+                             :todo-keyword nil
+                             :status "OPEN"
+                             :parent-id :keep
+                             :tags ":phase:group:"))
+         (mixed-project-group (org-tasktree-find-node-ert--make-node
+                               :uid "88888888-8888-4888-8888-888888888888"
+                               :title "mixed-project-group"
+                               :todo-keyword nil
+                               :status "OPEN"
+                               :parent-id :keep
+                               :tags ":project:group:")))
     (org-tasktree-test-helper-reset-db)
     (let* ((project-node (org-tasktree-find-node-ert--insert-node project))
            (project-id (org-tasktree-model-node-id project-node)))
       (setf (org-tasktree-model-node-parent-id phase) project-id)
-      (setf (org-tasktree-model-node-project-id phase) project-id)
       (let* ((phase-node (org-tasktree-find-node-ert--insert-node phase))
              (phase-id (org-tasktree-model-node-id phase-node)))
+        (dolist (node (list caps-project mixed-phase-group mixed-project-group))
+          (setf (org-tasktree-model-node-parent-id node) project-id)
+          (org-tasktree-find-node-ert--insert-node node))
         (setf (org-tasktree-model-node-parent-id group) phase-id)
-        (setf (org-tasktree-model-node-project-id group) project-id)
-        (setf (org-tasktree-model-node-phase-id group) phase-id)
         (let* ((group-node (org-tasktree-find-node-ert--insert-node group))
                (group-id (org-tasktree-model-node-id group-node)))
           (setf (org-tasktree-model-node-parent-id task) group-id)
-          (setf (org-tasktree-model-node-project-id task) project-id)
-          (setf (org-tasktree-model-node-phase-id task) phase-id)
           (let* ((task-node (org-tasktree-find-node-ert--insert-node task))
                  (task-id (org-tasktree-model-node-id task-node)))
             (setf (org-tasktree-model-node-parent-id child) task-id)
-            (setf (org-tasktree-model-node-project-id child) project-id)
-            (setf (org-tasktree-model-node-phase-id child) phase-id)
             (org-tasktree-find-node-ert--insert-node child)))))))
 
-(cl-defun org-tasktree-find-node-ert--meta-for-task
-    (&key uid project-id phase-id parent-id)
-  "Return META plist for task editing.
-UID is the task identifier, PROJECT-ID is the owning project, PHASE-ID is
-the phase identifier when present, and PARENT-ID is the parent identifier."
-  (list :type 'task
+(cl-defun org-tasktree-find-node-ert--meta-for-node
+    (&key uid parent-id)
+  "Return META plist for node editing.
+UID is the node identifier and PARENT-ID is the parent identifier."
+  (list :type 'node
         :uid uid
-        :project-id project-id
-        :phase-id phase-id
         :parent-id parent-id))
-
-(cl-defun org-tasktree-find-node-ert--meta-for-phase
-    (&key uid project-id project-title)
-  "Return META plist for phase editing.
-UID is the phase identifier, PROJECT-ID is the owning project, and
-PROJECT-TITLE is the project title."
-  (list :type 'phase
-        :uid uid
-        :project-id project-id
-        :project-title project-title))
-
-(cl-defun org-tasktree-find-node-ert--meta-for-group
-    (&key uid project-id phase-id parent-id project-title phase-title)
-  "Return META plist for group editing.
-UID is the group identifier, PROJECT-ID is the owning project, PHASE-ID is
-the phase identifier when present, PARENT-ID is the parent identifier,
-PROJECT-TITLE is the project title, and PHASE-TITLE is the phase title."
-  (list :type 'group
-        :uid uid
-        :project-id project-id
-        :phase-id phase-id
-        :parent-id parent-id
-        :project-title project-title
-        :phase-title phase-title))
-
-(cl-defun org-tasktree-find-node-ert--meta-for-project (&key uid)
-  "Return META plist for project editing.
-UID is the project identifier."
-  (list :type 'project
-        :uid uid))
 
 (provide 'org-tasktree-find-node-ert)
 ;;; org-tasktree-find-node-ert.el ends here

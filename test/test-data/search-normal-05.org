@@ -1,11 +1,21 @@
-* PROJ [#A] proj1
+* [#A] proj1
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-project00001
+:UID: 5d4937b3-1fe0-50cb-a885-b85873e6bcaf
 :END:
 This is a project node.
+** phase1
+:PROPERTIES:
+:UID: 1e7c4080-66a8-5243-bc6f-31116a2524ca
+:END:
+This is a phase.
+*** group1
+:PROPERTIES:
+:UID: 6c966182-ae9c-5470-b549-e10cf191c651
+:END:
+This is a group.
 ** TODO [#A] task-unscheduled
 DEADLINE: <2026-01-20 Tue>
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-unsche000006
+:UID: 9e5e1b66-a262-58dc-9b72-7ee052d5ca27
 :END:
 This is a unscheduled task.

@@ -1,20 +1,20 @@
-* PROJ proj-alpha
+* proj-alpha :project:
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-projalpha01
+:UID: dcc9db7c-d207-510c-b2b5-813cd0c5fdad
 :END:
 Project alpha.
-** PHASE phase-alpha
+** phase-alpha :phase:
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-phasealpha1
+:UID: cd49e70f-baa0-5e65-bdae-b05012116524
 :END:
 Phase alpha.
-** PHASE phase-beta
+** phase-beta :phase:
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-phasebeta1
+:UID: bdf53e87-e27c-58af-8205-2a15bc6ff863
 :END:
 Phase beta.
-* DONE proj-omega
+* DONE proj-omega :project:
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-projomega01
+:UID: 35e34c83-d084-5d6f-b976-973b923abd8e
 :END:
 Project omega.

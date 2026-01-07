@@ -1,12 +1,27 @@
-* TODO [#B] task-beta :aa:cc:
+* proj-alpha :project:
+:PROPERTIES:
+:UID: dcc9db7c-d207-510c-b2b5-813cd0c5fdad
+:END:
+Project alpha.
+** phase-alpha :phase:
+:PROPERTIES:
+:UID: cd49e70f-baa0-5e65-bdae-b05012116524
+:END:
+Phase alpha.
+*** group-alpha :group:
+:PROPERTIES:
+:UID: db811a84-b394-5c04-a1bc-ebcf3c395128
+:END:
+Group alpha.
+**** TODO [#A] task-alpha :aa:bb:cc:
+SCHEDULED: <TODAY .+1d> DEADLINE: <TODAY+7>
+:PROPERTIES:
+:UID: 7252d323-0dfb-57ef-8ccb-b6af43f97470
+:END:
+This is task alpha.
+***** TODO [#B] task-beta :aa:cc:
 SCHEDULED: <YESTERDAY> DEADLINE: <TODAY>
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-taskbeta01
+:UID: 32721697-25e0-5f84-938f-199512cf9731
 :END:
 Hello World.
-* DONE [#C] task-gamma :bb:
-SCHEDULED: <2025-12-20> DEADLINE: <2025-12-21>
-:PROPERTIES:
-:UID: 00000000-0000-0000-0000-taskgamma1
-:END:
-This is task gamma.

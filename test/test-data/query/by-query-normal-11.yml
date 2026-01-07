@@ -1,4 +1,4 @@
-node_type: task
-scheduled: 2025-12-20
+title: task-*
+scheduled: <= today
 include_ancestor: false
 include_descendants: false

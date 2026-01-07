@@ -208,10 +208,9 @@
     (let ((row (car (sqlite-select
                      db
                      (string-join
-                      '("SELECT id, uid, parent_id, node_type, todo_keyword,"
-                        " title, level, priority, scheduled, deadline, repeat,"
-                        " closed_at, tags, content, status, project_id,"
-                        " phase_id, created_at, updated_at"
+                      '("SELECT id, uid, parent_id, todo_keyword, title,"
+                        " priority, scheduled, deadline, repeat, closed_at,"
+                        " tags, content, status, created_at, updated_at"
                         " FROM nodes WHERE uid = ? LIMIT 1;")
                       "")
                      (vector uid)))))
@@ -228,11 +227,9 @@
   "Seed DB with search test data."
   (org-tasktree-test-helper-reset-db)
   (let* ((project (org-tasktree-model-node-create
-                   :uid "00000000-0000-0000-0000-project00001"
-                   :node-type "project"
-                   :todo-keyword "PROJ"
+                   :uid "5d4937b3-1fe0-50cb-a885-b85873e6bcaf"
+                   :todo-keyword nil
                    :title "proj1"
-                   :level 1
                    :priority "A"
                    :scheduled nil
                    :deadline nil
@@ -241,17 +238,13 @@
                    :tags nil
                    :content "This is a project node."
                    :status "OPEN"
-                   :parent-id nil
-                   :project-id nil
-                   :phase-id nil))
+                   :parent-id nil))
         (project-node (org-tasktree-search-ert--insert-node project))
         (project-id (org-tasktree-model-node-id project-node))
         (phase (org-tasktree-model-node-create
-                :uid "00000000-0000-0000-0000-phase0000007"
-                :node-type "phase"
-                :todo-keyword "PHASE"
+                :uid "1e7c4080-66a8-5243-bc6f-31116a2524ca"
+                :todo-keyword nil
                 :title "phase1"
-                :level 2
                 :priority nil
                 :scheduled nil
                 :deadline nil
@@ -260,17 +253,13 @@
                 :tags nil
                 :content "This is a phase."
                 :status "OPEN"
-                :parent-id project-id
-                :project-id project-id
-                :phase-id nil))
+                :parent-id project-id))
         (phase-node (org-tasktree-search-ert--insert-node phase))
         (phase-id (org-tasktree-model-node-id phase-node))
         (group (org-tasktree-model-node-create
-                :uid "00000000-0000-0000-0000-group0000008"
-                :node-type "group"
+                :uid "6c966182-ae9c-5470-b549-e10cf191c651"
                 :todo-keyword nil
                 :title "group1"
-                :level 3
                 :priority nil
                 :scheduled nil
                 :deadline nil
@@ -279,17 +268,13 @@
                 :tags nil
                 :content "This is a group."
                 :status "OPEN"
-                :parent-id phase-id
-                :project-id project-id
-                :phase-id phase-id))
+                :parent-id phase-id))
         (group-node (org-tasktree-search-ert--insert-node group))
         (group-id (org-tasktree-model-node-id group-node))
         (task-done (org-tasktree-model-node-create
-                    :uid "00000000-0000-0000-0000-done00000009"
-                    :node-type "task"
+                    :uid "84d9b1fa-88a4-5b0e-861a-7476087ed2f6"
                     :todo-keyword "DONE"
                     :title "task-done"
-                    :level 4
                     :priority nil
                     :scheduled nil
                     :deadline nil
@@ -298,18 +283,14 @@
                     :tags nil
                     :content "This is a done task."
                     :status "DONE"
-                    :parent-id group-id
-                    :project-id project-id
-                    :phase-id phase-id))
+                    :parent-id group-id))
         (today (org-tasktree-query--today))
         (yesterday (org-tasktree-query--days-from-now -1))
         (tomorrow (org-tasktree-query--days-from-now 1))
         (task-today (org-tasktree-model-node-create
-                      :uid "00000000-0000-0000-0000-today0000002"
-                      :node-type "task"
+                      :uid "e3085041-8060-537f-bda7-1a9da956b8a7"
                       :todo-keyword "TODO"
                       :title "task-today"
-                      :level 2
                       :priority "A"
                       :scheduled today
                       :deadline "2026-01-20"
@@ -318,15 +299,11 @@
                       :tags nil
                       :content "This is a today task."
                       :status "OPEN"
-                      :parent-id project-id
-                      :project-id project-id
-                      :phase-id nil))
+                      :parent-id project-id))
          (task-yesterday (org-tasktree-model-node-create
-                          :uid "00000000-0000-0000-0000-yesterday003"
-                          :node-type "task"
+                          :uid "2172d110-82a5-569a-889d-2141e9600991"
                           :todo-keyword "TODO"
                           :title "task-yesterday"
-                          :level 2
                           :priority "A"
                           :scheduled yesterday
                           :deadline "2026-01-20"
@@ -335,15 +312,11 @@
                           :tags nil
                           :content "This is a yesterday task."
                           :status "OPEN"
-                          :parent-id project-id
-                          :project-id project-id
-                          :phase-id nil))
+                          :parent-id project-id))
          (task-overdue (org-tasktree-model-node-create
-                        :uid "00000000-0000-0000-0000-overdue00004"
-                        :node-type "task"
+                        :uid "61d1d63d-864d-5fc3-91a2-bdcabdb78cf1"
                         :todo-keyword "TODO"
                         :title "task-overdue"
-                        :level 2
                         :priority "A"
                         :scheduled yesterday
                         :deadline yesterday
@@ -352,15 +325,11 @@
                         :tags nil
                         :content "This is a overdue task."
                         :status "OPEN"
-                        :parent-id project-id
-                        :project-id project-id
-                        :phase-id nil))
+                        :parent-id project-id))
          (task-tomorrow (org-tasktree-model-node-create
-                         :uid "00000000-0000-0000-0000-tomorrow0005"
-                         :node-type "task"
+                         :uid "bff290e4-2ed6-520f-99ce-56ec6325d203"
                          :todo-keyword "TODO"
                          :title "task-tomorrow"
-                         :level 2
                          :priority "A"
                          :scheduled tomorrow
                          :deadline "2026-01-20"
@@ -369,15 +338,11 @@
                          :tags nil
                          :content "This is a tomorrow task."
                          :status "OPEN"
-                         :parent-id project-id
-                         :project-id project-id
-                         :phase-id nil))
+                         :parent-id project-id))
          (task-unscheduled (org-tasktree-model-node-create
-                            :uid "00000000-0000-0000-0000-unsche000006"
-                            :node-type "task"
+                            :uid "9e5e1b66-a262-58dc-9b72-7ee052d5ca27"
                             :todo-keyword "TODO"
                             :title "task-unscheduled"
-                            :level 2
                             :priority "A"
                             :scheduled nil
                             :deadline "2026-01-20"
@@ -386,9 +351,7 @@
                             :tags nil
                             :content "This is a unscheduled task."
                             :status "OPEN"
-                            :parent-id project-id
-                            :project-id project-id
-                            :phase-id nil)))
+                            :parent-id project-id)))
     (org-tasktree-db-commit-nodes
      (list task-done
            task-today
@@ -405,19 +368,17 @@
      db
      (string-join
       '("INSERT INTO nodes("
-        "  id, uid, parent_id, node_type, todo_keyword, title, level,"
-        "  priority, scheduled, deadline, repeat, closed_at, tags,"
-        "  content, status, project_id, phase_id, created_at, updated_at"
+        "  id, uid, parent_id, todo_keyword, title, priority, scheduled,"
+        "  deadline, repeat, closed_at, tags, content, status, created_at,"
+        "  updated_at"
         ") VALUES("
-        "  ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);")
+        "  ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);")
       "\n")
      (vector 2
-             "00000000-0000-0000-0000-project00001"
+             "5d4937b3-1fe0-50cb-a885-b85873e6bcaf"
              nil
-             "project"
-             "PROJ"
+             nil
              "proj1"
-             1
              "A"
              nil
              nil
@@ -426,27 +387,23 @@
              nil
              "This is a project node."
              "OPEN"
-             nil
-             nil
              "2025-12-25T00:00:00+09:00"
              "2025-12-25T00:00:00+09:00"))
     (sqlite-execute
      db
      (string-join
       '("INSERT INTO nodes("
-        "  id, uid, parent_id, node_type, todo_keyword, title, level,"
-        "  priority, scheduled, deadline, repeat, closed_at, tags,"
-        "  content, status, project_id, phase_id, created_at, updated_at"
+        "  id, uid, parent_id, todo_keyword, title, priority, scheduled,"
+        "  deadline, repeat, closed_at, tags, content, status, created_at,"
+        "  updated_at"
         ") VALUES("
-        "  ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);")
+        "  ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);")
       "\n")
      (vector 3
-             "00000000-0000-0000-0000-today0000002"
+             "e3085041-8060-537f-bda7-1a9da956b8a7"
              2
-             "task"
              "TODO"
              "task-today"
-             2
              "A"
              "2025-12-200"
              "2026-01-200"
@@ -455,8 +412,6 @@
              nil
              "This is a today task."
              "OPEN"
-             2
-             nil
              "2025-12-25T00:00:00+09:00"
              "2025-12-25T00:00:00+09:00"))))
 
@@ -467,434 +422,6 @@
     (unwind-protect
         (should (equal expected actual))
       (org-tasktree-search-ert--cleanup-buffer title))))
-
-(ert-deftest org-tasktree-search-ert-normal-today ()
-  "Normal case: search tasks scheduled today."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-normal-data)
-    (save-window-excursion
-      (org-tasktree-search-today-task))
-    (org-tasktree-search-ert--assert-search-output
-     "Today"
-     "search-normal-01.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-before-today ()
-  "Normal case: search tasks scheduled on or before today."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-normal-data)
-    (save-window-excursion
-      (org-tasktree-search-before-today-task))
-    (org-tasktree-search-ert--assert-search-output
-     "Before today"
-     "search-normal-02.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-overdue ()
-  "Normal case: search overdue tasks."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-normal-data)
-    (save-window-excursion
-      (org-tasktree-search-overdue-task))
-    (org-tasktree-search-ert--assert-search-output
-     "Overdue"
-     "search-normal-03.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-next-7day ()
-  "Normal case: search tasks scheduled in the next seven days."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-normal-data)
-    (save-window-excursion
-      (org-tasktree-search-next-7day-task))
-    (org-tasktree-search-ert--assert-search-output
-     "Next 7 days"
-     "search-normal-04.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-unscheduled ()
-  "Normal case: search unscheduled tasks."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-normal-data)
-    (save-window-excursion
-      (org-tasktree-search-unscheduled-task))
-    (org-tasktree-search-ert--assert-search-output
-     "Unscheduled"
-     "search-normal-05.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-all ()
-  "Normal case: search all nodes."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-normal-data)
-    (save-window-excursion
-      (org-tasktree-search-all))
-    (org-tasktree-search-ert--assert-search-output
-     "All"
-     "search-normal-06.org")))
-
-(ert-deftest org-tasktree-search-ert-error-today ()
-  "Abnormal case: invalid scheduled values raise `user-error'."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-invalid-date-data)
-    (should-error (org-tasktree-search-today-task))))
-
-(ert-deftest org-tasktree-search-ert-error-before-today ()
-  "Abnormal case: invalid scheduled values raise `user-error'."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-invalid-date-data)
-    (should-error (org-tasktree-search-before-today-task))))
-
-(ert-deftest org-tasktree-search-ert-error-overdue ()
-  "Abnormal case: invalid deadline values raise `user-error'."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-invalid-date-data)
-    (should-error (org-tasktree-search-overdue-task))))
-
-(ert-deftest org-tasktree-search-ert-error-next-7day ()
-  "Abnormal case: invalid scheduled values raise `user-error'."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-invalid-date-data)
-    (should-error (org-tasktree-search-next-7day-task))))
-
-(ert-deftest org-tasktree-search-ert-error-unscheduled ()
-  "Abnormal case: invalid scheduled values raise `user-error'."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-invalid-date-data)
-    (should-error (org-tasktree-search-unscheduled-task))))
-
-(ert-deftest org-tasktree-search-ert-error-all ()
-  "Abnormal case: invalid scheduled values raise `user-error'."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-invalid-date-data)
-    (should-error (org-tasktree-search-all))))
-
-(ert-deftest org-tasktree-search-ert-normal-by-query-01 ()
-  "Normal case: search by query with all fields specified."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-normal-01.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-normal-01.yml"
-      (save-window-excursion
-        (org-tasktree-search-by-query)))
-    (org-tasktree-search-ert--assert-search-output
-     (org-tasktree-search-ert--query-title "by-query-normal-01.yml")
-     "by-query-normal-01.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-by-query-02 ()
-  "Normal case: search by query for project nodes only."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-normal-02.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-normal-02.yml"
-      (save-window-excursion
-        (org-tasktree-search-by-query)))
-    (org-tasktree-search-ert--assert-search-output
-     (org-tasktree-search-ert--query-title "by-query-normal-02.yml")
-     "by-query-normal-02.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-by-query-03 ()
-  "Normal case: search by query for project/phase nodes."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-normal-03.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-normal-03.yml"
-      (save-window-excursion
-        (org-tasktree-search-by-query)))
-    (org-tasktree-search-ert--assert-search-output
-     (org-tasktree-search-ert--query-title "by-query-normal-03.yml")
-     "by-query-normal-03.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-by-query-04 ()
-  "Normal case: search by query for intermediate nodes (ancestors)."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-normal-04.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-normal-04.yml"
-      (save-window-excursion
-        (org-tasktree-search-by-query)))
-    (org-tasktree-search-ert--assert-search-output
-     (org-tasktree-search-ert--query-title "by-query-normal-04.yml")
-     "by-query-normal-04.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-by-query-05 ()
-  "Normal case: search by query for intermediate nodes (descendants)."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-normal-05.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-normal-05.yml"
-      (save-window-excursion
-        (org-tasktree-search-by-query)))
-    (org-tasktree-search-ert--assert-search-output
-     (org-tasktree-search-ert--query-title "by-query-normal-05.yml")
-     "by-query-normal-05.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-by-query-06 ()
-  "Normal case: search by query for intermediate nodes (ancestors/descendants)."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-normal-06.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-normal-06.yml"
-      (save-window-excursion
-        (org-tasktree-search-by-query)))
-    (org-tasktree-search-ert--assert-search-output
-     (org-tasktree-search-ert--query-title "by-query-normal-06.yml")
-     "by-query-normal-06.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-by-query-07 ()
-  "Normal case: search by query for intermediate nodes only."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-normal-07.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-normal-07.yml"
-      (save-window-excursion
-        (org-tasktree-search-by-query)))
-    (org-tasktree-search-ert--assert-search-output
-     (org-tasktree-search-ert--query-title "by-query-normal-07.yml")
-     "by-query-normal-07.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-by-query-08 ()
-  "Normal case: search by query for leaf nodes (ancestors)."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-normal-08.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-normal-08.yml"
-      (save-window-excursion
-        (org-tasktree-search-by-query)))
-    (org-tasktree-search-ert--assert-search-output
-     (org-tasktree-search-ert--query-title "by-query-normal-08.yml")
-     "by-query-normal-08.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-by-query-09 ()
-  "Normal case: search by query with not operator."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-normal-09.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-normal-09.yml"
-      (save-window-excursion
-        (org-tasktree-search-by-query)))
-    (org-tasktree-search-ert--assert-search-output
-     (org-tasktree-search-ert--query-title "by-query-normal-09.yml")
-     "by-query-normal-09.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-by-query-10 ()
-  "Normal case: search by query with or operator."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-normal-10.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-normal-10.yml"
-      (save-window-excursion
-        (org-tasktree-search-by-query)))
-    (org-tasktree-search-ert--assert-search-output
-     (org-tasktree-search-ert--query-title "by-query-normal-10.yml")
-     "by-query-normal-10.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-by-query-11 ()
-  "Normal case: search by query scheduled fixed date."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-normal-11.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-normal-11.yml"
-      (save-window-excursion
-        (org-tasktree-search-by-query)))
-    (org-tasktree-search-ert--assert-search-output
-     (org-tasktree-search-ert--query-title "by-query-normal-11.yml")
-     "by-query-normal-11.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-by-query-12 ()
-  "Normal case: search by query scheduled >=."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-normal-12.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-normal-12.yml"
-      (save-window-excursion
-        (org-tasktree-search-by-query)))
-    (org-tasktree-search-ert--assert-search-output
-     (org-tasktree-search-ert--query-title "by-query-normal-12.yml")
-     "by-query-normal-12.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-by-query-13 ()
-  "Normal case: search by query scheduled <=."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-normal-13.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-normal-13.yml"
-      (save-window-excursion
-        (org-tasktree-search-by-query)))
-    (org-tasktree-search-ert--assert-search-output
-     (org-tasktree-search-ert--query-title "by-query-normal-13.yml")
-     "by-query-normal-13.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-by-query-14 ()
-  "Normal case: search by query scheduled and range."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-normal-14.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-normal-14.yml"
-      (save-window-excursion
-        (org-tasktree-search-by-query)))
-    (org-tasktree-search-ert--assert-search-output
-     (org-tasktree-search-ert--query-title "by-query-normal-14.yml")
-     "by-query-normal-14.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-by-query-15 ()
-  "Normal case: search by query scheduled with relative date."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-normal-15.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-normal-15.yml"
-      (save-window-excursion
-        (org-tasktree-search-by-query)))
-    (org-tasktree-search-ert--assert-search-output
-     (org-tasktree-search-ert--query-title "by-query-normal-15.yml")
-     "by-query-normal-15.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-by-query-16 ()
-  "Normal case: search by query created_at fixed date."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-normal-16.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-normal-16.yml"
-      (save-window-excursion
-        (org-tasktree-search-by-query)))
-    (org-tasktree-search-ert--assert-search-output
-     (org-tasktree-search-ert--query-title "by-query-normal-16.yml")
-     "by-query-normal-16.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-by-query-17 ()
-  "Normal case: search by query created_at >=."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-normal-17.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-normal-17.yml"
-      (save-window-excursion
-        (org-tasktree-search-by-query)))
-    (org-tasktree-search-ert--assert-search-output
-     (org-tasktree-search-ert--query-title "by-query-normal-17.yml")
-     "by-query-normal-17.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-by-query-18 ()
-  "Normal case: search by query created_at <=."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-normal-18.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-normal-18.yml"
-      (save-window-excursion
-        (org-tasktree-search-by-query)))
-    (org-tasktree-search-ert--assert-search-output
-     (org-tasktree-search-ert--query-title "by-query-normal-18.yml")
-     "by-query-normal-18.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-by-query-19 ()
-  "Normal case: search by query created_at range."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-normal-19.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-normal-19.yml"
-      (save-window-excursion
-        (org-tasktree-search-by-query)))
-    (org-tasktree-search-ert--assert-search-output
-     (org-tasktree-search-ert--query-title "by-query-normal-19.yml")
-     "by-query-normal-19.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-by-query-20 ()
-  "Normal case: search by query created_at relative date."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-normal-20.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-normal-20.yml"
-      (save-window-excursion
-        (org-tasktree-search-by-query)))
-    (org-tasktree-search-ert--assert-search-output
-     (org-tasktree-search-ert--query-title "by-query-normal-20.yml")
-     "by-query-normal-20.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-by-query-21 ()
-  "Normal case: search by query with missing keys."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-normal-21.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-normal-21.yml"
-      (save-window-excursion
-        (org-tasktree-search-by-query)))
-    (org-tasktree-search-ert--assert-search-output
-     (org-tasktree-search-ert--query-title "by-query-normal-21.yml")
-     "by-query-normal-21.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-by-query-22 ()
-  "Normal case: search by query with unknown keys."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-normal-22.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-normal-22.yml"
-      (save-window-excursion
-        (org-tasktree-search-by-query)))
-    (org-tasktree-search-ert--assert-search-output
-     (org-tasktree-search-ert--query-title "by-query-normal-22.yml")
-     "by-query-normal-22.org")))
-
-(ert-deftest org-tasktree-search-ert-normal-by-query-23 ()
-  "Normal case: search by query for all nodes."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-normal-23.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-normal-23.yml"
-      (save-window-excursion
-        (org-tasktree-search-by-query)))
-    (org-tasktree-search-ert--assert-search-output
-     (org-tasktree-search-ert--query-title "by-query-normal-23.yml")
-     "by-query-normal-23.org")))
-
-(ert-deftest org-tasktree-search-ert-error-by-query-01 ()
-  "Abnormal case: invalid query format raises `user-error'."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-err-01.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-err-01.yml"
-      (should-error
-       (save-window-excursion
-         (org-tasktree-search-by-query))
-       :type 'user-error))))
-
-(ert-deftest org-tasktree-search-ert-normal-by-query-empty ()
-  "Normal case: empty query returns all nodes."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-err-02.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-err-02.yml"
-      (save-window-excursion
-        (org-tasktree-search-by-query)))
-    (org-tasktree-search-ert--assert-search-output
-     (org-tasktree-search-ert--query-title "by-query-err-02.yml")
-     "by-query-normal-23.org")))
-
-(ert-deftest org-tasktree-search-ert-error-by-query-03 ()
-  "Abnormal case: invalid scheduled date raises `user-error'."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-err-03.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-err-03.yml"
-      (should-error
-       (save-window-excursion
-         (org-tasktree-search-by-query))
-       :type 'user-error))))
-
-(ert-deftest org-tasktree-search-ert-error-by-query-04 ()
-  "Abnormal case: invalid scheduled format raises `user-error'."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-err-04.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-err-04.yml"
-      (should-error
-       (save-window-excursion
-         (org-tasktree-search-by-query))
-       :type 'user-error))))
-
-(ert-deftest org-tasktree-search-ert-error-by-query-05 ()
-  "Abnormal case: empty values raise `user-error'."
-  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
-    (org-tasktree-search-ert--seed-by-query-data)
-    (org-tasktree-search-ert--install-query-file "by-query-err-05.yml")
-    (org-tasktree-search-ert-with-query-selection "by-query-err-05.yml"
-      (should-error
-       (save-window-excursion
-         (org-tasktree-search-by-query))
-       :type 'user-error))))
 
 (provide 'org-tasktree-search-ert)
 ;;; org-tasktree-search-ert.el ends here

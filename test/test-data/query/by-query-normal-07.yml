@@ -1,4 +1,4 @@
-node_type: group
-title: group-alpha
+task: task-*
+priority: not A
 include_ancestor: false
 include_descendants: false

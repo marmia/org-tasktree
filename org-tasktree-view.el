@@ -59,8 +59,8 @@
 
 (defun org-tasktree-view--heading-line (node &optional level)
   "Return org heading line string for NODE.
-LEVEL overrides the stored `level' field when non-nil."
-  (let* ((level (max 1 (or level (org-tasktree-model-node-level node) 1)))
+LEVEL overrides computed level when non-nil."
+  (let* ((level (max 1 (or level 1)))
          (stars (make-string level ?*))
          (todo (or (org-tasktree-model-node-todo-keyword node) ""))
          (todo-part (if (string-empty-p todo)
@@ -103,7 +103,7 @@ LEVEL overrides the stored `level' field when non-nil."
 
 (defun org-tasktree-view--insert-node (node &optional level)
   "Insert NODE as org-formatted text at point.
-LEVEL overrides NODE's stored level for display."
+LEVEL overrides computed level for display."
   (insert (org-tasktree-view--heading-line node level) "\n")
   (let ((scheduled-line (org-tasktree-view--scheduled-line node)))
     (when scheduled-line

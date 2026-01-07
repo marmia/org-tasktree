@@ -69,14 +69,34 @@
     ('group org-tasktree-ui-minibuffer-completion-color-group)
     (_ nil)))
 
-(defun org-tasktree-ui-minibuffer--node-type-symbol (node-type)
-  "Return symbol for NODE-TYPE string."
-  (pcase node-type
-    ("project" 'project)
-    ("phase" 'phase)
-    ("group" 'group)
-    ("task" 'task)
-    (_ nil)))
+(defun org-tasktree-ui-minibuffer--normalize-tags (tags)
+  "Return downcased tag list derived from TAGS."
+  (let (result)
+    (cond
+     ((stringp tags)
+      (dolist (tag (split-string tags ":" t))
+        (let ((trimmed (string-trim tag)))
+          (unless (string-empty-p trimmed)
+            (push (downcase trimmed) result)))))
+     ((listp tags)
+      (dolist (tag tags)
+        (let* ((raw (cond
+                     ((stringp tag) tag)
+                     ((symbolp tag) (symbol-name tag))
+                     (t nil)))
+               (trimmed (and raw (string-trim raw))))
+          (when (and trimmed (not (string-empty-p trimmed)))
+            (push (downcase trimmed) result))))))
+    (nreverse result)))
+
+(defun org-tasktree-ui-minibuffer--type-from-tags (tags)
+  "Return candidate type symbol inferred from TAGS."
+  (let ((tag-list (org-tasktree-ui-minibuffer--normalize-tags tags)))
+    (cond
+     ((member "project" tag-list) 'project)
+     ((member "phase" tag-list) 'phase)
+     ((member "group" tag-list) 'group)
+     (t 'task))))
 
 (defun org-tasktree-ui-minibuffer--make-completion-candidate (title type)
   "Return a propertized completion candidate for TITLE and TYPE.
@@ -113,17 +133,6 @@ TYPE is one of the symbols `project', `phase', `group', or `task'."
   "Return the candidate type symbol for completion CANDIDATE, or nil."
   (get-text-property 0 'org-tasktree-ui-minibuffer--candidate-type candidate))
 
-(defun org-tasktree-ui-minibuffer--node-type= (node type)
-  "Return non-nil when NODE is of TYPE string."
-  (equal (org-tasktree-model-node-node-type node) type))
-
-(defun org-tasktree-ui-minibuffer--nodes-of-type (nodes type)
-  "Return NODES filtered by TYPE string."
-  (let (result)
-    (dolist (node nodes (nreverse result))
-      (when (org-tasktree-ui-minibuffer--node-type= node type)
-        (push node result)))))
-
 (defun org-tasktree-ui-minibuffer--titles (nodes)
   "Return list of titles from NODES."
   (mapcar #'org-tasktree-model-node-title nodes))
@@ -135,14 +144,6 @@ TYPE is one of the symbols `project', `phase', `group', or `task'."
 (defun org-tasktree-ui-minibuffer--sorted-titles (nodes)
   "Return sorted list of titles from NODES."
   (org-tasktree-ui-minibuffer--sorted-strings (org-tasktree-ui-minibuffer--titles nodes)))
-
-(defun org-tasktree-ui-minibuffer--node-by-title (nodes type title)
-  "Return first node in NODES matching TYPE and TITLE, or nil."
-  (catch 'found
-    (dolist (node nodes nil)
-      (when (and (org-tasktree-ui-minibuffer--node-type= node type)
-                 (equal (org-tasktree-model-node-title node) title))
-        (throw 'found node)))))
 
 (defun org-tasktree-ui-minibuffer--minibuffer-backspace ()
   "Handle Backspace in org-tasktree minibuffer."
@@ -363,8 +364,8 @@ Return plist describing an existing or new node selection."
              (mapcar
               (lambda (entry)
                 (let* ((node (plist-get entry :node))
-                       (type (org-tasktree-ui-minibuffer--node-type-symbol
-                              (org-tasktree-model-node-node-type node))))
+                       (type (org-tasktree-ui-minibuffer--type-from-tags
+                              (org-tasktree-model-node-tags node))))
                   (org-tasktree-ui-minibuffer--make-path-candidate
                    (plist-get entry :path)
                    type)))

@@ -14,6 +14,9 @@
 - すべての DB 書き込みはトランザクション内で行う
 - UID は UUID 形式で生成する
 - 更新は UPDATE / INSERT を採用し、既存レコードの id を維持する
-- 互換性: schema_version=1 の既存 DB は移行不要とする（挙動の変更のみで、DB 破壊は想定しない）
+- 互換性: `PRAGMA user_version` を DB スキーマ版として扱う
+  - v0.3 以降は user_version=2
+  - 不一致の場合は user-error を出し `org-tasktree-init` の実行を促す
+  - `org-tasktree-init` 実行時に user_version を設定する
 - org-element を用いたパースを必須とする
 - defcustom を用いて全設定値をユーザー変更可能にする

@@ -1,54 +1,50 @@
-* PROJ inbox
+* [#A] proj1
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-000000000001
-:END:
-* PROJ [#A] proj1
-:PROPERTIES:
-:UID: 00000000-0000-0000-0000-project00001
+:UID: 5d4937b3-1fe0-50cb-a885-b85873e6bcaf
 :END:
 This is a project node.
-** PHASE phase1
+** phase1
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-phase0000007
+:UID: 1e7c4080-66a8-5243-bc6f-31116a2524ca
 :END:
 This is a phase.
 *** group1
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-group0000008
+:UID: 6c966182-ae9c-5470-b549-e10cf191c651
 :END:
 This is a group.
 **** DONE task-done
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-done00000009
+:UID: 84d9b1fa-88a4-5b0e-861a-7476087ed2f6
 :END:
 This is a done task.
 ** TODO [#A] task-overdue
 SCHEDULED: <YESTERDAY> DEADLINE: <YESTERDAY>
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-overdue00004
+:UID: 61d1d63d-864d-5fc3-91a2-bdcabdb78cf1
 :END:
 This is a overdue task.
 ** TODO [#A] task-today
 SCHEDULED: <TODAY> DEADLINE: <2026-01-20 Tue>
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-today0000002
+:UID: e3085041-8060-537f-bda7-1a9da956b8a7
 :END:
 This is a today task.
 ** TODO [#A] task-tomorrow
 SCHEDULED: <TOMORROW> DEADLINE: <2026-01-20 Tue>
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-tomorrow0005
+:UID: bff290e4-2ed6-520f-99ce-56ec6325d203
 :END:
 This is a tomorrow task.
 ** TODO [#A] task-unscheduled
 DEADLINE: <2026-01-20 Tue>
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-unsche000006
+:UID: 9e5e1b66-a262-58dc-9b72-7ee052d5ca27
 :END:
 This is a unscheduled task.
 ** TODO [#A] task-yesterday
 SCHEDULED: <YESTERDAY> DEADLINE: <2026-01-20 Tue>
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-yesterday003
+:UID: 2172d110-82a5-569a-889d-2141e9600991
 :END:
 This is a yesterday task.

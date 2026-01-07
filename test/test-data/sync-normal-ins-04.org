@@ -1,11 +1,30 @@
 #+title: Test Data - Sync Case Normal Insert 04
 
-* PROJ [#B] proj1 :sync:test:01:
-DEADLINE: <2026-01-20 Tue> SCHEDULED: <2026-01-01 Thu>
-proj1 notes
-** PHASE [#B] phase1 :sync:test:01:
-DEADLINE: <2026-01-10 Sat> SCHEDULED: <2026-01-01 Thu>
-phase1 notes
-*** [#B] group1 :sync:test:01:
-DEADLINE: <2026-01-05 Mon> SCHEDULED: <2026-01-01 Thu>
-group1 notes
+* proj 04
+proj 04 notes
+
+** TODO [#A] task 04-1 :task:org_syntax:
+SCHEDULED: <2026-01-01 Thu +1d>
+task1 items:
+- [ ] item1
+- [ ] item2
+- [ ] item3
+
+links: 
+- [[https://www.youtube.com/][YouTube]]
+- [[https://chatgpt.com/?temporary-chat=true][ChatGPT]]
+
+Code Block:
+#+begin_src python
+numbers = [1, 2, 3, 4, 5]
+total = 0
+
+for n in numbers:
+    total += n
+
+print(total)
+#+end_src
+
+*** TODO task 04-2
+task 04-2 notes
+

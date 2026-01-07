@@ -40,8 +40,22 @@
   "0.1.0")
 
 (defun org-tasktree-ui--node-type= (node type)
-  "Return non-nil when NODE is of TYPE string."
-  (equal (org-tasktree-model-node-node-type node) type))
+  "Return non-nil when NODE has tag TYPE."
+  (let* ((tags (org-tasktree-model-node-tags node))
+         (tag-list (cond
+                    ((null tags) nil)
+                    ((stringp tags) (cdr (org-tasktree-model-normalize-tags tags)))
+                    ((listp tags) tags)
+                    (t nil)))
+         (target (downcase (or type "")))
+         (found nil))
+    (dolist (tag tag-list found)
+      (let ((raw (cond
+                  ((stringp tag) tag)
+                  ((symbolp tag) (symbol-name tag))
+                  (t nil))))
+        (when (and raw (string= (downcase raw) target))
+          (setq found t))))))
 
 (defun org-tasktree-ui--node-type-symbol (node-type)
   "Return symbol for NODE-TYPE string."
@@ -77,6 +91,22 @@ PARENT-TYPE is a node_type string or nil for top-level."
   "Return node title for numeric ID or nil."
   (let ((node (org-tasktree-query-get-node-by-id id)))
     (and node (org-tasktree-model-node-title node))))
+
+(defun org-tasktree-ui--node-by-uid (uid)
+  "Return node by UID or nil."
+  (when uid
+    (org-tasktree-db--with-db db
+      (let ((row (car (sqlite-select
+                       db
+                       (string-join
+                        '("SELECT id, uid, parent_id, todo_keyword, title,"
+                          " priority, scheduled, deadline, repeat, closed_at,"
+                          " tags, content, status, created_at, updated_at"
+                          " FROM nodes WHERE uid = ? LIMIT 1;")
+                        "")
+                       (vector uid)))))
+        (when row
+          (org-tasktree-model-node-from-db-row row))))))
 
 (defun org-tasktree-ui-read-node ()
   "Prompt for a node path in minibuffer."
@@ -200,26 +230,8 @@ PARENT-TYPE is a node_type string or nil for top-level."
 
 (defun org-tasktree-ui--node-edit-meta-existing (node path-titles)
   "Return widget META for existing NODE using PATH-TITLES."
-  (let* ((type-str (org-tasktree-model-node-node-type node))
-         (type (org-tasktree-ui--node-type-symbol type-str))
-         (parent-path (and (listp path-titles) (butlast path-titles)))
-         (project-id (if (string= type-str "project")
-                         (org-tasktree-model-node-id node)
-                       (org-tasktree-model-node-project-id node)))
-         (phase-id (if (string= type-str "phase")
-                       (org-tasktree-model-node-id node)
-                     (org-tasktree-model-node-phase-id node)))
-         (project-title
-          (if (string= type-str "project")
-              (org-tasktree-model-node-title node)
-            (org-tasktree-ui--node-title-by-id project-id)))
-         (phase-title
-          (and (numberp phase-id)
-               (org-tasktree-ui--node-title-by-id phase-id)))
-         (parent-id (org-tasktree-model-node-parent-id node)))
-    (list :type type
-          :node-type type-str
-          :node-type-fixed t
+  (let ((parent-path (and (listp path-titles) (butlast path-titles))))
+    (list :type 'node
           :uid (org-tasktree-model-node-uid node)
           :title (org-tasktree-model-node-title node)
           :priority (org-tasktree-model-node-priority node)
@@ -229,65 +241,21 @@ PARENT-TYPE is a node_type string or nil for top-level."
           :tags (org-tasktree-model-node-tags node)
           :content (org-tasktree-model-node-content node)
           :path-titles parent-path
-          :project-title project-title
-          :project-id project-id
-          :phase-title phase-title
-          :phase-id phase-id
-          :parent-id parent-id
-          :task-id (and (eq type 'task)
-                        (org-tasktree-model-node-id node))
-          :group-id (and (eq type 'group)
-                         (org-tasktree-model-node-id node)))))
+          :parent-id (org-tasktree-model-node-parent-id node))))
 
 (defun org-tasktree-ui--node-edit-meta-new (title parent-node parent-path-titles)
   "Return widget META for new node with TITLE, PARENT-NODE, and PARENT-PATH-TITLES."
-  (let* ((parent-type (and parent-node
-                           (org-tasktree-model-node-node-type parent-node)))
-         (options (org-tasktree-ui--node-type-options parent-type))
-         (default (org-tasktree-ui--node-type-default parent-type))
-         (fixed (and options (= (length options) 1)))
-         (parent-id (and parent-node (org-tasktree-model-node-id parent-node)))
-         (project-id
-          (cond
-           ((null parent-node) nil)
-           ((string= parent-type "project") parent-id)
-           (t (org-tasktree-model-node-project-id parent-node))))
-         (phase-id
-          (cond
-           ((string= parent-type "phase") parent-id)
-           ((member parent-type '("group" "task"))
-            (org-tasktree-model-node-phase-id parent-node))
-           (t nil)))
-         (project-title
-          (cond
-           ((null parent-node) nil)
-           ((string= parent-type "project")
-            (org-tasktree-model-node-title parent-node))
-           (t (org-tasktree-ui--node-title-by-id project-id))))
-         (phase-title
-          (and (numberp phase-id)
-               (org-tasktree-ui--node-title-by-id phase-id)))
-         (meta-type (if fixed
-                        (org-tasktree-ui--node-type-symbol default)
-                      'node)))
-    (list :type meta-type
-          :node-type (and fixed default)
-          :node-type-fixed fixed
-          :node-type-options (unless fixed options)
-          :uid nil
-          :title title
-          :priority nil
-          :scheduled nil
-          :deadline nil
-          :repeat nil
-          :tags nil
-          :content nil
-          :path-titles parent-path-titles
-          :project-title project-title
-          :project-id project-id
-          :phase-title phase-title
-          :phase-id phase-id
-          :parent-id parent-id)))
+  (list :type 'node
+        :uid nil
+        :title title
+        :priority nil
+        :scheduled nil
+        :deadline nil
+        :repeat nil
+        :tags nil
+        :content nil
+        :path-titles parent-path-titles
+        :parent-id (and parent-node (org-tasktree-model-node-id parent-node))))
 
 (defun org-tasktree-ui-edit-node (selection)
   "Open node edit buffer using SELECTION plist."
@@ -575,12 +543,12 @@ Accepts YYYY-MM-DD, YYYY/MM/DD, MM-DD, MM/DD, and DD forms."
 
 (defun org-tasktree-ui--submit-widget (meta)
   "Submit widget edit META to DB and return saved node."
-  (let* ((meta-type (plist-get meta :type))
-         (type (if (or (eq meta-type 'node)
-                       (plist-get meta :node-type-options))
-                   (org-tasktree-ui--resolve-node-type meta)
-                 meta-type))
-         (uid (or (plist-get meta :uid) (org-tasktree-db-generate-uid)))
+  (let* ((uid (or (plist-get meta :uid) (org-tasktree-db-generate-uid)))
+         (existing (and (plist-get meta :uid)
+                        (org-tasktree-ui--node-by-uid uid)))
+         (parent-id (or (plist-get meta :parent-id)
+                        (and existing
+                             (org-tasktree-model-node-parent-id existing))))
          (title (org-tasktree-ui--validate-title
                  (org-tasktree-ui--widget-value :title)))
          (priority (org-tasktree-ui--validate-priority
@@ -597,199 +565,28 @@ Accepts YYYY-MM-DD, YYYY/MM/DD, MM-DD, MM/DD, and DD forms."
          (content (org-tasktree-ui--normalize-content
                    (and (stringp content-raw) content-raw)))
          (tags (org-tasktree-ui--validate-tags
-                (org-tasktree-ui--widget-value :tags))))
+                (org-tasktree-ui--widget-value :tags)))
+         (todo-keyword (and existing
+                            (org-tasktree-model-node-todo-keyword existing)))
+         (status (or (and existing (org-tasktree-model-node-status existing))
+                     "OPEN")))
     (org-tasktree-ui--validate-schedule-deadline scheduled deadline)
-    (pcase type
-      ('project
-       (let ((node (org-tasktree-model-node-create
-                    :uid uid
-                    :parent-id nil
-                    :node-type "project"
-                    :todo-keyword "PROJ"
-                    :title title
-                    :level 1
-                    :priority priority
-                    :scheduled scheduled
-                    :deadline deadline
-                    :repeat repeat
-                    :content content
-                    :tags tags
-                    :status "OPEN"
-                    :project-id nil
-                    :phase-id nil)))
-         (org-tasktree-db-commit-nodes (list node))
-         node))
-      ('phase
-       (let* ((project-title (plist-get meta :project-title))
-              (project-id (or (plist-get meta :project-id)
-                              (and project-title
-                                   (org-tasktree-ui--db-project-id
-                                    project-title)))))
-         (unless project-id
-           (user-error "Project must exist before creating a phase"))
-         (let ((node (org-tasktree-model-node-create
-                      :uid uid
-                      :parent-id project-id
-                      :node-type "phase"
-                      :todo-keyword "PHASE"
-                      :title title
-                      :level 2
-                      :priority priority
-                      :scheduled scheduled
-                      :deadline deadline
-                      :repeat repeat
-                      :content content
-                      :tags tags
-                      :status "OPEN"
-                      :project-id project-id
-                      :phase-id nil)))
-           (org-tasktree-db-commit-nodes (list node))
-           node)))
-      ('group
-       (let* ((project-title (plist-get meta :project-title))
-              (project-id (or (plist-get meta :project-id)
-                              (and project-title
-                                   (org-tasktree-ui--db-project-id
-                                    project-title))))
-              (phase-title (plist-get meta :phase-title))
-              (phase-id (or (plist-get meta :phase-id)
-                            (and (numberp project-id)
-                                 phase-title
-                                 (org-tasktree-ui--db-phase-id
-                                  project-id
-                                  phase-title))))
-              (parent-id (or (plist-get meta :parent-id) phase-id)))
-         (unless project-id
-           (user-error "Project must exist before creating a group"))
-         (unless (numberp parent-id)
-           (user-error "Group parent must exist"))
-         (let* ((parent-node (org-tasktree-query-get-node-by-id parent-id))
-                (parent-type (and parent-node
-                                  (org-tasktree-model-node-node-type parent-node)))
-                (parent-project-id (and parent-node
-                                        (org-tasktree-model-node-project-id parent-node)))
-                (parent-phase-id (and parent-node
-                                      (org-tasktree-model-node-phase-id parent-node)))
-                (parent-level (and parent-node
-                                   (org-tasktree-model-node-level parent-node))))
-           (unless parent-node
-             (user-error "Group parent must exist"))
-           (unless (member parent-type '("project" "phase" "group"))
-             (user-error "Group parent must be project, phase, or group"))
-           (when (string= parent-type "project")
-             (setq phase-id nil))
-           (when (string= parent-type "phase")
-             (setq phase-id parent-id))
-           (when (string= parent-type "group")
-             (setq phase-id parent-phase-id)
-             (when (and (numberp parent-project-id)
-                        (not (equal parent-project-id project-id)))
-               (user-error "Group does not belong to project")))
-           (when (and (string= parent-type "phase")
-                      (numberp project-id)
-                      (not (equal parent-project-id project-id)))
-             (user-error "Phase does not belong to project"))
-           (let* ((level (cond
-                          ((string= parent-type "project") 2)
-                          ((string= parent-type "phase") 3)
-                          ((and (string= parent-type "group")
-                                (numberp parent-level))
-                           (1+ parent-level))
-                          (t 3)))
-                  (node (org-tasktree-model-node-create
-                         :uid uid
-                         :parent-id parent-id
-                         :node-type "group"
-                         :todo-keyword nil
-                         :title title
-                         :level level
-                         :priority priority
-                         :scheduled scheduled
-                         :deadline deadline
-                         :repeat repeat
-                         :content content
-                         :tags tags
-                         :status "OPEN"
-                         :project-id project-id
-                         :phase-id phase-id)))
-             (org-tasktree-db-commit-nodes (list node))
-             node))))
-      ('task
-       (let* ((project-title (plist-get meta :project-title))
-              (project-id (or (plist-get meta :project-id)
-                              (and project-title
-                                   (org-tasktree-ui--db-project-id
-                                    project-title))))
-              (phase-id (plist-get meta :phase-id))
-              (parent-id (plist-get meta :parent-id)))
-         (unless project-id
-           (user-error "Project must exist before creating a task"))
-         (unless (numberp parent-id)
-           (user-error "Task parent must exist"))
-         (let* ((parent-node (org-tasktree-query-get-node-by-id parent-id))
-                (parent-type (and parent-node
-                                  (org-tasktree-model-node-node-type parent-node)))
-                (parent-project-id (and parent-node
-                                        (org-tasktree-model-node-project-id parent-node)))
-                (parent-phase-id (and parent-node
-                                      (org-tasktree-model-node-phase-id parent-node)))
-                (parent-level (and parent-node
-                                   (org-tasktree-model-node-level parent-node))))
-           (unless parent-node
-             (user-error "Task parent must exist"))
-           (if (numberp phase-id)
-               (let ((phase-node (org-tasktree-query-get-node-by-id phase-id)))
-                 (unless (and phase-node
-                              (org-tasktree-ui--node-type= phase-node "phase")
-                              (equal (org-tasktree-model-node-project-id phase-node)
-                                     project-id))
-                   (user-error "Phase not found: %s" phase-id)))
-             (when (not (equal parent-id project-id))
-               (unless (or (and (string= parent-type "task")
-                                (null parent-phase-id)
-                                (equal parent-project-id project-id))
-                           (and (string= parent-type "group")
-                                (null parent-phase-id)
-                                (equal parent-project-id project-id)))
-                 (user-error "Task parent must be project, group, or task under project"))))
-           (when (numberp phase-id)
-             (unless (or (equal parent-id phase-id)
-                         (and (string= parent-type "group")
-                              (equal parent-project-id project-id)
-                              (equal parent-phase-id phase-id))
-                         (and (string= parent-type "task")
-                              (equal parent-project-id project-id)
-                              (equal parent-phase-id phase-id)))
-               (user-error "Task parent must be phase, group, or task under phase")))
-           (let* ((level
-                   (if (and (string= parent-type "task")
-                            (numberp parent-level))
-                       (1+ parent-level)
-                     (cond
-                      ((not (numberp phase-id))
-                       (if (string= parent-type "group") 3 2))
-                      ((equal parent-id phase-id) 3)
-                      (t 4))))
-                  (node
-                   (org-tasktree-model-node-create
-                    :uid uid
-                    :parent-id parent-id
-                    :node-type "task"
-                    :todo-keyword "TODO"
-                    :title title
-                    :level level
-                    :priority priority
-                    :scheduled scheduled
-                    :deadline deadline
-                    :repeat repeat
-                    :content content
-                    :tags tags
-                    :status "OPEN"
-                    :project-id project-id
-                    :phase-id (and (numberp phase-id) phase-id))))
-             (org-tasktree-db-commit-nodes (list node))
-             node))))
-      (_ (user-error "Unknown edit type: %S" type)))))
+    (when (and parent-id (not (org-tasktree-query-get-node-by-id parent-id)))
+      (user-error "Parent must exist: %s" parent-id))
+    (let ((node (org-tasktree-model-node-create
+                 :uid uid
+                 :parent-id parent-id
+                 :todo-keyword todo-keyword
+                 :title title
+                 :priority priority
+                 :scheduled scheduled
+                 :deadline deadline
+                 :repeat repeat
+                 :content content
+                 :tags tags
+                 :status status)))
+      (org-tasktree-db-commit-nodes (list node))
+      node)))
 
 (defun org-tasktree-ui-widget-edit-accept ()
   "Commit current widget edit buffer to DB."
@@ -880,7 +677,6 @@ KEY, VALUE, and HINT configure the created widget."
                      "(root)")))
     (widget-insert (propertize (format "Path: %s\n\n" path-str)
                                'face 'bold))
-    (org-tasktree-ui--render-node-type-field meta)
     (org-tasktree-ui--widget-insert-field "title" :title
                                           (plist-get meta :title)
                                           "required")

@@ -8,6 +8,7 @@
 * DB 変更時の運用
 - スキーマ変更がある場合は、開発環境の DB を手動で再初期化する。
 - 移行スクリプトは作成しない前提とする。
+- `PRAGMA user_version` をスキーマ版として扱い、不一致時は `org-tasktree-init` の実行を促す。
 
 * 構成
 - [[file:overview.org][overview.org]]

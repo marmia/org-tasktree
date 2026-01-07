@@ -9,45 +9,15 @@
 **** 期待される結果
 - `org-tasktree-database-location`に設定したファイルが作成される。
 - `org-tasktree-query-dir`に設定したディレクトリが作成される。
-- テーブル (nodes/node_tags/meta) が作成される。
-- `nodes`テーブルに inbox データが作成される。
-- データ内容
-  - id = 1
-  - parent_id = null
-  - node_type = project
-  - todo_keyword = PROJ
-  - title = inbox
-  - status = OPEN
-  - project_id = null
-  - phase_id = null
+- テーブル (nodes/node_tags) が作成される。
+- `PRAGMA user_version` が 2 に設定される。
+- 初期データは作成されない（nodes は空）。
 *** case2: 冪等性（既存 DB がある場合に再実行しても壊れない）
 **** 前提条件
 - DB ファイル、Query ディレクトリが作成済み
 **** 期待される結果
-- `nodes`テーブルに inbox データが存在している。
-- データ内容
-  - id = 1
-  - parent_id = null
-  - node_type = project
-  - todo_keyword = PROJ
-  - title = inbox
-  - status = OPEN
-  - project_id = null
-  - phase_id = null
-*** case3: デフォルトプロジェクト名を'inbox'以外に設定
-**** 前提条件
-- org-tasktree-default-project-name = test
-**** 期待される結果
-- `nodes`テーブルに inbox データが存在している。
-- データ内容
-  - id = 1
-  - parent_id = null
-  - node_type = project
-  - todo_keyword = PROJ
-  - title = test
-  - status = OPEN
-  - project_id = null
-  - phase_id = null
+- `PRAGMA user_version` が 2 のままである。
+- 初期データが重複作成されない（nodes は空のまま）。
 ** 異常系
 *** case1: 無効な org-tasktree-database-location による初期化失敗
 **** 前提条件
@@ -80,17 +50,20 @@
 - テストデータを事前に DB に登録
 **** テストデータ
 ```csv
-id, title, node_type, parent_id, status, tags
-2, project1, project, NULL, OPEN, NULL
-3, phase1, phase, 2, OPEN, NULL
-4, group1, group, 3, OPEN, NULL
-5, task1, task, 4, OPEN, :unit-test:task1:
-6, child1, task, 5, OPEN, NULL
-7, project2, project, NULL, DONE, NULL
-8, phase2, phase, 2, DONE, NULL
-9, group2, group, 3, DONE, NULL
-10, task2, task, 4, DONE, :unit-test:task2:
-11, child2, task, 5, DONE, NULL
+id, title, parent_id, status, tags
+1, work, NULL, OPEN, :project:
+2, design, 1, OPEN, :phase:
+3, alpha, 2, OPEN, :group:
+4, task1, 3, OPEN, :unit-test:task1:
+5, child1, 4, OPEN, NULL
+11, caps-project, 1, OPEN, :Project:
+12, mixed-phase-group, 1, OPEN, :phase:group:
+13, mixed-project-group, 1, OPEN, :project:group:
+6, archive, NULL, DONE, :project:
+7, archive-phase, 6, DONE, :phase:
+8, archive-group, 7, DONE, :group:
+9, archive-task, 8, DONE, :unit-test:task2:
+10, archive-child, 9, DONE, NULL
 ```
 **** 手順（実装想定）
 - DB に上記データを挿入（`org-tasktree-db-commit-nodes`）
@@ -99,24 +72,29 @@ id, title, node_type, parent_id, status, tags
 - `org-tasktree-ui-minibuffer-read-node` を実行
 **** 期待される結果
 - 候補リストに `Status=OPEN` のパスのみが含まれる（`DONE` は含まれない）
+- 候補リストの各候補に `org-tasktree-ui-minibuffer--candidate-type` が設定される
+  - tags に `project/phase/group` が含まれる場合、それぞれ `project/phase/group`
+  - tags が混在する場合は `project > phase > group` の順に優先
+  - tags が未指定の場合は `task`
+  - tags は大文字小文字を区別しない
 - 既存ノード選択時、戻り値 plist に `:existing t` と `:node` が含まれる
-- `id=1 title=inbox` のノードも候補に含まれる
 
 *** case2: 新規 Node 登録
 **** 前提条件
 - データ登録時に下記のテストデータを使用
 **** テストデータ
 ```csv
-id, title, node_type, parent_id, status, tags
-12, task3, task, 1, OPEN, :unit-test:task3:inbox:
+id, title, parent_id, status, tags
+1, work, NULL, OPEN, :project:
+11, task3, 1, OPEN, :unit-test:task3:
 ```
 **** 手順（実装想定）
 - 親パスが存在する状態で、`org-tasktree-ui-minibuffer--completing-read` を
-  "inbox/new-task" を返すように差し替える
+  "work/new-task" を返すように差し替える
 - `org-tasktree-ui-minibuffer-read-node` を実行
 **** 期待される結果
 - 戻り値 plist が `:existing nil` である
-- `:title` が "new-task"、`:parent-node` が inbox を指す
+- `:title` が "new-task"、`:parent-node` が "work" を指す
 - 実 DB 更新は行わない（この段階は選択のみ）
 
 *** case3: 既存 Node 更新
@@ -127,27 +105,18 @@ id, title, node_type, parent_id, status, tags
 - `org-tasktree-ui--submit-widget` を直接呼び出す
 - `cl-letf` で以下の関数を差し替えて値を注入する
   - `org-tasktree-ui--widget-value` / `org-tasktree-ui--widget-value-raw`
-- `meta` は既存 task と同じ `:uid`, `:project-id`, `:parent-id` を持たせる
+- `meta` は既存 node と同じ `:uid`, `:parent-id` を持たせる
 **** 期待される結果
-- 'id=12'のデータが以下の様に更新される。
+- 'id=11'のデータが以下の様に更新される。
 
 ```csv
-id, title, node_type, parent_id, status, tags
-12, task3-upd, task, 1, OPEN, :unit-test:task3-upd:inbox:
+id, title, parent_id, status, tags
+11, task3-upd, 1, OPEN, :unit-test:task3-upd:
 ```
 
 ** 異常系
 *** UI バリデーションエラー
-**** case1: node_type
-***** 前提条件
-- 新規ノード作成時に node_type に未定義値を入力（例: "foo"）
-***** 手順（実装想定）
-- `org-tasktree-ui--submit-widget` を直接呼び出す（meta で新規 node）
-- `org-tasktree-ui--widget-value` を差し替えて node_type="foo"
-***** 期待される結果
-- `user-error` が発生する
-- DB は更新されない
-**** case2: title 空/空白
+**** case1: title 空/空白
 ***** 前提条件
 - title を空文字または空白のみで入力
 ***** 手順（実装想定）
@@ -156,7 +125,7 @@ id, title, node_type, parent_id, status, tags
 ***** 期待される結果
 - `user-error` が発生する
 - DB は更新されない
-**** case3: title に '/' または制御文字
+**** case2: title に '/' または制御文字
 ***** 前提条件
 - title に '/' または制御文字を含めて入力
 ***** 手順（実装想定）
@@ -165,7 +134,7 @@ id, title, node_type, parent_id, status, tags
 ***** 期待される結果
 - `user-error` が発生する
 - DB は更新されない
-**** case4: priority
+**** case3: priority
 ***** 前提条件
 - priority に英数字 1 文字以外を入力（例: "AA", "*"）
 ***** 手順（実装想定）
@@ -174,7 +143,7 @@ id, title, node_type, parent_id, status, tags
 ***** 期待される結果
 - `user-error` が発生する
 - DB は更新されない
-**** case5: scheduled
+**** case4: scheduled
 ***** 前提条件
 - scheduled に無効日付または未対応形式を入力（例: 2025-02-30, 2025/13/01, abc）
 ***** 手順（実装想定）
@@ -183,7 +152,7 @@ id, title, node_type, parent_id, status, tags
 ***** 期待される結果
 - `user-error` が発生する
 - DB は更新されない
-**** case6: deadline
+**** case5: deadline
 ***** 前提条件
 - deadline に無効日付または未対応形式を入力（例: 2025-02-30, 2025/13/01, abc）
 ***** 手順（実装想定）
@@ -192,7 +161,7 @@ id, title, node_type, parent_id, status, tags
 ***** 期待される結果
 - `user-error` が発生する
 - DB は更新されない
-**** case7: scheduled <= deadline
+**** case6: scheduled <= deadline
 ***** 前提条件
 - scheduled > deadline となる日付を入力
 ***** 手順（実装想定）
@@ -201,7 +170,7 @@ id, title, node_type, parent_id, status, tags
 ***** 期待される結果
 - `user-error` が発生する
 - DB は更新されない
-**** case8: repeat
+**** case7: repeat
 ***** 前提条件
 - repeat に org repeat 構文に合致しない値を入力（例: "1d", "+d", "++w"）
 ***** 手順（実装想定）
@@ -210,7 +179,7 @@ id, title, node_type, parent_id, status, tags
 ***** 期待される結果
 - `user-error` が発生する
 - DB は更新されない
-**** case9: tags
+**** case8: tags
 ***** 前提条件
 - tags に許可外の文字や形式を入力（例: "tag1,tag2", "tag$", "tag1::tag2"）
 ***** 手順（実装想定）
@@ -221,38 +190,11 @@ id, title, node_type, parent_id, status, tags
 - DB は更新されない
 
 *** 内部ロジックテスト(org-tasktree-ui--submit-widget)
-**** case10: 参照整合性 (phase 作成時に project が存在しない)
+**** case9: 参照整合性 (parent が存在しない)
 ***** 前提条件
-- phase を作成しようとするが、指定した project が存在しない
-***** 手順（実装想定）
-- `plist` の `:project-title` を存在しない値にする
-- `org-tasktree-ui--submit-widget` を呼び出す
-***** 期待される結果
-- `user-error` が発生する
-- DB は更新されない
-**** case11: 参照整合性 (group 作成時に parent が存在しない)
-***** 前提条件
-- group を作成しようとするが、parent が存在しない
+- parent が存在しない状態で子ノードを作成しようとする
 ***** 手順（実装想定）
 - `plist` の `:parent-id` に存在しない id を指定
-- `org-tasktree-ui--submit-widget` を呼び出す
-***** 期待される結果
-- `user-error` が発生する
-- DB は更新されない
-**** case12: 参照整合性 (task 作成時に parent が存在しない)
-***** 前提条件
-- task を作成しようとするが、parent が存在しない
-***** 手順（実装想定）
-- `plist` の `:parent-id` に存在しない id を指定
-- `org-tasktree-ui--submit-widget` を呼び出す
-***** 期待される結果
-- `user-error` が発生する
-- DB は更新されない
-**** case13: 参照整合性 (task の phase 指定が不正)
-***** 前提条件
-- task 作成時に phase_id を指定するが、該当 phase が存在しない、または project が一致しない
-***** 手順（実装想定）
-- `plist` の `:phase-id` に存在しない id を指定、または project 不一致にする
 - `org-tasktree-ui--submit-widget` を呼び出す
 ***** 期待される結果
 - `user-error` が発生する
@@ -265,128 +207,56 @@ id, title, node_type, parent_id, status, tags
 - 最初に初期化処理(org-tasktree-test-helper-reset-db)を実行
 - テストデータを使用した同期処理を実行
 - 結果検証
-**** 完全パス指定 (Project を含むパス)
-***** case-ins1: 全 node_type を含む
-****** テストデータ
-- 見出し構成: project/phase/group/task
-- 属性指定: title, priority, scheduled, deadline, repeat, tags, content
+**** case-ins1: 単独タスクツリー (全属性指定)
+***** テストデータ
+- 見出し構成: level1/level2/level3/level4/level5
+- 属性指定: level4 node に全属性を指定。全 node で全カラムを検証し、未指定属性は NULL を期待する。
 - 入力データ: test/test-data/sync-normal-ins-01.org
-****** 期待される結果
-- 4 件のデータ(project/phase/group/task)が新規登録される。
+***** 期待される結果
+- 5 件のデータが新規登録される。
 - 各 node に'uid'が設定される。
-- 各 node に指定した属性が設定される。
-***** case-ins2: phase 指定なし
-****** テストデータ
-- 見出し構成: project/group/task
-- 属性指定: title, priority, scheduled, deadline, repeat, tags, content
+- 各 node 間の親子関係が見出し構成どおりに設定される。
+- 各 node の全カラムが期待値どおりに設定される（未指定属性は NULL）。
+**** case-ins2: 複数タスクツリー
+***** テストデータ
+- 見出し構成:
+  - level1
+    - level2
+      - level3
+      - level3
+  - level1
+    - level2
+      - level3
+    - level2
+      - level3
+  - level1
+- 属性指定: 入力データで指定した値を確認し、未指定属性は NULL を期待する（全カラム検証）。
 - 入力データ: test/test-data/sync-normal-ins-02.org
-****** 期待される結果
-- 3 件のデータ(project/group/task)が新規登録される。
+***** 期待される結果
+- 10 件のデータが新規登録される。
 - 各 node に'uid'が設定される。
-- 各 node に指定した属性が設定される。
-***** case-ins3: group 指定なし
-****** テストデータ
-- 見出し構成: project/phase/task
-- 属性指定: title, priority, scheduled, deadline, repeat, tags, content
+- 各 node 間の親子関係が見出し構成どおりに設定される。
+- 各 node の全カラムが期待値どおりに設定される（未指定属性は NULL）。
+**** case-ins3: 単独 node
+***** テストデータ
+- 見出し構成: level1
+- 属性指定: 全属性を指定。全カラムを検証し、未指定属性は NULL を期待する。
 - 入力データ: test/test-data/sync-normal-ins-03.org
-****** 期待される結果
-- 3 件のデータ(project/phase/task)が新規登録される。
+***** 期待される結果
+- 1 件のデータが新規登録される。
 - 各 node に'uid'が設定される。
-- 各 node に指定した属性が設定される。
-***** case-ins4: task 指定なし
-****** テストデータ
-- 見出し構成: project/phase/group
-- 属性指定: title, priority, scheduled, deadline, tags, content
+- 各 node の全カラムが期待値どおりに設定される（未指定属性は NULL）。
+**** case-ins4: content に org-mode syntax を含む
+***** テストデータ
+- 見出し構成: level1/level2/level3
+- 属性指定: level2 node の content に org-mode syntax (箇条書き、リンク、コードブロック)を含める。全カラムを検証し、未指定属性は NULL を期待する。
 - 入力データ: test/test-data/sync-normal-ins-04.org
-****** 期待される結果
-- 3 件のデータ(project/phase/group)が新規登録される。
+***** 期待される結果
+- 3 件のデータが新規登録される。
 - 各 node に'uid'が設定される。
-- 各 node に指定した属性が設定される。
-***** case-ins5: group 入れ子
-****** テストデータ
-- 見出し構成: project/phase/group/group/task
-- 属性指定: title, priority, scheduled, deadline, repeat, tags, content
-- 入力データ: test/test-data/sync-normal-ins-05.org
-****** 期待される結果
-- 5 件のデータ(project/phase/group/group/task)が新規登録される。
-- 各 node に'uid'が設定される。
-- 各 node に指定した属性が設定される。
-***** case-ins6: task 入れ子
-****** テストデータ
-- 見出し構成: project/phase/group/task/task
-- 属性指定: title, priority, scheduled, deadline, repeat, tags, content
-- 入力データ: test/test-data/sync-normal-ins-06.org
-****** 期待される結果
-- 5 件のデータ(project/phase/group/task/task)が新規登録される。
-- 各 node に'uid'が設定される。
-- 各 node に指定した属性が設定される。
-**** 部分パス指定 (Project 未指定)
-***** case-ins7: phase/group/task
-****** テストデータ
-- 見出し構成: phase/group/task
-- 属性指定: title, priority, scheduled, deadline, repeat, tags, content
-- 入力データ: test/test-data/sync-normal-ins-07.org
-****** 期待される結果
-- 3 件のデータ(phase/group/task)が'inbox'配下に新規登録される。
-- 各 node に'uid'が設定される。
-- 各 node に指定した属性が設定される。
-***** case-ins8: group/task
-****** テストデータ
-- 見出し構成: group/task
-- 属性指定: title, priority, scheduled, deadline, repeat, tags, content
-- 入力データ: test/test-data/sync-normal-ins-08.org
-****** 期待される結果
-- 2 件のデータ(group/task)が'inbox'配下に新規登録される。
-- 各 node に'uid'が設定される。
-- 各 node に指定した属性が設定される。
-***** case-ins9: task
-****** テストデータ
-- 見出し構成: task
-- 属性指定: title, priority, scheduled, deadline, repeat, tags, content
-- 入力データ: test/test-data/sync-normal-ins-09.org
-****** 期待される結果
-- 1 件のデータ(task)が'inbox'配下に新規登録される。
-- 'uid'が設定される。
-- 指定した属性が設定される。
-***** case-ins10: group 入れ子
-****** テストデータ
-- 見出し構成: group/group/task
-- 属性指定: title, priority, scheduled, deadline, repeat, tags, content
-- 入力データ: test/test-data/sync-normal-ins-10.org
-****** 期待される結果
-- 3 件のデータ(group/group/task)が'inbox'配下に新規登録される。
-- 各 node に'uid'が設定される。
-- 各 node に指定した属性が設定される。
-***** case-ins11: task 入れ子
-****** テストデータ
-- 見出し構成: group/task/task
-- 属性指定: title, priority, scheduled, deadline, repeat, tags, content
-- 入力データ: test/test-data/sync-normal-ins-11.org
-****** 期待される結果
-- 3 件のデータ(group/task/task)が'inbox'配下に新規登録される。
-- 各 node に'uid'が設定される。
-- 各 node に指定した属性が設定される。
-**** その他のケース
-***** case-ins12: Project の上位見出しを含む
-****** テストデータ
-- 見出し構成: heading1/heading2/project/phase/group/task
-  - heading1/2 は登録対象外の見出し
-- 属性指定: title, priority, scheduled, deadline, repeat, tags, content
-- 入力データ: test/test-data/sync-normal-ins-12.org
-****** 期待される結果
-- 4 件のデータ(project/phase/group/task)が新規登録される。
-- 各 node に'uid'が設定される。
-- 各 node に指定した属性が設定される。
-***** case-ins13: content に org-mode syntax を含む
-****** テストデータ
-- 見出し構成: task
-- 属性指定: title, content
-  - content: 箇条書き、リンク(org-mode 形式)、コードブロックを含める
-- 入力データ: test/test-data/sync-normal-ins-13.org
-****** 期待される結果
-- 1 件のデータ(task)が'inbox'配下に新規登録される。
-- 'uid'が設定される。
+- 各 node 間の親子関係が見出し構成どおりに設定される。
 - 'content' に指定した org-mode element が全て形式を崩さずに登録される。
+- 各 node の全カラムが期待値どおりに設定される（未指定属性は NULL）。
 *** 更新
 **** 更新テスト共通手順
 - 最初に初期化処理(org-tasktree-test-helper-reset-db)を実行
@@ -396,414 +266,192 @@ id, title, node_type, parent_id, status, tags
 **** テストケース共通・初期データ
 #+begin_src lisp
 ;; nodes table
-((:id 2 :uid "00000000-0000-0000-0000-upd000000001" :parent_id nil :node_type "project" :todo_keyword "PROJ" :title "proj1 (before update)" :level 1 :priority "A" :scheduled "2026-01-10" :deadline "2026-01-20" :repeat nil :closed_at nil :tags ":unit-test:upd:project" :content "This is a project node." :status "OPEN" :project_id nil :phase_id nil :created_at "2025-12-25T00:00:00+09:00" :updated_at "2025-12-25T00:00:00+09:00")
- (:id 3 :uid "00000000-0000-0000-0000-upd000000002" :parent_id 2 :node_type "phase" :todo_keyword "PHASE" :title "phase (before update)" :level 2 :priority "A" :scheduled "2026-01-10" :deadline "2026-01-20" :repeat nil :closed_at nil :tags ":unit-test:upd:phase" :content "This is a phase node." :status "OPEN" :project_id 2 :phase_id nil :created_at "2025-12-25T00:00:00+09:00" :updated_at "2025-12-25T00:00:00+09:00")
- (:id 4 :uid "00000000-0000-0000-0000-upd000000003" :parent_id 3 :node_type "group" :todo_keyword "GROUP" :title "group (before update)" :level 3 :priority "A" :scheduled "2026-01-10" :deadline "2026-01-20" :repeat nil :closed_at nil :tags ":unit-test:upd:group" :content "This is a group node." :status "OPEN" :project_id 2 :phase_id 3 :created_at "2025-12-25T00:00:00+09:00" :updated_at "2025-12-25T00:00:00+09:00")
- (:id 5 :uid "00000000-0000-0000-0000-upd000000004" :parent_id 4 :node_type "task" :todo_keyword "TODO" :title "task (before update)" :level 4 :priority "A" :scheduled "2026-01-10" :deadline "2026-01-20" :repeat "+1d" :closed_at nil :tags ":unit-test:upd:task" :content "This is a task node." :status "OPEN" :project_id 2 :phase_id 3 :created_at "2025-12-25T00:00:00+09:00" :updated_at "2025-12-25T00:00:00+09:00"))
+((:id 1 :uid "82a4e7b7-207f-5583-8e8c-47503339b07b" :parent_id nil :todo_keyword nil :title "AAA (before update)" :priority nil :scheduled nil :deadline nil :repeat nil :closed_at nil :tags nil :content "AAA before update." :status "OPEN" :created_at "2025-12-25T00:00:00+09:00" :updated_at "2025-12-25T00:00:00+09:00")
+ (:id 2 :uid "c01ef21b-3bda-5a2b-9179-20fc145215e9" :parent_id 1 :todo_keyword nil :title "BBB (before update)" :priority nil :scheduled nil :deadline nil :repeat nil :closed_at nil :tags nil :content "BBB before update." :status "OPEN" :created_at "2025-12-25T00:00:00+09:00" :updated_at "2025-12-25T00:00:00+09:00")
+ (:id 3 :uid "69f0ecdd-d8ee-5970-81b2-4edf5e985240" :parent_id 2 :todo_keyword nil :title "CCC (before update)" :priority nil :scheduled nil :deadline nil :repeat nil :closed_at nil :tags nil :content "CCC before update." :status "OPEN" :created_at "2025-12-25T00:00:00+09:00" :updated_at "2025-12-25T00:00:00+09:00")
+ (:id 4 :uid "1ccee950-21b1-5ec2-bac7-384c1c9cae6f" :parent_id 3 :todo_keyword "TODO" :title "DDD (before update)" :priority "C" :scheduled "2026-01-10" :deadline "2026-01-20" :repeat nil :closed_at nil :tags ":before:ddd:" :content "DDD before update." :status "OPEN" :created_at "2025-12-25T00:00:00+09:00" :updated_at "2025-12-25T00:00:00+09:00")
+ (:id 5 :uid "7e84806d-9bdc-584c-a678-88140ad824b0" :parent_id 4 :todo_keyword nil :title "EEE (before update)" :priority nil :scheduled nil :deadline nil :repeat nil :closed_at nil :tags nil :content "EEE before update." :status "OPEN" :created_at "2025-12-25T00:00:00+09:00" :updated_at "2025-12-25T00:00:00+09:00")
+ (:id 6 :uid "ca706ec4-dc8e-568c-a157-012e585b741d" :parent_id nil :todo_keyword nil :title "FFF (before update)" :priority nil :scheduled nil :deadline nil :repeat nil :closed_at nil :tags nil :content "FFF before update." :status "OPEN" :created_at "2025-12-25T00:00:00+09:00" :updated_at "2025-12-25T00:00:00+09:00")
+ (:id 7 :uid "608a8d33-54fe-55dd-b877-a4944b2be2ed" :parent_id 6 :todo_keyword nil :title "GGG (before update)" :priority nil :scheduled nil :deadline nil :repeat nil :closed_at nil :tags nil :content "GGG before update." :status "OPEN" :created_at "2025-12-25T00:00:00+09:00" :updated_at "2025-12-25T00:00:00+09:00")
+ (:id 8 :uid "1438dc0e-da7d-5a82-9233-59d1ac453018" :parent_id 7 :todo_keyword nil :title "HHH (before update)" :priority nil :scheduled nil :deadline nil :repeat nil :closed_at nil :tags nil :content "HHH before update." :status "OPEN" :created_at "2025-12-25T00:00:00+09:00" :updated_at "2025-12-25T00:00:00+09:00"))
 #+end_src
 
 #+begin_src lisp
 ;; node_tags
-((:node_id 2 :tag unit-test)
- (:node_id 2 :tag upd)
- (:node_id 2 :tag project)
- (:node_id 3 :tag unit-test)
- (:node_id 3 :tag upd)
- (:node_id 3 :tag phase)
- (:node_id 4 :tag unit-test)
- (:node_id 4 :tag upd)
- (:node_id 4 :tag group)
- (:node_id 5 :tag unit-test)
- (:node_id 5 :tag upd)
- (:node_id 5 :tag task))
+((:node_id 4 :tag before)
+ (:node_id 4 :tag ddd))
 #+end_src
 
-**** 完全パス指定 (Project を含むパス)
-***** case-upd1: 全 node 更新
-****** テストデータ
-******* 更新用データ
-- 見出し構成: project/phase/group/task
-- 属性指定: title, priority, scheduled, deadline, tags, content
-- 入力データ: test/test-data/sync-normal-upd-01.org 
-****** 期待される結果
-- 4 件のデータ(project/phase/group/task)が更新される。
-- 以下のカラム値に変更がない
-  - nodes.id
-  - nodes.uid
-  - nodes.parent_id
-  - nodes.node_type
-  - nodes.todo_keyword
-  - nodes.level
-  - nodes.closed_at
-  - nodes.status
-  - nodes.project_id
-  - nodes.phase_id
-  - nodes.created_at
-- 以下のカラム値が更新される
-  - nodes.title
-  - nodes.priority
-  - nodes.scheduled
-  - nodes.deadline
-  - nodes.repeat
-  - nodes.tags
-  - nodes.content
-  - nodes.updated_at
-  - note_tasg.tag
-***** case-upd2: ツリー構成変更 (group 入れ子)
-****** テストデータ
-******* 更新用データ
-- 見出し構成: project/phase/group/group/task
-- 入力データ: test/test-data/sync-normal-upd-02.org 
-****** 期待される結果
-- 5 件のデータ(project/phase/group/group/task)が更新される。
-- 既存 group の下に group が作成される。
-***** case-upd3: ツリー構成変更 (task 入れ子)
-****** テストデータ
-******* 更新用データ
-- 見出し構成: project/phase/group/task/task
-- 入力データ: test/test-data/sync-normal-upd-03.org 
-****** 期待される結果
-- 5 件のデータ(project/phase/group/task/task)が更新される。
-- 既存 task の下に task が作成される。
-**** 部分パス指定 (Project 未指定)
-***** case-upd4: phase/group/task
-****** テストデータ
-******* 更新用データ
-- 見出し構成: phase/group/task
-- 属性指定: title, priority, scheduled, deadline, tags, content
-- 入力データ: test/test-data/sync-normal-upd-04.org 
-****** 期待される結果
-- 3 件のデータ(phase/group/task)が更新される。
-- 以下のカラム値に変更がない
-  - nodes.id
-  - nodes.uid
-  - nodes.parent_id
-  - nodes.node_type
-  - nodes.todo_keyword
-  - nodes.level
-  - nodes.closed_at
-  - nodes.status
-  - nodes.project_id
-  - nodes.phase_id
-  - nodes.created_at
-- 以下のカラム値が更新される
-  - nodes.title
-  - nodes.priority
-  - nodes.scheduled
-  - nodes.deadline
-  - nodes.repeat (task のみ)
-  - nodes.tags
-  - nodes.content
-  - nodes.updated_at
-  - note_tasg.tag
+**** case-upd1: 完全パス指定 (単独タスクツリー)
+***** テストデータ
+- 見出し構成: AAA/BBB/CCC/DDD/EEE
+- 属性指定: DDD に全属性を指定 (todo_keyword, title, priority, scheduled, deadline, repeat, tags, content)
+- 入力データ: test/test-data/sync-normal-upd-01.org
+***** 期待される結果
+- 5 件のデータが更新される。
+- 各 node の全カラムが期待値どおりに設定される（未指定属性は NULL）。
+- DDD は全属性が更新される。
 
-***** case-upd5: group/task
-****** テストデータ
-******* 更新用データ
-- 見出し構成: group/task
-- 属性指定: title, priority, scheduled, deadline, tags, content
-- 入力データ: test/test-data/sync-normal-upd-05.org 
-****** 期待される結果
-- 2 件のデータ(group/task)が更新される。
-- 以下のカラム値に変更がない
-  - nodes.id
-  - nodes.uid
-  - nodes.parent_id
-  - nodes.node_type
-  - nodes.todo_keyword
-  - nodes.level
-  - nodes.closed_at
-  - nodes.status
-  - nodes.project_id
-  - nodes.phase_id
-  - nodes.created_at
-- 以下のカラム値が更新される
-  - nodes.title
-  - nodes.priority
-  - nodes.scheduled
-  - nodes.deadline
-  - nodes.repeat
-  - nodes.tags
-  - nodes.content
-  - nodes.updated_at
-  - note_tasg.tag
+**** case-upd2: 完全パス指定 (複数タスクツリー)
+***** テストデータ
+- 見出し構成:
+  - AAA/BBB/CCC/DDD/EEE
+  - FFF/GGG/HHH
+- 入力データ: test/test-data/sync-normal-upd-02.org
+***** 期待される結果
+- 8 件のデータが更新される。
+- 各 node の全カラムが期待値どおりに設定される（未指定属性は NULL）。
 
-***** case-upd6: task
-****** テストデータ
-******* 更新用データ
-- 見出し構成: task
-- 属性指定: title, priority, scheduled, deadline, tags, content
-- 入力データ: test/test-data/sync-normal-upd-06.org 
-****** 期待される結果
-- 1 件のデータ(task)が更新される。
-- 以下のカラム値に変更がない
-  - nodes.id
-  - nodes.uid
-  - nodes.parent_id
-  - nodes.node_type
-  - nodes.todo_keyword
-  - nodes.level
-  - nodes.closed_at
-  - nodes.status
-  - nodes.project_id
-  - nodes.phase_id
-  - nodes.created_at
-- 以下のカラム値が更新される
-  - nodes.title
-  - nodes.priority
-  - nodes.scheduled
-  - nodes.deadline
-  - nodes.repeat
-  - nodes.tags
-  - nodes.content
-  - nodes.updated_at
-  - note_tasg.tag
+**** case-upd3: 部分パス指定 (親あり)
+***** テストデータ
+- 見出し構成: AAA/BBB/CCC
+- 入力データ: test/test-data/sync-normal-upd-03.org
+***** 期待される結果
+- 3 件のデータが更新される。
+- 親子関係は見出し構成どおりに更新される。
+- 各 node の全カラムが期待値どおりに設定される（未指定属性は NULL）。
 
-***** case-upd7: ツリー構成変更 (group 入れ子)
-****** テストデータ
-******* 更新用データ
-- 見出し構成: group/group/task
-- 属性指定: title, priority, scheduled, deadline, tags, content
-- 入力データ: test/test-data/sync-normal-upd-07.org 
-****** 期待される結果
-- 3 件のデータ(group/group/task)が更新される。
-- 既存 group の下に group が作成される。
-***** case-upd8: ツリー構成変更 (task 入れ子)
-****** テストデータ
-******* 更新用データ
-- 見出し構成: task/task
-- 属性指定: title, priority, scheduled, deadline, tags, content
-- 入力データ: test/test-data/sync-normal-upd-08.org 
-****** 期待される結果
-- 2 件のデータ(task/task)が更新される。
-- 既存 task の下に task が作成される。
+**** case-upd4: 部分パス指定 (親なし)
+***** テストデータ
+- 見出し構成: BBB/CCC
+- 入力データ: test/test-data/sync-normal-upd-04.org
+***** 期待される結果
+- 2 件のデータが更新される。
+- BBB の parent_id は既存の AAA を維持する（keep）。
+- 各 node の全カラムが期待値どおりに設定される（未指定属性は NULL）。
 
-**** その他のケース
-***** case-upd9: Project の上位見出しを含む
-****** テストデータ
-******* 更新用データ
-- 見出し構成: heading1/heading2/project/phase/group/task
-- 属性指定: title, priority, scheduled, deadline, tags, content
-- 入力データ: test/test-data/sync-normal-upd-09.org 
-****** 期待される結果
-- project の上位見出しは無視される。
-- 4 件のデータ(project/phase/group/task)が更新される。
-- 以下のカラム値に変更がない
-  - nodes.id
-  - nodes.uid
-  - nodes.parent_id
-  - nodes.node_type
-  - nodes.todo_keyword
-  - nodes.level
-  - nodes.closed_at
-  - nodes.status
-  - nodes.project_id
-  - nodes.phase_id
-  - nodes.created_at
-- 以下のカラム値が更新される
-  - nodes.title
-  - nodes.priority
-  - nodes.scheduled
-  - nodes.deadline
-  - nodes.repeat
-  - nodes.tags
-  - nodes.content
-  - nodes.updated_at
-  - node_tags.tag
+**** case-upd5: ツリー構成変更 1
+***** テストデータ
+- 更新後の見出し構成:
+  - AAA
+    - BBB
+      - CCC
+      - DDD
+        - EEE
+- 入力データ: test/test-data/sync-normal-upd-05.org
+***** 期待される結果
+- 5 件のデータが更新される。
+- DDD の parent_id が BBB に更新される。
+- EEE の parent_id は DDD のまま。
+- 各 node の全カラムが期待値どおりに設定される（未指定属性は NULL）。
+
+**** case-upd6: ツリー構成変更 2
+***** テストデータ
+- 更新後の見出し構成:
+  - AAA
+    - BBB
+      - CCC
+        - EEE
+      - DDD
+- 入力データ: test/test-data/sync-normal-upd-06.org
+***** 期待される結果
+- 5 件のデータが更新される。
+- DDD の parent_id が BBB に更新される。
+- EEE の parent_id が CCC に更新される。
+- 各 node の全カラムが期待値どおりに設定される（未指定属性は NULL）。
+
+**** case-upd7: ツリー構成変更 3
+***** テストデータ
+- 更新後の見出し構成:
+  - AAA
+    - BBB
+      - CCC
+  - FFF
+    - GGG
+      - HHH
+        - DDD
+          - EEE
+- 入力データ: test/test-data/sync-normal-upd-07.org
+***** 期待される結果
+- 8 件のデータが更新される。
+- DDD の parent_id が HHH に更新される。
+- EEE の parent_id は DDD のまま。
+- 各 node の全カラムが期待値どおりに設定される（未指定属性は NULL）。
+
+**** case-upd8: 既存タスクツリーに新規 node を追加
+***** テストデータ
+- 更新後の見出し構成:
+  - FFF
+    - GGG
+      - HHH
+        - III
+          - JJJ
+- 入力データ: test/test-data/sync-normal-upd-08.org
+***** 期待される結果
+- 5 件のデータが更新/追加される。
+- III と JJJ は新規 node として追加される。
+- III の parent_id は HHH、JJJ の parent_id は III。
+- 各 node の全カラムが期待値どおりに設定される（未指定属性は NULL）。
 
 ** 異常系
-*** 新規登録
-**** 新規登録テスト共通手順
-- 最初に初期化処理(org-tasktree-test-helper-reset-db)を実行
-- テストデータを使用した同期処理を実行
-- 結果検証
-**** パス異常
-***** case-err-ins1: Project 入れ子
-****** テストデータ
-- 見出し構成: project/project/task
-- 入力データ: test/test-data/sync-err-ins-01.org
-****** 期待される結果
-- `user-error` が発生する
-- DB は更新されない
-***** case-err-ins2: Phase 入れ子
-****** テストデータ
-- 見出し構成: project/phase/phase/task
-- 入力データ: test/test-data/sync-err-ins-02.org
-****** 期待される結果
-- `user-error` が発生する
-- DB は更新されない
-***** case-err-ins3: Project の上位に Phase がある
-****** テストデータ
-- 見出し構成: heading1/phase/project/task
-- 入力データ: test/test-data/sync-err-ins-03.org
-****** 期待される結果
-- `user-error` が発生する
-- DB は更新されない
-***** case-err-ins4: Phase の上位に Group がある
-****** テストデータ
-- 見出し構成: project/group/phase/task
-- 入力データ: test/test-data/sync-err-ins-04.org
-****** 期待される結果
-- `user-error` が発生する
-- DB は更新されない
-***** case-err-ins5: Group の上位に Task がある
-****** テストデータ
-- 見出し構成: project/task/group/task
-- 入力データ: test/test-data/sync-err-ins-05.org
-****** 期待される結果
-- `user-error` が発生する
-- DB は更新されない
-**** バリデーションエラー
-***** case-err-ins6: title が空/空白
-****** テストデータ
-- 入力データ: test/test-data/sync-err-ins-06.org
-****** 期待される結果
-- `user-error` が発生する
-- DB は更新されない
-***** case-err-ins7: title に'/' を含む
-****** テストデータ
-- 入力データ: test/test-data/sync-err-ins-07.org
-****** 期待される結果
-- `user-error` が発生する
-- DB は更新されない
-***** case-err-ins8: priority 英数 1 文字以外を指定
-****** テストデータ
-- 入力データ: test/test-data/sync-err-ins-08.org
-****** 期待される結果
-- `user-error` が発生する
-- DB は更新されない
-***** case-err-ins9: scheduled 形式不正
-****** テストデータ
-- 入力データ: test/test-data/sync-err-ins-09.org
-****** 期待される結果
-- `user-error` が発生する
-- DB は更新されない
-***** case-err-ins10: deadline 形式不正
-****** テストデータ
-- 入力データ: test/test-data/sync-err-ins-10.org
-****** 期待される結果
-- `user-error` が発生する
-- DB は更新されない
-***** case-err-ins11: scheduled >= deadline
-****** テストデータ
-- 入力データ: test/test-data/sync-err-ins-11.org
-****** 期待される結果
-- `user-error` が発生する
-- DB は更新されない
-***** case-err-ins12: repeat 形式不正
-****** テストデータ
-- 入力データ: test/test-data/sync-err-ins-12.org
-****** 期待される結果
-- `user-error` が発生する
-- DB は更新されない
-***** case-err-ins13: tags 禁足文字使用
-****** テストデータ
-- tag に使える文字: 半角英数字 / `-` / `_`
-- 入力データ: test/test-data/sync-err-ins-13.org
-****** 期待される結果
-- `user-error` が発生する
-- DB は更新されない
-***** case-err-ins14: 失敗時に UID が付与されない
-****** テストデータ
-- 入力データ: test/test-data/sync-err-ins-14.org
-****** 期待される結果
-- `user-error` が発生する
-- DB は更新されない
-- エラー発生後も見出しに `UID` が付与されない（PROPERTIES/UID が追加されない）
-
-*** 更新
-**** 更新テスト共通手順
+*** テスト共通手順
 - 最初に初期化処理(org-tasktree-test-helper-reset-db)を実行
 - 初期データを投入
+  - 正常系の更新テストと同じ初期データを使用
 - 更新用テストデータを使用した同期処理を実行
 - 結果検証
-**** テストケース共通・初期データ
-- 正常系の更新テストと同じデータを使用
-
-**** パス異常
-***** case-err-upd1: Project 入れ子
-****** テストデータ
-- 見出し構成: project/project/task
+*** バリデーションエラー
+**** case-err-upd1: タスクツリーの１部の UID が不正値
+***** テストデータ
+- AAA/BBB/CCC/DDD/EEE の'CCC'の UID が不正に書き換えられたケース
 - 入力データ: test/test-data/sync-err-upd-01.org
-****** 期待される結果
+***** 期待される結果
 - `user-error` が発生する
 - DB は更新されない
-***** case-err-upd2: Phase 入れ子
-****** テストデータ
-- 見出し構成: project/phase/phase/task
+**** case-err-upd2: DB に存在しない UID を指定
+***** テストデータ
+- AAA/BBB/CCC/DDD/EEE の'CCC'の UID が DB に存在しないケース
 - 入力データ: test/test-data/sync-err-upd-02.org
-****** 期待される結果
+***** 期待される結果
 - `user-error` が発生する
 - DB は更新されない
-***** case-err-upd3: Project の上位に Phase がある
-****** テストデータ
-- 見出し構成: heading1/phase/project/task
+**** case-err-upd3: title が空/空白
+***** テストデータ
 - 入力データ: test/test-data/sync-err-upd-03.org
-****** 期待される結果
+***** 期待される結果
 - `user-error` が発生する
 - DB は更新されない
-***** case-err-upd4: Phase の上位に Group がある
-****** テストデータ
-- 見出し構成: project/group/phase/task
+**** case-err-upd4: title に'/' を含む
+***** テストデータ
 - 入力データ: test/test-data/sync-err-upd-04.org
-****** 期待される結果
+***** 期待される結果
 - `user-error` が発生する
 - DB は更新されない
-***** case-err-upd5: Group の上位に Task がある
-****** テストデータ
-- 見出し構成: project/task/group/task
+**** case-err-upd5: priority 英数 1 文字以外を指定
+***** テストデータ
 - 入力データ: test/test-data/sync-err-upd-05.org
-****** 期待される結果
+***** 期待される結果
 - `user-error` が発生する
 - DB は更新されない
-**** バリデーションエラー
-***** case-err-upd6: title が空/空白
-****** テストデータ
+**** case-err-upd6: scheduled 形式不正
+***** テストデータ
 - 入力データ: test/test-data/sync-err-upd-06.org
-****** 期待される結果
+***** 期待される結果
 - `user-error` が発生する
 - DB は更新されない
-***** case-err-upd7: title に'/' を含む
-****** テストデータ
+**** case-err-upd7: deadline 形式不正
+***** テストデータ
 - 入力データ: test/test-data/sync-err-upd-07.org
-****** 期待される結果
+***** 期待される結果
 - `user-error` が発生する
 - DB は更新されない
-***** case-err-upd8: priority 英数 1 文字以外を指定
-****** テストデータ
+**** case-err-upd8: scheduled >= deadline
+***** テストデータ
 - 入力データ: test/test-data/sync-err-upd-08.org
-****** 期待される結果
+***** 期待される結果
 - `user-error` が発生する
 - DB は更新されない
-***** case-err-upd9: scheduled 形式不正
-****** テストデータ
+**** case-err-upd9: repeat 形式不正
+***** テストデータ
 - 入力データ: test/test-data/sync-err-upd-09.org
-****** 期待される結果
+***** 期待される結果
 - `user-error` が発生する
 - DB は更新されない
-***** case-err-upd10: deadline 形式不正
-****** テストデータ
-- 入力データ: test/test-data/sync-err-upd-10.org
-****** 期待される結果
-- `user-error` が発生する
-- DB は更新されない
-***** case-err-upd11: scheduled >= deadline
-****** テストデータ
-- 入力データ: test/test-data/sync-err-upd-11.org
-****** 期待される結果
-- `user-error` が発生する
-- DB は更新されない
-***** case-err-upd12: repeat 形式不正
-****** テストデータ
-- 入力データ: test/test-data/sync-err-upd-12.org
-****** 期待される結果
-- `user-error` が発生する
-- DB は更新されない
-***** case-err-upd13: tags 禁足文字使用
-****** テストデータ
+**** case-err-upd10: tags 禁足文字使用
+***** テストデータ
 - tag に使える文字: 半角英数字 / `-` / `_`
-- 入力データ: test/test-data/sync-err-upd-13.org
-****** 期待される結果
+- 入力データ: test/test-data/sync-err-upd-10.org
+***** 期待される結果
 - `user-error` が発生する
 - DB は更新されない
 
@@ -821,10 +469,10 @@ id, title, node_type, parent_id, status, tags
 (
 (
 :id 2 
-:uid "00000000-0000-0000-0000-project00001" 
+:uid "5d4937b3-1fe0-50cb-a885-b85873e6bcaf" 
 :parent-id nil 
 :node-type "project" 
-:todo-keyword "PROJ" 
+:todo-keyword nil
 :title "proj1" 
 :level 1 
 :priority "A" 
@@ -841,7 +489,7 @@ id, title, node_type, parent_id, status, tags
 :updated-at "2025-12-25T00:00:00+09:00")
 (
 :id 3 
-:uid "00000000-0000-0000-0000-today0000002" 
+:uid "e3085041-8060-537f-bda7-1a9da956b8a7" 
 :parent-id 2 
 :node-type "task" 
 :todo-keyword "TODO" 
@@ -861,7 +509,7 @@ id, title, node_type, parent_id, status, tags
 :updated-at "2025-12-25T00:00:00+09:00")
 (
 :id 4 
-:uid "00000000-0000-0000-0000-yesterday003" 
+:uid "2172d110-82a5-569a-889d-2141e9600991" 
 :parent-id 2 
 :node-type "task" 
 :todo-keyword "TODO" 
@@ -881,7 +529,7 @@ id, title, node_type, parent_id, status, tags
 :updated-at "2025-12-25T00:00:00+09:00")
 (
 :id 5 
-:uid "00000000-0000-0000-0000-overdue00004" 
+:uid "61d1d63d-864d-5fc3-91a2-bdcabdb78cf1" 
 :parent-id 2 
 :node-type "task" 
 :todo-keyword "TODO" 
@@ -901,7 +549,7 @@ id, title, node_type, parent_id, status, tags
 :updated-at "2025-12-25T00:00:00+09:00")
 (
 :id 6
-:uid "00000000-0000-0000-0000-tomorrow0005" 
+:uid "bff290e4-2ed6-520f-99ce-56ec6325d203" 
 :parent-id 2 
 :node-type "task" 
 :todo-keyword "TODO" 
@@ -921,7 +569,7 @@ id, title, node_type, parent_id, status, tags
 :updated-at "2025-12-25T00:00:00+09:00")
 (
 :id 7
-:uid "00000000-0000-0000-0000-unsche000006" 
+:uid "9e5e1b66-a262-58dc-9b72-7ee052d5ca27" 
 :parent-id 2 
 :node-type "task" 
 :todo-keyword "TODO" 
@@ -941,10 +589,10 @@ id, title, node_type, parent_id, status, tags
 :updated-at "2025-12-25T00:00:00+09:00")
 (
 :id 8
-:uid "00000000-0000-0000-0000-phase0000007" 
+:uid "1e7c4080-66a8-5243-bc6f-31116a2524ca" 
 :parent-id 2 
 :node-type "phase" 
-:todo-keyword "PHASE" 
+:todo-keyword nil
 :title "phase1" 
 :level 2
 :priority nil
@@ -961,7 +609,7 @@ id, title, node_type, parent_id, status, tags
 :updated-at "2025-12-25T00:00:00+09:00")
 (
 :id 9
-:uid "00000000-0000-0000-0000-group0000008" 
+:uid "6c966182-ae9c-5470-b549-e10cf191c651" 
 :parent-id 8
 :node-type "group" 
 :todo-keyword nil
@@ -981,7 +629,7 @@ id, title, node_type, parent_id, status, tags
 :updated-at "2025-12-25T00:00:00+09:00")
 (
 :id 10
-:uid "00000000-0000-0000-0000-done00000009" 
+:uid "84d9b1fa-88a4-5b0e-861a-7476087ed2f6" 
 :parent-id 9
 :node-type "task" 
 :todo-keyword "DONE"
@@ -1055,15 +703,15 @@ id, title, node_type, parent_id, status, tags
 ** 異常系
 *** 異常系テストケース共通・テストデータ
 **** 初期データ
+***** plist
 #+begin_src lisp
 ;; nodes table
-(
-(
+((
 :id 2 
-:uid "00000000-0000-0000-0000-project00001" 
+:uid "5d4937b3-1fe0-50cb-a885-b85873e6bcaf" 
 :parent-id nil 
 :node-type "project" 
-:todo-keyword "PROJ" 
+:todo-keyword nil
 :title "proj1" 
 :level 1 
 :priority "A" 
@@ -1080,7 +728,7 @@ id, title, node_type, parent_id, status, tags
 :updated-at "2025-12-25T00:00:00+09:00")
 (
 :id 3 
-:uid "00000000-0000-0000-0000-today0000002" 
+:uid "e3085041-8060-537f-bda7-1a9da956b8a7" 
 :parent-id 2 
 :node-type "task" 
 :todo-keyword "TODO" 
@@ -1100,25 +748,75 @@ id, title, node_type, parent_id, status, tags
 :updated-at "2025-12-25T00:00:00+09:00")
  )
 #+end_src
+***** SQL
+#+begin_src sql
+BEGIN;
+INSERT INTO nodes (
+    id, uid, parent_id, todo_keyword, title, priority,
+    scheduled, deadline, repeat, closed_at, tags, content, status,
+    created_at, updated_at
+  ) VALUES (
+    2, '5d4937b3-1fe0-50cb-a885-b85873e6bcaf', NULL, NULL, 'proj1', 'A',
+    NULL, NULL, NULL, NULL, NULL, 'This is a project node.', 'OPEN',
+    '2025-12-25T00:00:00+09:00', '2025-12-25T00:00:00+09:00'
+  );
+
+  INSERT INTO nodes (
+    id, uid, parent_id, todo_keyword, title, priority,
+    scheduled, deadline, repeat, closed_at, tags, content, status,
+    created_at, updated_at
+  ) VALUES (
+    3, 'e3085041-8060-537f-bda7-1a9da956b8a7', 2, 'TODO', 'task-today', 'A',
+    '2025-12-34', '2026-01-34', NULL, NULL, NULL, 'This is a today task.', 'OPEN',
+    '2025-12-25T00:00:00+09:00', '2025-12-25T00:00:00+09:00'
+  );
+COMMIT;
+#+end_src
+**** テスト方針
+- 検索系は DB 内の日付（scheduled/deadline）の不整合を検出して `user-error` を返す。
+- 通常運用では不正日付は登録されないが、手動編集や旧データ混入などの防御確認として
+  意図的に不正日付を含む初期データを投入し、エラーになることを検証する。
 
 *** case-err-01: org-tasktree-search-today-task
-**** 期待される結果
-- `user-error` が発生する
-*** case-err-02: org-tasktree-search-before-today-task
-**** 期待される結果
-- `user-error` が発生する
-*** case-err-03: org-tasktree-search-overdue-task
-**** 期待される結果
-- `user-error` が発生する
-*** case-err-04: org-tasktree-search-next-7day-task
+**** テスト実施方法
+異常系初期データを登録した状態で`org-tasktree-search-today-task`を実行
+
 **** 期待される結果
 - `user-error` が発生する
 
+*** case-err-02: org-tasktree-search-before-today-task
+**** テスト実施方法
+異常系初期データを登録した状態で`org-tasktree-search-before-today-task`を実行
+
+**** 期待される結果
+- `user-error` が発生する
+
+*** case-err-03: org-tasktree-search-overdue-task
+**** テスト実施方法
+異常系初期データを登録した状態で`org-tasktree-search-overdue-task`を実行
+
+**** 期待される結果
+- `user-error` が発生する
+
+*** case-err-04: org-tasktree-search-next-7day-task
+**** テスト実施方法
+異常系初期データを登録した状態で`org-tasktree-search-next-7day-task`を実行
+
+**** 期待される結果
+- `user-error` が発生する
+
+
 *** case-err-05: org-tasktree-search-unscheduled-task
+**** テスト実施方法
+異常系初期データを登録した状態で`org-tasktree-search-unscheduled-task`を実行
+
 **** 期待される結果
 - `user-error` が発生する
 
 *** case-err-06: org-tasktree-search-all
+**** テスト実施方法
+異常系初期データを登録した状態で`org-tasktree-search-all`を実行
+
 **** 期待される結果
 - `user-error` が発生する
 
@@ -1135,69 +833,55 @@ id, title, node_type, parent_id, status, tags
 ;; nodes table
 (
 (:id 2
- :uid "00000000-0000-0000-0000-projalpha01"
+ :uid "dcc9db7c-d207-510c-b2b5-813cd0c5fdad"
  :parent-id nil
- :node-type "project"
- :todo-keyword "PROJ"
+ :todo-keyword nil
  :title "proj-alpha"
- :level 1
  :priority nil
  :scheduled nil
  :deadline nil
  :repeat nil
  :closed-at nil
- :tags nil
+ :tags "project"
  :content "Project alpha."
  :status "OPEN"
- :project-id nil
- :phase-id nil
  :created-at "2025-12-20T00:00:00+09:00"
  :updated-at "2025-12-24T00:00:00+09:00")
 (:id 3
- :uid "00000000-0000-0000-0000-phasealpha1"
+ :uid "cd49e70f-baa0-5e65-bdae-b05012116524"
  :parent-id 2
- :node-type "phase"
- :todo-keyword "PHASE"
+ :todo-keyword nil
  :title "phase-alpha"
- :level 2
  :priority nil
  :scheduled nil
  :deadline nil
  :repeat nil
  :closed-at nil
- :tags nil
+ :tags "phase"
  :content "Phase alpha."
  :status "OPEN"
- :project-id 2
- :phase-id nil
  :created-at "2025-12-21T00:00:00+09:00"
  :updated-at "2025-12-24T00:00:00+09:00")
 (:id 4
- :uid "00000000-0000-0000-0000-groupalpha"
+ :uid "db811a84-b394-5c04-a1bc-ebcf3c395128"
  :parent-id 3
- :node-type "group"
  :todo-keyword nil
  :title "group-alpha"
- :level 3
  :priority nil
  :scheduled nil
  :deadline nil
  :repeat nil
  :closed-at nil
- :tags nil
+ :tags "group"
  :content "Group alpha."
  :status "OPEN"
- :project-id 2
- :phase-id 3
  :created-at "2025-12-22T00:00:00+09:00"
  :updated-at "2025-12-24T00:00:00+09:00")
 (:id 5
- :uid "00000000-0000-0000-0000-taskalpha1"
+ :uid "7252d323-0dfb-57ef-8ccb-b6af43f97470"
  :parent-id 4
- :node-type "task"
  :todo-keyword "TODO"
  :title "task-alpha"
- :level 4
  :priority "A"
  :scheduled (today)
  :deadline (today +7d)
@@ -1206,17 +890,13 @@ id, title, node_type, parent_id, status, tags
  :tags "aa:bb:cc"
  :content "This is task alpha."
  :status "OPEN"
- :project-id 2
- :phase-id 3
  :created-at "2025-12-23T00:00:00+09:00"
  :updated-at "2025-12-24T00:00:00+09:00")
 (:id 6
- :uid "00000000-0000-0000-0000-taskbeta01"
+ :uid "32721697-25e0-5f84-938f-199512cf9731"
  :parent-id 5
- :node-type "task"
  :todo-keyword "TODO"
  :title "task-beta"
- :level 5
  :priority "B"
  :scheduled (yesterday)
  :deadline (today)
@@ -1225,17 +905,13 @@ id, title, node_type, parent_id, status, tags
  :tags "aa:cc"
  :content "Hello World."
  :status "OPEN"
- :project-id 2
- :phase-id 3
  :created-at "2025-12-24T00:00:00+09:00"
  :updated-at "2025-12-24T00:00:00+09:00")
 (:id 7
- :uid "00000000-0000-0000-0000-taskgamma1"
+ :uid "2b0303b5-7cf6-5a4b-90e5-8c63ace9284b"
  :parent-id 4
- :node-type "task"
  :todo-keyword "DONE"
  :title "task-gamma"
- :level 4
  :priority "C"
  :scheduled "2025-12-20"
  :deadline "2025-12-21"
@@ -1244,36 +920,28 @@ id, title, node_type, parent_id, status, tags
  :tags "bb"
  :content "This is task gamma."
  :status "DONE"
- :project-id 2
- :phase-id 3
  :created-at "2025-12-25T00:00:00+09:00"
  :updated-at "2025-12-25T00:00:00+09:00")
 (:id 8
- :uid "00000000-0000-0000-0000-groupbeta1"
+ :uid "baa44f10-7db4-5936-8206-ac469728d319"
  :parent-id 3
- :node-type "group"
  :todo-keyword nil
  :title "group-beta"
- :level 3
  :priority nil
  :scheduled nil
  :deadline nil
  :repeat nil
  :closed-at nil
- :tags nil
+ :tags "group"
  :content "Group beta."
  :status "OPEN"
- :project-id 2
- :phase-id 3
  :created-at "2025-12-26T00:00:00+09:00"
  :updated-at "2025-12-26T00:00:00+09:00")
 (:id 9
- :uid "00000000-0000-0000-0000-taskdelta1"
+ :uid "931f4861-6b84-5ca8-81b6-5a9a9696d0fb"
  :parent-id 8
- :node-type "task"
  :todo-keyword "TODO"
  :title "task-delta"
- :level 4
  :priority "A"
  :scheduled (tomorrow)
  :deadline (today +7d)
@@ -1282,93 +950,73 @@ id, title, node_type, parent_id, status, tags
  :tags "aa:bb"
  :content "This is task delta."
  :status "OPEN"
- :project-id 2
- :phase-id 3
  :created-at "2025-12-26T00:00:00+09:00"
  :updated-at "2025-12-26T00:00:00+09:00")
 (:id 10
- :uid "00000000-0000-0000-0000-phasebeta1"
+ :uid "bdf53e87-e27c-58af-8205-2a15bc6ff863"
  :parent-id 2
- :node-type "phase"
- :todo-keyword "PHASE"
+ :todo-keyword nil
  :title "phase-beta"
- :level 2
  :priority nil
  :scheduled nil
  :deadline nil
  :repeat nil
  :closed-at nil
- :tags nil
+ :tags "phase"
  :content "Phase beta."
  :status "OPEN"
- :project-id 2
- :phase-id nil
  :created-at "2025-12-18T00:00:00+09:00"
  :updated-at "2025-12-24T00:00:00+09:00")
 (:id 11
- :uid "00000000-0000-0000-0000-groupgamma"
+ :uid "d1be8d0e-53cf-5e5d-b2ba-02051f5f8487"
  :parent-id 10
- :node-type "group"
  :todo-keyword nil
  :title "group-gamma"
- :level 3
  :priority nil
  :scheduled nil
  :deadline nil
  :repeat nil
  :closed-at nil
- :tags nil
+ :tags "group"
  :content "Group gamma."
  :status "OPEN"
- :project-id 2
- :phase-id 10
  :created-at "2025-12-19T00:00:00+09:00"
  :updated-at "2025-12-24T00:00:00+09:00")
 (:id 12
- :uid "00000000-0000-0000-0000-taskeps01"
+ :uid "0e1ece77-d8f4-5635-8770-b2a5e5f5970c"
  :parent-id 11
- :node-type "task"
  :todo-keyword "TODO"
  :title "task-epsilon"
- :level 4
  :priority "B"
  :scheduled (today +7d)
- :deadline "2026-01-10"
+ :deadline (today +14d)
  :repeat nil
  :closed-at nil
  :tags "cc"
  :content "This is task epsilon."
  :status "OPEN"
- :project-id 2
- :phase-id 10
  :created-at "2026-01-01T00:00:00+09:00"
  :updated-at "2026-01-02T00:00:00+09:00")
 (:id 20
- :uid "00000000-0000-0000-0000-projomega01"
+ :uid "35e34c83-d084-5d6f-b976-973b923abd8e"
  :parent-id nil
- :node-type "project"
  :todo-keyword "DONE"
  :title "proj-omega"
- :level 1
  :priority nil
  :scheduled nil
  :deadline nil
  :repeat nil
  :closed-at "2025-12-10T00:00:00+09:00"
- :tags nil
+ :tags "project"
  :content "Project omega."
  :status "DONE"
- :project-id nil
- :phase-id nil
  :created-at "2025-11-30T00:00:00+09:00"
  :updated-at "2025-12-10T00:00:00+09:00")
 (:id 21
- :uid "00000000-0000-0000-0000-taskomega1"
+ :uid "c568b89e-eb21-52f5-b743-847b9f08d30b"
  :parent-id 20
- :node-type "task"
  :todo-keyword "DONE"
  :title "task-omega"
- :level 2
  :priority "C"
  :scheduled "2025-12-05"
  :deadline "2025-12-06"
@@ -1377,8 +1025,6 @@ id, title, node_type, parent_id, status, tags
  :tags "aa"
  :content "This is task omega."
  :status "DONE"
- :project-id 20
- :phase-id nil
  :created-at "2025-12-05T00:00:00+09:00"
  :updated-at "2025-12-10T00:00:00+09:00")
 )
@@ -1421,171 +1067,157 @@ id, title, node_type, parent_id, status, tags
 - test/test-data/by-query-normal-01.org
 **** 期待される結果
 - 出力バッファの内容と検証用テストデータの内容に差分がない。
-*** case-normal-02: project node のみ検索
+*** case-normal-02: project 検索
 **** クエリーファイル
 - test/test-data/query/by-query-normal-02.yml
 **** 検証用テストデータ
 - test/test-data/by-query-normal-02.org
 **** 期待される結果
 - 出力バッファの内容と検証用テストデータの内容に差分がない。
-*** case-normal-03: project / phase node のみ検索
+*** case-normal-03: project and phase 検索
 **** クエリーファイル
 - test/test-data/query/by-query-normal-03.yml
 **** 検証用テストデータ
 - test/test-data/by-query-normal-03.org
 **** 期待される結果
 - 出力バッファの内容と検証用テストデータの内容に差分がない。
-*** case-normal-04: 中間 node 検索 (先祖有り)
+*** case-normal-04: 中間 node 検索 (先祖/子孫有り)
 **** クエリーファイル
 - test/test-data/query/by-query-normal-04.yml
 **** 検証用テストデータ
 - test/test-data/by-query-normal-04.org
 **** 期待される結果
 - 出力バッファの内容と検証用テストデータの内容に差分がない。
-*** case-normal-05: 中間 node 検索 (子孫有り)
+*** case-normal-05: 中間 node 検索 (先祖/子孫無し)
 **** クエリーファイル
 - test/test-data/query/by-query-normal-05.yml
 **** 検証用テストデータ
 - test/test-data/by-query-normal-05.org
 **** 期待される結果
 - 出力バッファの内容と検証用テストデータの内容に差分がない。
-*** case-normal-06: 中間 node 検索 (先祖/子孫有り)
+*** case-normal-06: 末端 node 検索 (先祖有り)
 **** クエリーファイル
 - test/test-data/query/by-query-normal-06.yml
 **** 検証用テストデータ
 - test/test-data/by-query-normal-06.org
 **** 期待される結果
 - 出力バッファの内容と検証用テストデータの内容に差分がない。
-*** case-normal-07: 中間 node 検索 (先祖/子孫無し)
+*** case-normal-07: not 指定検索
 **** クエリーファイル
 - test/test-data/query/by-query-normal-07.yml
 **** 検証用テストデータ
 - test/test-data/by-query-normal-07.org
 **** 期待される結果
 - 出力バッファの内容と検証用テストデータの内容に差分がない。
-*** case-normal-08: 末端 node 検索 (先祖有り)
+*** case-normal-08: or 指定検索
 **** クエリーファイル
 - test/test-data/query/by-query-normal-08.yml
 **** 検証用テストデータ
 - test/test-data/by-query-normal-08.org
 **** 期待される結果
 - 出力バッファの内容と検証用テストデータの内容に差分がない。
-*** case-normal-09: not 指定検索
+*** case-normal-09: scheduled 指定検索 (固定日付指定)
 **** クエリーファイル
 - test/test-data/query/by-query-normal-09.yml
 **** 検証用テストデータ
 - test/test-data/by-query-normal-09.org
 **** 期待される結果
 - 出力バッファの内容と検証用テストデータの内容に差分がない。
-*** case-normal-10: or 指定検索
+*** case-normal-10: scheduled 指定検索 (>=)
 **** クエリーファイル
 - test/test-data/query/by-query-normal-10.yml
 **** 検証用テストデータ
 - test/test-data/by-query-normal-10.org
 **** 期待される結果
 - 出力バッファの内容と検証用テストデータの内容に差分がない。
-*** case-normal-11: scheduled 指定検索 (固定日付指定)
+*** case-normal-11: scheduled 指定検索 (<=)
 **** クエリーファイル
 - test/test-data/query/by-query-normal-11.yml
 **** 検証用テストデータ
 - test/test-data/by-query-normal-11.org
 **** 期待される結果
 - 出力バッファの内容と検証用テストデータの内容に差分がない。
-*** case-normal-12: scheduled 指定検索 (>=)
+*** case-normal-12: scheduled 指定検索 (and)
 **** クエリーファイル
 - test/test-data/query/by-query-normal-12.yml
 **** 検証用テストデータ
 - test/test-data/by-query-normal-12.org
 **** 期待される結果
 - 出力バッファの内容と検証用テストデータの内容に差分がない。
-*** case-normal-13: scheduled 指定検索 (<=)
+*** case-normal-13: scheduled 指定検索 (today/yesterday/tomorrow 指定)
 **** クエリーファイル
 - test/test-data/query/by-query-normal-13.yml
 **** 検証用テストデータ
 - test/test-data/by-query-normal-13.org
 **** 期待される結果
 - 出力バッファの内容と検証用テストデータの内容に差分がない。
-*** case-normal-14: scheduled 指定検索 (and)
+*** case-normal-14: created_at 指定検索 (固定日付指定)
 **** クエリーファイル
 - test/test-data/query/by-query-normal-14.yml
 **** 検証用テストデータ
 - test/test-data/by-query-normal-14.org
 **** 期待される結果
 - 出力バッファの内容と検証用テストデータの内容に差分がない。
-*** case-normal-15: scheduled 指定検索 (today/yesterday/tomorrow 指定)
+*** case-normal-15: created_at 指定検索 (>=)
 **** クエリーファイル
 - test/test-data/query/by-query-normal-15.yml
 **** 検証用テストデータ
 - test/test-data/by-query-normal-15.org
 **** 期待される結果
 - 出力バッファの内容と検証用テストデータの内容に差分がない。
-*** case-normal-16: created_at 指定検索 (固定日付指定)
+*** case-normal-16: created_at 指定検索 (<=)
 **** クエリーファイル
 - test/test-data/query/by-query-normal-16.yml
 **** 検証用テストデータ
 - test/test-data/by-query-normal-16.org
 **** 期待される結果
 - 出力バッファの内容と検証用テストデータの内容に差分がない。
-*** case-normal-17: created_at 指定検索 (>=)
+*** case-normal-17: created_at 指定検索 (and)
 **** クエリーファイル
 - test/test-data/query/by-query-normal-17.yml
 **** 検証用テストデータ
 - test/test-data/by-query-normal-17.org
 **** 期待される結果
 - 出力バッファの内容と検証用テストデータの内容に差分がない。
-*** case-normal-18: created_at 指定検索 (<=)
+*** case-normal-18: created_at 指定検索 (today/yesterday/tomorrow 指定)
 **** クエリーファイル
 - test/test-data/query/by-query-normal-18.yml
 **** 検証用テストデータ
 - test/test-data/by-query-normal-18.org
 **** 期待される結果
 - 出力バッファの内容と検証用テストデータの内容に差分がない。
-*** case-normal-19: created_at 指定検索 (and)
+*** case-normal-19: 検索条件に指定しない項目を YAML から削除して検索
 **** クエリーファイル
 - test/test-data/query/by-query-normal-19.yml
 **** 検証用テストデータ
 - test/test-data/by-query-normal-19.org
 **** 期待される結果
 - 出力バッファの内容と検証用テストデータの内容に差分がない。
-*** case-normal-20: created_at 指定検索 (today/yesterday/tomorrow 指定)
+*** case-normal-20: YAML 形式不正 (未定義の項目)
 **** クエリーファイル
 - test/test-data/query/by-query-normal-20.yml
 **** 検証用テストデータ
 - test/test-data/by-query-normal-20.org
 **** 期待される結果
+- 未定義の項目を無視して検索処理が実行される。
 - 出力バッファの内容と検証用テストデータの内容に差分がない。
-*** case-normal-21: 検索条件に指定しない項目を YAML から削除して検索
+
+*** case-normal-21: 全件検索 (明示指定)
 **** クエリーファイル
 - test/test-data/query/by-query-normal-21.yml
 **** 検証用テストデータ
 - test/test-data/by-query-normal-21.org
-**** 期待される結果
-- 出力バッファの内容と検証用テストデータの内容に差分がない。
-*** case-normal-22: YAML 形式不正 (未定義の項目)
-**** クエリーファイル
-- test/test-data/query/by-query-normal-22.yml
-**** 検証用テストデータ
-- test/test-data/by-query-normal-22.org
-**** 期待される結果
-- 未定義の項目を無視して検索処理が実行される。
-- 出力バッファの内容と検証用テストデータの内容に差分がない。
-
-*** case-normal-23: 全件検索 (明示指定)
-**** クエリーファイル
-- test/test-data/query/by-query-normal-23.yml
-**** 検証用テストデータ
-- test/test-data/by-query-normal-23.org
 **** 期待される結果
 - 全 node が検索される。
   - 例: `status: OPEN or DONE` のように全件検索を明示的に指定する。
   - 全件 node 検索 = 全タスクツリー検索となるので、`include_ancestor`, `include_descendants` の値は考慮しなくて良い。
 - 出力バッファの内容と検証用テストデータの内容に差分がない。
 
-*** case-normal-24: 全件検索 (空ファイル)
+*** case-normal-22: 全件検索 (空ファイル)
 **** クエリーファイル
-- test/test-data/query/by-query-err-02.yml
+- test/test-data/query/by-normal-22.yml
 **** 検証用テストデータ
-- test/test-data/by-query-normal-23.org
+- test/test-data/by-query-normal-21.org
 **** 期待される結果
 - 空ファイルのクエリーは全件検索として扱う。
 - 出力バッファの内容と検証用テストデータの内容に差分がない。
@@ -1597,26 +1229,20 @@ id, title, node_type, parent_id, status, tags
 **** 期待される結果
 - `user-error` が発生する
 
-*** case-err-02: 欠番(正常系テスト 24 に移動)
+*** case-err-02: 日付形式不正 (存在しない日付)
+**** クエリーファイル
+- test/test-data/query/by-query-err-02.yml
+**** 期待される結果
+- `user-error` が発生する
 
-*** case-err-03: 日付形式不正 (存在しない日付)
+*** case-err-03: 日付形式不正 (dd のみ指定)
 **** クエリーファイル
 - test/test-data/query/by-query-err-03.yml
 **** 期待される結果
 - `user-error` が発生する
 
-*** case-err-04: 日付形式不正 (dd のみ指定)
+*** case-err-04: 全項目が空値 (キーのみ)
 **** クエリーファイル
 - test/test-data/query/by-query-err-04.yml
 **** 期待される結果
 - `user-error` が発生する
-
-*** case-err-05: 全項目が空値 (キーのみ)
-**** クエリーファイル
-- test/test-data/query/by-query-err-05.yml
-**** 期待される結果
-- `user-error` が発生する
-
-* システムエラー
-** 異常系
-*** case-syserr1: DB が初期化されていない。

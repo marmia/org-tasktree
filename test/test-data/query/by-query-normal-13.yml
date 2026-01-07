@@ -1,4 +1,4 @@
-node_type: task
-scheduled: <= today
+title: task-*
+scheduled: today +7d
 include_ancestor: false
 include_descendants: false

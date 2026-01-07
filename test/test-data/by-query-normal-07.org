@@ -1,5 +1,24 @@
-* group-alpha
+* TODO [#B] task-beta :aa:cc:
+SCHEDULED: <YESTERDAY> DEADLINE: <TODAY>
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-groupalpha
+:UID: 32721697-25e0-5f84-938f-199512cf9731
 :END:
-Group alpha.
+Hello World.
+* TODO [#B] task-epsilon :cc:
+SCHEDULED: <TODAY+7> DEADLINE: <2026-01-10>
+:PROPERTIES:
+:UID: 0e1ece77-d8f4-5635-8770-b2a5e5f5970c
+:END:
+This is task epsilon.
+* DONE [#C] task-gamma :bb:
+SCHEDULED: <2025-12-20> DEADLINE: <2025-12-21>
+:PROPERTIES:
+:UID: 2b0303b5-7cf6-5a4b-90e5-8c63ace9284b
+:END:
+This is task gamma.
+* DONE [#C] task-omega :aa:
+SCHEDULED: <2025-12-05> DEADLINE: <2025-12-06>
+:PROPERTIES:
+:UID: c568b89e-eb21-52f5-b743-847b9f08d30b
+:END:
+This is task omega.

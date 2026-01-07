@@ -1,4 +1,4 @@
-node_type: group
 title: group-alpha
+tags: group
 include_ancestor: true
-include_descendants: false
+include_descendants: true

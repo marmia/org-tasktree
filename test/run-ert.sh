@@ -5,7 +5,23 @@ SCRIPT_DIR="$(cd -- "$(dirname "$0")" && pwd)"
 source "${SCRIPT_DIR}/test-env.sh"
 
 HELPER_FILE="${SCRIPT_DIR}/org-tasktree-test-helper.el"
-mapfile -t TEST_FILES < <(fd --full-path -e el --search-path "${SCRIPT_DIR}" '.*-ert\.el$' | sort)
+
+if [[ $# -gt 0 ]]; then
+  TEST_FILES=()
+  for arg in "$@"; do
+    if [[ -f "${arg}" ]]; then
+      TEST_FILES+=("${arg}")
+    elif [[ -f "${SCRIPT_DIR}/${arg}" ]]; then
+      TEST_FILES+=("${SCRIPT_DIR}/${arg}")
+    else
+      echo "File not found: ${arg}" >&2
+      exit 1
+    fi
+  done
+  mapfile -t TEST_FILES < <(printf '%s\n' "${TEST_FILES[@]}" | sort)
+else
+  mapfile -t TEST_FILES < <(fd --full-path -e el --search-path "${SCRIPT_DIR}" '.*-ert\.el$' | sort)
+fi
 
 EMACS_ARGS=(
   "-Q"

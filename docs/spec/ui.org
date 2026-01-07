@@ -14,7 +14,6 @@
 - `widget.el` を用いて表示欄と入力欄を分離した編集 UI を生成する。
 - UI 上部に親 Node のパスを表示する（未指定時は root 表記）。
 - 入力項目:
-  - node_type（必須。許可された候補から選択。トップ階層は project 固定）
   - title（必須）
   - priority
   - scheduled
@@ -25,6 +24,4 @@
 - `TAB` / `S-TAB` で入力欄を移動できる。
 - `C-c C-s` で scheduled、`C-c C-d` で deadline の `org-read-date` を起動する（`C-g` でキャンセル）。
 - `C-c C-c` でコミット、`C-c C-k` でキャンセルしてミニバッファ表示に戻る。
-- 初期カーソル位置
-  - project 登録/更新時は、'title'
-  - project 以外の登録/更新時は、'node_type'
+- 初期カーソル位置は 'title'

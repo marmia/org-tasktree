@@ -1,7 +1,8 @@
 #+ This file configures Git ignores for org-tasktree.
 
 # Project-specific
-/work/
+test/queries
+work/
 .dir-locals.el
 *.sql
 .serena/

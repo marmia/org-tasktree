@@ -13,11 +13,8 @@
 - `org-tasktree-database-location` で指定されたパスを取得
 - 親ディレクトリが存在しない場合は作成
 - DB ファイルが存在しない場合は新規作成
-- `nodes` / `node_tags` / `meta` テーブルを作成
-- `meta` テーブルに初期データを登録
-  - schema_version = "1"
-  - created_at = 現在時刻（ISO 8601）
-- システム既定 Project（`org-tasktree-default-project-name`）を `nodes` に登録
+- `nodes` / `node_tags` テーブルを作成
+- `PRAGMA user_version` を 2 に設定
 - `org-tasktree-query-dir` が存在しない場合は作成
 
 *** 実行タイミング
@@ -35,32 +32,30 @@
 - 任意の node の更新/新規追加を行う。
 
 *** 処理内容
-1. nodes テーブルから の project / phase / group / task 情報を取得してミニバッファに表示する。
+1. nodes テーブルから status='OPEN' の node 情報を取得してミニバッファに表示する。
    - 検索条件: status='OPEN'
    - ミニバッファのプロンプト表示: `find node:`
    - ミニバッファのリスト表示:
      - 各 node をパス形式で表示する。(find コマンドのように'/'区切りで表示)
        - リスト表示例
          #+begin_example
-         inbox/
-         project1
-         project1/phase1
-         project1/phase1/group1
-         project1/phase1/group1/task1
-         project1/phase1/group1/task1/child1
-         project2
-         project2/phase2
-         project2/phase2/group2
-         project2/phase2/group2/task2
-         project2/phase2/group2/task2/child2
-         project2/phase2/group2/task2/child2/mago1
+         work
+         work/design
+         work/design/alpha
+         work/design/alpha/notes
+         personal
+         personal/hobby
+         personal/hobby/guitar
+         personal/hobby/guitar/practice
          #+end_example
-     - 'node_type'ごとに色を分けて表示する。
-       - Default 値: 
+     - tag に project/phase/group を設定している場合、tag に応じて色を分けて表示する。
+       - 大小文字は区別しない。
+       - tag が混在する場合は project > phase > group の順で優先する。
+       - Default 値:
          - project: DeepSkyBlue
          - phase: MediumSeaGreen
          - group: DarkOrange
-         - task: white
+         - task: white (project/phase/group タグ無し)
 
 2. ユーザーが node を入力/選択して'Enter'キーを押すと node 編集バッファを開く
    - ユーザーが既存の node 名を入力した場合、更新処理として扱う。
@@ -77,9 +72,8 @@
          - 新規 node: project1/phase1/group1/task1/child1 -> NG (task1/child1 を一気に作成することはできない)
 
 3. 編集 バッファの表示/入力
-   - 編集バッファは `widget.el` ベースとし、UI 上部に親 node のパス（project > phase > group）を表示する。
+   - 編集バッファは `widget.el` ベースとし、UI 上部に親 node のパスを表示する。
    - 入力項目
-     - node_type
      - title
      - priority
      - scheduled
@@ -87,14 +81,8 @@
      - repeat
      - tags
      - content（複数行入力）
-   - node_type 指定ルール
-     - TOP 階層 node を更新/新規追加する場合は、'project'固定表示 (編集不可)
-     - project 配下の node に指定できるのは、'phase/group/task'
-     - phase 配下の node に指定できるのは、'group/task'
-     - group 配下の node に指定できるのは、'group/task'
-     - task 配下の node に指定できるのは、'task'
    - title フィールドにはミニバッファで入力/選択された node パスの末端の node 名を初期表示する。
-   - node_type / tags は入力欄に'/'を入力すると補完リストを表示する。TAB キーでリスト移動、Enter キーで選択可能。
+   - tags は入力欄に'/'を入力すると補完リストを表示する。TAB キーでリスト移動、Enter キーで選択可能。
    - scheduled / deadline は手入力と日付選択ダイアログの両方をサポートする。
      - `C-c C-s` で scheduled、`C-c C-d` で deadline の `org-read-date` を起動する。
      - `C-g` でキャンセルする。
@@ -118,13 +106,13 @@
 *** 処理内容
 - org バッファ全体を走査し、見出し単位でノード情報を抽出する。
   - UID 未設定の見出しは自動で UID を付与する。
+  - UID 付き見出しで DB に存在しない場合は user-error とする。
   - content は見出し直下の本文のみを対象とし、PROPERTIES などの drawer と SCHEDULED/DEADLINE 行は除外する。
 - `DEL` フラグ付き見出しは削除対象として扱い、子孫ノードも再帰的に削除する。
   - UID 未設定の `DEL` 見出しは無視する。
 - 収集したノードを `uid` をキーに INSERT/UPDATE する（id は維持）。
-- parent_id / project_id / phase_id は org ツリーから再計算する。
+- parent_id は org ツリーから再計算する。
   - 親がスコープ外で特定できない場合は DB 値を保持する（keep）。
-  - 新規で project が特定できない場合は inbox に登録する。
 
 ** org-tasktree-sync-region
 *** 目的
@@ -137,8 +125,7 @@
 *** 処理内容
 - 選択されたリージョン内の見出しのみを対象に同期する。
   - 子孫ノードはリージョン内に含まれていない限り対象外とする。
-  - parent_id / project_id / phase_id の再計算と keep の扱いは
-    `org-tasktree-sync-buffer` と同様。
+  - parent_id の再計算と keep の扱いは `org-tasktree-sync-buffer` と同様。
 
 ** org-tasktree-sync-subtree
 *** 目的
@@ -151,8 +138,7 @@
 *** 処理内容
 - カーソル位置の見出し配下のタスクツリーを対象に同期する。
   - 子孫ノードも更新対象に含める。
-  - parent_id / project_id / phase_id の再計算と keep の扱いは
-    `org-tasktree-sync-buffer` と同様。
+  - parent_id の再計算と keep の扱いは `org-tasktree-sync-buffer` と同様。
 
 *** 適用例
 
@@ -173,62 +159,62 @@
 
 * 検索系
 ** 共通仕様
-- status='OPEN' のタスクのみを対象とする。
+- status='OPEN' の node のみを対象とする。
 - 日付比較は `DATE(...)` で行い、日付文字列が無効な場合はエラーとして処理を中断し Messages に出力する。
-- 並び順は project > phase > group > task の階層順で、同一階層内は title 昇順。
+- 並び順は親子順で、同一階層内は title 昇順。
 - repeat!=NULL の場合は、tasktree 展開時に'<SCHEDULE yyyy-mm-dd>'に`repeat`に設定されている値を付け足して出力する。
   - Ex: <SCHEDULED 2025-12-20 .+1d>
 - content が NULL でない場合は、見出し/日付/PROPERTIES の直後に本文として出力する（余分な空行は挿入しない）。
 
 ** org-tasktree-search-today-task
 *** 目的
-- scheduled が今日になっている task の tasktree を取得する。
+- scheduled が今日になっている node のツリーを取得する。
 *** 処理内容
-- nodes テーブルから`scheduled=today and status=OPEN`の task と、そのタスクの親 node (project/phase/group)を取得する。
+- nodes テーブルから`scheduled=today and status=OPEN`の node と、その node の祖先 node を取得する。
   - node 情報は重複なく正規化したデータを取得
-  - 所得する属性情報: uid, todo_keyword, title, level, priority, scheduled, deadline, tags, content
-- 出力バッファを開き、org-mode 形式で task tree を展開する
+  - 所得する属性情報: uid, todo_keyword, title, priority, scheduled, deadline, tags, content
+- 出力バッファを開き、org-mode 形式でツリーを展開する
   - 出力バッファは`q`キーで閉じる
 
 ** org-tasktree-search-before-today-task
 *** 目的
-- scheduled が今日以前になっている task の tasktree を取得する。
+- scheduled が今日以前になっている node のツリーを取得する。
 *** 処理内容
-- nodes テーブルから`scheduled<=today and status=OPEN`の task と、そのタスクの親 node (project/phase/group)を取得する。
+- nodes テーブルから`scheduled<=today and status=OPEN`の node と、その node の祖先 node を取得する。
   - node 情報は重複なく正規化したデータを取得
-  - 所得する属性情報: uid, todo_keyword, title, level, priority, scheduled, deadline, tags, content
-- 出力バッファを開き、org-mode 形式で task tree を展開する
+  - 所得する属性情報: uid, todo_keyword, title, priority, scheduled, deadline, tags, content
+- 出力バッファを開き、org-mode 形式でツリーを展開する
   - 出力バッファは`q`キーで閉じる
 
 ** org-tasktree-search-overdue-task
 *** 目的
-- deadline が昨日以前になっている task の tasktree を取得する。
+- deadline が昨日以前になっている node のツリーを取得する。
 *** 処理内容
-- nodes テーブルから`deadline<today and status=OPEN`の task と、そのタスクの親 node (project/phase/group)を取得する。
+- nodes テーブルから`deadline<today and status=OPEN`の node と、その node の祖先 node を取得する。
   - node 情報は重複なく正規化したデータを取得
-  - 所得する属性情報: uid, todo_keyword, title, level, priority, scheduled, deadline, tags, content
-- 出力バッファを開き、org-mode 形式で task tree を展開する
+  - 所得する属性情報: uid, todo_keyword, title, priority, scheduled, deadline, tags, content
+- 出力バッファを開き、org-mode 形式でツリーを展開する
   - 出力バッファは`q`キーで閉じる
 
 ** org-tasktree-search-next-7day-task
 *** 目的
-- scheduled が明日から 7 日以内になっている task の tasktree を取得する。
+- scheduled が明日から 7 日以内になっている node のツリーを取得する。
 *** 処理内容
-- nodes テーブルから`scheduled between tomorrow and (today+7) status=OPEN`の task と、そのタスクの親 node (project/phase/group)を取得する。
+- nodes テーブルから`scheduled between tomorrow and (today+7) status=OPEN`の node と、その node の祖先 node を取得する。
   - node 情報は重複なく正規化したデータを取得
-  - 所得する属性情報: uid, todo_keyword, title, level, priority, scheduled, deadline, tags, content
-- 出力バッファを開き、org-mode 形式で task tree を展開する
+  - 所得する属性情報: uid, todo_keyword, title, priority, scheduled, deadline, tags, content
+- 出力バッファを開き、org-mode 形式でツリーを展開する
   - 出力バッファは`q`キーで閉じる
 
 ** org-tasktree-search-unscheduled-task
 *** 目的
-- scheduled が未設定になっている task の tasktree を取得する。
+- scheduled が未設定になっている node のツリーを取得する。
 
 *** 処理内容
-- nodes テーブルから`scheduled=NULL and status=OPEN`の task と、そのタスクの親 node (project/phase/group)を取得する。
+- nodes テーブルから`scheduled=NULL and status=OPEN`の node と、その node の祖先 node を取得する。
   - node 情報は重複なく正規化したデータを取得
-  - 所得する属性情報: uid, todo_keyword, title, level, priority, scheduled, deadline, tags, content
-- 出力バッファを開き、org-mode 形式で task tree を展開する
+  - 所得する属性情報: uid, todo_keyword, title, priority, scheduled, deadline, tags, content
+- 出力バッファを開き、org-mode 形式でツリーを展開する
   - 出力バッファは`q`キーで閉じる
 
 ** org-tasktree-search-all
@@ -239,8 +225,8 @@
 *** 処理内容
 - nodes テーブルから全データを取得する。
   - node 情報は重複なく正規化したデータを取得
-  - 所得する属性情報: uid, todo_keyword, title, level, priority, scheduled, deadline, tags, content
-- 出力バッファを開き、org-mode 形式で task tree を展開する
+  - 所得する属性情報: uid, todo_keyword, title, priority, scheduled, deadline, tags, content
+- 出力バッファを開き、org-mode 形式でツリーを展開する
   - 出力バッファは`q`キーで閉じる
 
 ** org-tasktree-search-by-query
@@ -254,7 +240,6 @@
    - 出力バッファは `q` キーで閉じる。
 *** クエリーフォーマット
 #+begin_src yaml
-node_type:
 todo_keyword:
 title:
 priority:
@@ -265,8 +250,6 @@ closed_at:
 tags:
 content:
 status:
-project_id:
-phase_id:
 created_at:
 updated_at:
 include_ancestor:
@@ -316,5 +299,5 @@ include_descendants:
   - include_ancestor / include_descendants
 - クエリーファイル新規作成時は、バッファ内に全キー項目をセットする。
   - 値は、`include_ancestor`, `include_descendants` に`true`を設定し、他のキー項目の値は空値にする。
-- 上記以外の項目は指定値をそのまま検索条件として使用する。
-  - SQL インジェクションに対して最低限の対策を実施する。
+- 未指定/未使用/未定義の項目は無視する。
+- SQL インジェクションに対して最低限の対策を実施する。

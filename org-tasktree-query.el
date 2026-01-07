@@ -18,13 +18,8 @@
 (require 'org-tasktree-model)
 
 (defconst org-tasktree-query--order-clause
-  (concat
-   "ORDER BY CASE node_type"
-   " WHEN 'project' THEN 1"
-   " WHEN 'phase' THEN 2"
-   " WHEN 'group' THEN 3"
-   " ELSE 4 END, LOWER(title)")
-  "Deterministic order for tree output (title ascending per level).")
+  "ORDER BY LOWER(title), uid"
+  "Deterministic order for tree output (title ascending).")
 
 (defconst org-tasktree-query--escaped-star-token
   "__ORG_TASKTREE_ESC_STAR__"
@@ -35,8 +30,7 @@
   "Placeholder token for escaped '?' in query values.")
 
 (defconst org-tasktree-query--query-keys
-  '("node_type"
-    "todo_keyword"
+  '("todo_keyword"
     "title"
     "priority"
     "scheduled"
@@ -46,8 +40,6 @@
     "tags"
     "content"
     "status"
-    "project_id"
-    "phase_id"
     "created_at"
     "updated_at"
     "include_ancestor"
@@ -55,8 +47,7 @@
   "Supported query keys for `org-tasktree-search-by-query'.")
 
 (defconst org-tasktree-query--field-definitions
-  '(("node_type" :column "node_type" :type string)
-    ("todo_keyword" :column "todo_keyword" :type string)
+  '(("todo_keyword" :column "todo_keyword" :type string)
     ("title" :column "title" :type string)
     ("priority" :column "priority" :type string)
     ("scheduled" :column "scheduled" :type date)
@@ -66,8 +57,6 @@
     ("tags" :column "tags" :type tags)
     ("content" :column "content" :type string)
     ("status" :column "status" :type string)
-    ("project_id" :column "project_id" :type number)
-    ("phase_id" :column "phase_id" :type number)
     ("created_at" :column "created_at" :type date)
     ("updated_at" :column "updated_at" :type date))
   "Field definitions for query parsing.")
@@ -132,9 +121,9 @@ FIELD must be a column name such as scheduled or deadline."
     "   SELECT p.* FROM nodes p JOIN tree t ON p.id = t.parent_id"
     " )"
     "SELECT DISTINCT"
-    "  id, uid, parent_id, node_type, todo_keyword, title, level,"
-    "  priority, scheduled, deadline, repeat, closed_at, tags, content,"
-    "  status, project_id, phase_id, created_at, updated_at"
+    "  id, uid, parent_id, todo_keyword, title, priority, scheduled,"
+    "  deadline, repeat, closed_at, tags, content, status, created_at,"
+    "  updated_at"
     "FROM tree"
     org-tasktree-query--order-clause
     ";")
@@ -272,7 +261,6 @@ Parents are included."
   (org-tasktree-query--fetch
    (string-join
     '("status='OPEN'"
-      "AND node_type='task'"
       "AND scheduled IS NULL")
     " ")
    []
@@ -289,8 +277,7 @@ Parents are included."
 (defun org-tasktree-query-default-template ()
   "Return default query YAML template string."
   (string-join
-   '("node_type:"
-     "todo_keyword:"
+   '("todo_keyword:"
      "title:"
      "priority:"
      "scheduled:"
@@ -300,8 +287,6 @@ Parents are included."
      "tags:"
      "content:"
      "status:"
-     "project_id:"
-     "phase_id:"
      "created_at:"
      "updated_at:"
      "include_ancestor: true"
@@ -796,9 +781,6 @@ Tokens are plist objects with :text and :quoted."
        (mapcar #'car org-tasktree-query--field-definitions))
       (when (null clauses)
         (setq clauses (list "1=1")))
-      (let ((inbox-id (org-tasktree-db-inbox-id)))
-        (push "id <> ?" clauses)
-        (setq params (append params (list inbox-id))))
       (list :where (string-join (nreverse clauses) " AND ")
             :params (apply #'vector params)
             :include-ancestor include-ancestor
@@ -818,9 +800,9 @@ Tokens are plist objects with :text and :quoted."
     "   SELECT c.* FROM nodes c JOIN tree t ON c.parent_id = t.id"
     " )"
     "SELECT DISTINCT"
-    "  id, uid, parent_id, node_type, todo_keyword, title, level,"
-    "  priority, scheduled, deadline, repeat, closed_at, tags, content,"
-    "  status, project_id, phase_id, created_at, updated_at"
+    "  id, uid, parent_id, todo_keyword, title, priority, scheduled,"
+    "  deadline, repeat, closed_at, tags, content, status, created_at,"
+    "  updated_at"
     "FROM tree"
     org-tasktree-query--order-clause
     ";")
@@ -853,9 +835,9 @@ Tokens are plist objects with :text and :quoted."
     "   SELECT id FROM descendants"
     " )"
     "SELECT DISTINCT"
-    "  id, uid, parent_id, node_type, todo_keyword, title, level,"
-    "  priority, scheduled, deadline, repeat, closed_at, tags, content,"
-    "  status, project_id, phase_id, created_at, updated_at"
+    "  id, uid, parent_id, todo_keyword, title, priority, scheduled,"
+    "  deadline, repeat, closed_at, tags, content, status, created_at,"
+    "  updated_at"
     "FROM nodes"
     "WHERE id IN (SELECT id FROM tree)"
     org-tasktree-query--order-clause
@@ -868,9 +850,9 @@ Tokens are plist objects with :text and :quoted."
    #'identity
    (list
     "SELECT"
-    "  id, uid, parent_id, node_type, todo_keyword, title, level,"
-    "  priority, scheduled, deadline, repeat, closed_at, tags, content,"
-    "  status, project_id, phase_id, created_at, updated_at"
+    "  id, uid, parent_id, todo_keyword, title, priority, scheduled,"
+    "  deadline, repeat, closed_at, tags, content, status, created_at,"
+    "  updated_at"
     "FROM nodes"
     (format "WHERE %s" where-clause)
     org-tasktree-query--order-clause
@@ -901,21 +883,14 @@ Tokens are plist objects with :text and :quoted."
                where include-ancestor include-descendants)))
     (org-tasktree-db--with-db db
       (let* ((rows (sqlite-select db sql params))
-             (nodes (mapcar #'org-tasktree-model-node-from-db-row rows))
-             (inbox-id (org-tasktree-db-inbox-id)))
-        (setq nodes
-              (seq-remove
-               (lambda (node)
-                 (let ((id (org-tasktree-model-node-id node)))
-                   (and (numberp id) (= id inbox-id))))
-               nodes))
+             (nodes (mapcar #'org-tasktree-model-node-from-db-row rows)))
         (when (and (not include-ancestor) (not include-descendants))
           (dolist (node nodes)
             (setf (org-tasktree-model-node-parent-id node) nil)))
         (org-tasktree-query--preorder-sort nodes)))))
 
 (defun org-tasktree-query-open-tree ()
-  "Return OPEN nodes (project/phase/group/task) in preorder."
+  "Return OPEN nodes in preorder."
   (seq-filter
    (lambda (n)
      (equal (org-tasktree-model-node-status n) "OPEN"))
@@ -928,10 +903,9 @@ Tokens are plist objects with :text and :quoted."
       (let ((rows (sqlite-select
                    db
                    (concat
-                    "SELECT id, uid, parent_id, node_type, todo_keyword, title,"
-                    " level, priority, scheduled, deadline, repeat, closed_at,"
-                    " tags, content, status, project_id, phase_id, created_at,"
-                    " updated_at"
+                    "SELECT id, uid, parent_id, todo_keyword, title, priority,"
+                    " scheduled, deadline, repeat, closed_at, tags, content,"
+                    " status, created_at, updated_at"
                     " FROM nodes WHERE id = ? LIMIT 1;")
                    (vector id))))
         (when rows

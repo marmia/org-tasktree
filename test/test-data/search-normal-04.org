@@ -1,11 +1,11 @@
-* PROJ [#A] proj1
+* [#A] proj1
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-project00001
+:UID: 5d4937b3-1fe0-50cb-a885-b85873e6bcaf
 :END:
 This is a project node.
 ** TODO [#A] task-tomorrow
 SCHEDULED: <TOMORROW> DEADLINE: <2026-01-20 Tue>
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-tomorrow0005
+:UID: bff290e4-2ed6-520f-99ce-56ec6325d203
 :END:
 This is a tomorrow task.

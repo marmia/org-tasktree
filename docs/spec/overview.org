@@ -15,10 +15,5 @@ Emacs 用タスク管理プラグインである。
 - parent_id は org バッファには保持しない
 
 * タスクの階層構造
-- タスクは階層構造（Project / Phase / Group / Task）を持つ
-- Project 未指定の Task は既定 Project に収容される
-- TOP 階層には Project のみ作成できる
-- Project 直下には、Phase/Group/Task を作成できる
-- Phase 直下には、Group/Task を作成できる
-- Group 直下には、Group/Task を作成できる
-- Task 直下には、Task を作成できる
+- ノードの階層構造に制約は設けない
+- 任意のノード配下に任意のノードを作成できる

@@ -1,24 +1,18 @@
 * TODO [#A] task-alpha :aa:bb:cc:
 SCHEDULED: <TODAY .+1d> DEADLINE: <TODAY+7>
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-taskalpha1
+:UID: 7252d323-0dfb-57ef-8ccb-b6af43f97470
 :END:
 This is task alpha.
 * TODO [#A] task-delta :aa:bb:
 SCHEDULED: <TOMORROW> DEADLINE: <TODAY+7>
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-taskdelta1
+:UID: 931f4861-6b84-5ca8-81b6-5a9a9696d0fb
 :END:
 This is task delta.
-* DONE [#C] task-gamma :bb:
-SCHEDULED: <2025-12-20> DEADLINE: <2025-12-21>
+* TODO [#B] task-epsilon :cc:
+SCHEDULED: <TODAY+7> DEADLINE: <TODAY+16>
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-taskgamma1
+:UID: 0e1ece77-d8f4-5635-8770-b2a5e5f5970c
 :END:
-This is task gamma.
-* DONE [#C] task-omega :aa:
-SCHEDULED: <2025-12-05> DEADLINE: <2025-12-06>
-:PROPERTIES:
-:UID: 00000000-0000-0000-0000-taskomega1
-:END:
-This is task omega.
+This is task epsilon.

@@ -37,7 +37,7 @@
 (defun org-tasktree-sync-ert--with-org-buffer (file fn)
   "Insert FILE into a temporary org buffer and call FN."
   (with-temp-buffer
-    (let ((org-todo-keywords '((sequence "PROJ" "PHASE" "TODO" "|" "DONE"))))
+    (let ((org-todo-keywords '((sequence "TODO" "DONE"))))
       (insert-file-contents (org-tasktree-sync-ert--test-data-path file))
       (org-mode)
       (org-set-regexps-and-options)
@@ -52,21 +52,31 @@
    (lambda ()
      (org-tasktree-sync-buffer))))
 
-(defun org-tasktree-sync-ert--fetch-node (title node-type)
-  "Return node for TITLE and NODE-TYPE or nil."
+(defun org-tasktree-sync-ert--fetch-node-by-title (title &optional parent-id)
+  "Return node for TITLE and optional PARENT-ID.
+Signals an error when multiple rows match."
   (org-tasktree-db--with-db db
-    (let ((row (car (sqlite-select
-                     db
-                     (string-join
-                      '("SELECT id, uid, parent_id, node_type, todo_keyword,"
-                        " title, level, priority, scheduled, deadline, repeat,"
-                        " closed_at, tags, content, status, project_id,"
-                        " phase_id, created_at, updated_at"
-                        " FROM nodes WHERE title = ? AND node_type = ? LIMIT 1;")
-                      "")
-                     (vector title node-type)))))
-      (when row
-        (org-tasktree-model-node-from-db-row row)))))
+    (let* ((sql (if parent-id
+                    (string-join
+                     '("SELECT id, uid, parent_id, todo_keyword, title,"
+                       " priority, scheduled, deadline, repeat, closed_at,"
+                       " tags, content, status, created_at, updated_at"
+                       " FROM nodes WHERE title = ? AND parent_id = ? LIMIT 2;")
+                     "")
+                  (string-join
+                   '("SELECT id, uid, parent_id, todo_keyword, title,"
+                     " priority, scheduled, deadline, repeat, closed_at,"
+                     " tags, content, status, created_at, updated_at"
+                     " FROM nodes WHERE title = ? LIMIT 2;")
+                   "")))
+           (params (if parent-id
+                       (vector title parent-id)
+                     (vector title)))
+           (rows (sqlite-select db sql params)))
+      (when (> (length rows) 1)
+        (error "Multiple nodes match title: %s" title))
+      (when rows
+        (org-tasktree-model-node-from-db-row (car rows))))))
 
 (defun org-tasktree-sync-ert--fetch-node-by-uid (uid)
   "Return node for UID or nil."
@@ -74,10 +84,9 @@
     (let ((row (car (sqlite-select
                      db
                      (string-join
-                      '("SELECT id, uid, parent_id, node_type, todo_keyword,"
-                        " title, level, priority, scheduled, deadline, repeat,"
-                        " closed_at, tags, content, status, project_id,"
-                        " phase_id, created_at, updated_at"
+                      '("SELECT id, uid, parent_id, todo_keyword, title,"
+                        " priority, scheduled, deadline, repeat, closed_at,"
+                        " tags, content, status, created_at, updated_at"
                         " FROM nodes WHERE uid = ? LIMIT 1;")
                       "")
                      (vector uid)))))
@@ -111,91 +120,126 @@
 
 (defun org-tasktree-sync-ert--seed-update-tree ()
   "Reset DB and insert baseline update tree.
-Returns plist with :project, :phase, :group, and :task nodes."
+Returns plist with :aaa :bbb :ccc :ddd :eee :fff :ggg :hhh nodes."
   (org-tasktree-test-helper-reset-db)
-  (let* ((project (org-tasktree-model-node-create
-                   :uid "00000000-0000-0000-0000-upd000000001"
-                   :node-type "project"
-                   :todo-keyword "PROJ"
-                   :title "proj1 (before update)"
-                   :level 1
-                   :priority "A"
-                   :scheduled "2026-01-10"
-                   :deadline "2026-01-20"
-                   :repeat nil
-                   :tags ":unit-test:upd:project:"
-                   :content "This is a project node."
-                   :status "OPEN"
-                   :parent-id nil
-                   :project-id nil
-                   :phase-id nil))
-         (phase (org-tasktree-model-node-create
-                 :uid "00000000-0000-0000-0000-upd000000002"
-                 :node-type "phase"
-                 :todo-keyword "PHASE"
-                 :title "phase (before update)"
-                 :level 2
-                 :priority "A"
-                 :scheduled "2026-01-10"
-                 :deadline "2026-01-20"
-                 :repeat nil
-                 :tags ":unit-test:upd:phase:"
-                 :content "This is a phase node."
-                 :status "OPEN"
-                 :parent-id :keep
-                 :project-id :keep
-                 :phase-id nil))
-         (group (org-tasktree-model-node-create
-                 :uid "00000000-0000-0000-0000-upd000000003"
-                 :node-type "group"
-                 :todo-keyword nil
-                 :title "group (before update)"
-                 :level 3
-                 :priority "A"
-                 :scheduled "2026-01-10"
-                 :deadline "2026-01-20"
-                 :repeat nil
-                 :tags ":unit-test:upd:group:"
-                 :content "This is a group node."
-                 :status "OPEN"
-                 :parent-id :keep
-                 :project-id :keep
-                 :phase-id :keep))
-         (task (org-tasktree-model-node-create
-                :uid "00000000-0000-0000-0000-upd000000004"
-                :node-type "task"
-                :todo-keyword "TODO"
-                :title "task (before update)"
-                :level 4
-                :priority "A"
-                :scheduled "2026-01-10"
-                :deadline "2026-01-20"
-                :repeat "+1d"
-                :tags ":unit-test:upd:task:"
-                :content "This is a task node."
-                :status "OPEN"
-                :parent-id :keep
-                :project-id :keep
-                :phase-id :keep)))
-    (let* ((project-node (org-tasktree-sync-ert--insert-node project))
-           (project-id (org-tasktree-model-node-id project-node)))
-      (setf (org-tasktree-model-node-parent-id phase) project-id)
-      (setf (org-tasktree-model-node-project-id phase) project-id)
-      (let* ((phase-node (org-tasktree-sync-ert--insert-node phase))
-             (phase-id (org-tasktree-model-node-id phase-node)))
-        (setf (org-tasktree-model-node-parent-id group) phase-id)
-        (setf (org-tasktree-model-node-project-id group) project-id)
-        (setf (org-tasktree-model-node-phase-id group) phase-id)
-        (let* ((group-node (org-tasktree-sync-ert--insert-node group))
-               (group-id (org-tasktree-model-node-id group-node)))
-          (setf (org-tasktree-model-node-parent-id task) group-id)
-          (setf (org-tasktree-model-node-project-id task) project-id)
-          (setf (org-tasktree-model-node-phase-id task) phase-id)
-          (let ((task-node (org-tasktree-sync-ert--insert-node task)))
-            (list :project project-node
-                  :phase phase-node
-                  :group group-node
-                  :task task-node)))))))
+  (let* ((aaa (org-tasktree-model-node-create
+               :uid "82a4e7b7-207f-5583-8e8c-47503339b07b"
+               :todo-keyword nil
+               :title "AAA (before update)"
+               :priority nil
+               :scheduled nil
+               :deadline nil
+               :repeat nil
+               :tags nil
+               :content "AAA before update."
+               :status "OPEN"
+               :parent-id nil))
+         (aaa-node (org-tasktree-sync-ert--insert-node aaa))
+         (aaa-id (org-tasktree-model-node-id aaa-node))
+         (bbb (org-tasktree-model-node-create
+               :uid "c01ef21b-3bda-5a2b-9179-20fc145215e9"
+               :todo-keyword nil
+               :title "BBB (before update)"
+               :priority nil
+               :scheduled nil
+               :deadline nil
+               :repeat nil
+               :tags nil
+               :content "BBB before update."
+               :status "OPEN"
+               :parent-id aaa-id))
+         (bbb-node (org-tasktree-sync-ert--insert-node bbb))
+         (bbb-id (org-tasktree-model-node-id bbb-node))
+         (ccc (org-tasktree-model-node-create
+               :uid "69f0ecdd-d8ee-5970-81b2-4edf5e985240"
+               :todo-keyword nil
+               :title "CCC (before update)"
+               :priority nil
+               :scheduled nil
+               :deadline nil
+               :repeat nil
+               :tags nil
+               :content "CCC before update."
+               :status "OPEN"
+               :parent-id bbb-id))
+         (ccc-node (org-tasktree-sync-ert--insert-node ccc))
+         (ccc-id (org-tasktree-model-node-id ccc-node))
+         (ddd (org-tasktree-model-node-create
+               :uid "1ccee950-21b1-5ec2-bac7-384c1c9cae6f"
+               :todo-keyword "TODO"
+               :title "DDD (before update)"
+               :priority "C"
+               :scheduled "2026-01-10"
+               :deadline "2026-01-20"
+               :repeat nil
+               :tags ":before:ddd:"
+               :content "DDD before update."
+               :status "OPEN"
+               :parent-id ccc-id))
+         (ddd-node (org-tasktree-sync-ert--insert-node ddd))
+         (ddd-id (org-tasktree-model-node-id ddd-node))
+         (eee (org-tasktree-model-node-create
+               :uid "7e84806d-9bdc-584c-a678-88140ad824b0"
+               :todo-keyword nil
+               :title "EEE (before update)"
+               :priority nil
+               :scheduled nil
+               :deadline nil
+               :repeat nil
+               :tags nil
+               :content "EEE before update."
+               :status "OPEN"
+               :parent-id ddd-id))
+         (eee-node (org-tasktree-sync-ert--insert-node eee))
+         (fff (org-tasktree-model-node-create
+               :uid "ca706ec4-dc8e-568c-a157-012e585b741d"
+               :todo-keyword nil
+               :title "FFF (before update)"
+               :priority nil
+               :scheduled nil
+               :deadline nil
+               :repeat nil
+               :tags nil
+               :content "FFF before update."
+               :status "OPEN"
+               :parent-id nil))
+         (fff-node (org-tasktree-sync-ert--insert-node fff))
+         (fff-id (org-tasktree-model-node-id fff-node))
+         (ggg (org-tasktree-model-node-create
+               :uid "608a8d33-54fe-55dd-b877-a4944b2be2ed"
+               :todo-keyword nil
+               :title "GGG (before update)"
+               :priority nil
+               :scheduled nil
+               :deadline nil
+               :repeat nil
+               :tags nil
+               :content "GGG before update."
+               :status "OPEN"
+               :parent-id fff-id))
+         (ggg-node (org-tasktree-sync-ert--insert-node ggg))
+         (ggg-id (org-tasktree-model-node-id ggg-node))
+         (hhh (org-tasktree-model-node-create
+               :uid "1438dc0e-da7d-5a82-9233-59d1ac453018"
+               :todo-keyword nil
+               :title "HHH (before update)"
+               :priority nil
+               :scheduled nil
+               :deadline nil
+               :repeat nil
+               :tags nil
+               :content "HHH before update."
+               :status "OPEN"
+               :parent-id ggg-id))
+         (hhh-node (org-tasktree-sync-ert--insert-node hhh)))
+    (list :aaa aaa-node
+          :bbb bbb-node
+          :ccc ccc-node
+          :ddd ddd-node
+          :eee eee-node
+          :fff fff-node
+          :ggg ggg-node
+          :hhh hhh-node)))
 
 (defun org-tasktree-sync-ert--sync-file-without-reset (file)
   "Sync org data from FILE without resetting DB."
@@ -211,24 +255,20 @@ Returns plist with :project, :phase, :group, and :task nodes."
   (should (stringp label)))
 
 (cl-defun org-tasktree-sync-ert--assert-node
-    (node &key title node-type todo-keyword level priority scheduled deadline
-          repeat tags content status parent-id project-id phase-id expect-nil)
+    (node &key title todo-keyword priority scheduled deadline repeat tags
+          content status parent-id expect-nil)
   "Assert NODE fields against expected values.
-Optional keyword arguments include TITLE, NODE-TYPE, TODO-KEYWORD, LEVEL,
-PRIORITY, SCHEDULED, DEADLINE, REPEAT, TAGS, CONTENT, STATUS, PARENT-ID,
-PROJECT-ID, PHASE-ID, and EXPECT-NIL."
+Optional keyword arguments include TITLE, TODO-KEYWORD, PRIORITY,
+SCHEDULED, DEADLINE, REPEAT, TAGS, CONTENT, STATUS, PARENT-ID, and
+EXPECT-NIL."
   (should (org-tasktree-model-node-p node))
   (org-tasktree-sync-ert--assert-nonempty-string
    (org-tasktree-model-node-uid node)
    "uid")
   (when title
     (should (equal title (org-tasktree-model-node-title node))))
-  (when node-type
-    (should (equal node-type (org-tasktree-model-node-node-type node))))
   (when todo-keyword
     (should (equal todo-keyword (org-tasktree-model-node-todo-keyword node))))
-  (when level
-    (should (= level (org-tasktree-model-node-level node))))
   (when priority
     (should (equal priority (org-tasktree-model-node-priority node))))
   (when scheduled
@@ -245,10 +285,6 @@ PROJECT-ID, PHASE-ID, and EXPECT-NIL."
     (should (equal status (org-tasktree-model-node-status node))))
   (when parent-id
     (should (equal parent-id (org-tasktree-model-node-parent-id node))))
-  (when project-id
-    (should (equal project-id (org-tasktree-model-node-project-id node))))
-  (when phase-id
-    (should (equal phase-id (org-tasktree-model-node-phase-id node))))
   (dolist (field expect-nil)
     (pcase field
       ((or :priority 'priority)
@@ -265,10 +301,6 @@ PROJECT-ID, PHASE-ID, and EXPECT-NIL."
        (should (null (org-tasktree-model-node-content node))))
       ((or :parent-id 'parent-id)
        (should (null (org-tasktree-model-node-parent-id node))))
-      ((or :project-id 'project-id)
-       (should (null (org-tasktree-model-node-project-id node))))
-      ((or :phase-id 'phase-id)
-       (should (null (org-tasktree-model-node-phase-id node))))
       ((or :todo-keyword 'todo-keyword)
        (should (null (org-tasktree-model-node-todo-keyword node))))
       (field

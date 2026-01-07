@@ -1,0 +1,139 @@
+#+title: Plan V03
+
+* v0.3 対応項目
+** TODO M25: 仕様変更: - 基本コンセプトの変更 (node_type 削除)
+*** DONE 変更内容の確認
+  - タスクの階層構造に関する制約 (docs/spec/overview.org 17-24 行目)を撤廃。
+  - nodes.node_type を廃止して node は制約なく階層構造を作れるものとする。
+  - nodes テーブルから削除するカラム
+    - node_type
+    - level
+    - project_id
+    - phase_id
+  - meta テーブルを廃止し、DB スキーマ版は `PRAGMA user_version` で管理する。
+    - v0.3 以降の user_version は 2
+    - 不一致時は user-error を出し `org-tasktree-init` の実行を促す
+    - `org-tasktree-init` で user_version を設定する
+  - DB のマイグレーション作業は実施しない。(データ移行の必要なし)
+  - `org-tasktree-init`の'inbox'データの登録は必要なくなったので削除。
+  - org-mode 側の TODO キーワードは `nodes.todo_keyword` にそのまま保存する。
+    - プラグイン側でキーワード制約は設けない
+  - 検索系コマンドは node_type に依存しない。
+    - scheduled/deadline/status のみを条件にする
+    - "task だけ"の判定は行わない（必要なら query で tag 条件指定）
+  - org-mode 側で tag に project/phase/group を設定した場合、`org-tasktree-find-node`のミニバッファでリストを色分けして表示する。
+    - 元の仕様は、`nodes.node_type`で色分けしていたが、`node_tags.tag`を参照して判定する
+    - 大小文字は区別しない
+    - tag に'project/phase/group'が混合して設定されていた場合は、'project > phase > group'の順に優先して決定する
+    - project/phase/group タグが無い場合は task 相当として white
+  - tags の保存は原文を保持する（正規化は行わない）
+  - YAML クエリは削除したカラムのキーをテンプレートから外し、未指定/未使用項目は無視する。
+*** DONE ドキュメント修正
+*** DONE テストケース＋テストデータの修正
+- 最後に全テストデータの見直しを行う。
+  - 古い TODO キーワードの削除
+    - PROJ
+    - PHASE
+  - UID の変更
+    - 形式: 8-4-4-4-12 の 5 グループ
+    - 文字種: 16 進数（0-9 / a-f / A-F）のみ
+    - 区切り: ハイフン - が必須
+*** DONE A. DB スキーマ/初期化 (org-tasktree-init, migration 無し)
+**** DONE テストコード実装
+**** DONE 実装計画
+     - org-tasktree-db--schema-version を "2" に変更
+     - nodes の DDL から node_type/level/project_id/phase_id を削除
+     - meta テーブル作成/初期化を削除
+     - inbox 初期データの作成を削除（db-init 含む）
+     - PRAGMA user_version を init 実行時に 2 に設定
+     - 旧カラム依存の SQL/キャッシュ構造を整理（node_type/project_id/phase_id）
+**** DONE 実装
+**** DONE ユーザーテスト
+**** DONE コードレビュー
+**** DONE WIP コミット
+*** DONE B. 同期系 (org-tasktree-sync-*)
+**** DONE テストコード実装
+**** DONE 実装計画
+     - org-tasktree-sync.el: node_type 関連の判定/検証/制約（project top level など）を削除し、階層は見出しレベルのみで親子決定する。
+     - org-tasktree-sync.el: project_id/phase_id/inbox 依存の処理を削除し、親が無い場合は parent_id を nil（既存ノードは :keep）で扱う。
+     - org-tasktree-sync.el: UID ありは必ず更新（DB 未存在なら user-error）、UID 無しのみ新規登録のルールを維持。
+     - org-tasktree-sync.el: TODO キーワードは org 側の値をそのまま todo_keyword に保存する。
+     - org-tasktree-sync.el: tags は原文を保持し、node_tags には tag リストを登録する。
+     - org-tasktree-model.el: node_type/level/project_id/phase_id を構造体・変換・バリデーションから削除し、行マッピング順を新スキーマに合わせる。
+**** DONE 実装
+**** DONE ERT テスト
+**** DONE ユーザーテスト
+**** DONE コードレビュー
+**** DONE WIP コミット
+*** DONE C. 検索/クエリ系 (org-tasktree-search-*, org-tasktree-search-by-query)
+**** DONE search-* 正常系
+***** DONE テストコード実装
+***** DONE 実装（ERT が通る状態まで）
+***** DONE ERT テスト
+***** DONE ユーザーテスト
+***** DONE コードレビュー
+***** DONE WIP コミット
+**** DONE search-* 異常系
+***** DONE テストコード実装
+***** DONE 実装（ERT が通る状態まで）
+***** DONE ERT テスト
+***** DONE ユーザーテスト
+***** DONE コードレビュー
+***** DONE WIP コミット
+**** DONE by-query 正常系
+***** DONE テストコード実装
+***** DONE 実装（ERT が通る状態まで）
+***** DONE ERT テスト
+***** DONE ユーザーテスト
+***** DONE コードレビュー
+***** DONE WIP コミット
+**** DONE by-query 異常系
+***** DONE テストコード実装
+***** DONE 実装（ERT が通る状態まで）
+***** DONE ERT テスト
+***** DONE ユーザーテスト
+***** DONE コードレビュー
+***** DONE WIP コミット
+*** DONE D. UI 系 (org-tasktree-find-node の色分け)
+**** DONE テストコード実装（必要なら）
+**** DONE 実装計画（テストコード確定後）
+***** 1. `org-tasktree-ui-minibuffer` の候補種別判定を tags ベースに変更
+      - tags を小文字で比較し、`project > phase > group > task` の優先順位で判定
+      - tags 未指定は `task` として扱う
+***** 2. 既存の node_type 依存ヘルパーを tags ベースに置換（または不要なら削除）
+***** 3. 候補生成の型情報が `org-tasktree-ui-minibuffer--candidate-type` に入ることを確認
+**** DONE 実装
+**** DONE ERT テスト
+**** DONE ユーザーテスト
+**** DONE コードレビュー
+**** DONE WIP コミット
+*** DONE main ブランチにマージ
+
+** TODO M26: org-tasktree-search-by-query の修正
+- バリデーションチェックが'scheduled', 'deadline'だけである。
+  - 他の項目もバリデーションチェックすべきか要検討
+- 検索結果が 0 件の場合に`*org-tasktree nil*`というバッファが生成される。
+  - バッファを生成せずにメッセージで検索結果 0 件と通知する。
+** TODO M27: tags のバリデーション仕様を org-mode の仕様に合わせる
+** TODO Airtable との連携
+** 上位 Node の status が"DONE"になった場合に下位 Node も"DONE"に設定
+** 繰り返しタスクの履歴登録
+** CLOSED 表示・履歴管理
+org-mode の以下の履歴情報の扱いを検討
+```
+CLOSED: <2025-12-09 Tue 21:45>
+
+:LOGBOOK:
+CLOCK: [2025-12-01 Mon 12:00]
+CLOCK: [2025-12-02 Tue 09:00]--[2025-12-02 Tue 12:00] => 3:00
+CLOCK: [2025-12-03 Wed 09:30]--[2025-12-03 Wed 10:35] => 1:05
+:END:
+```
+
+* v0.4 以降
+** ガントチャートライクな Project / Phase 管理
+** 新規作成: org-tasktree-project-archive
+** 新規作成: org-tasktree-project-restore
+** DB マイグレーション機構
+** XDG 対応
+** MELPA 公開対応

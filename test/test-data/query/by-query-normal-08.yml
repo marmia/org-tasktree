@@ -1,4 +1,4 @@
-node_type: task
-title: task-beta
-include_ancestor: true
+title: task-*
+priority: A or C
+include_ancestor: false
 include_descendants: false

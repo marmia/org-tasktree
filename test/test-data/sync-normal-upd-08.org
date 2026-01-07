@@ -1,11 +1,22 @@
 #+title: Test Data - Sync Case Normal Upd 08
 
-* TODO [#B] task (after update) :task:after:upd:
-SCHEDULED: <2026-02-01 Sun .+2d>
+* FFF (after upd8)
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-upd000000004
+:UID: ca706ec4-dc8e-568c-a157-012e585b741d
 :END:
-task update contents
-** TODO [#B] task-1 :task:after:upd:
-SCHEDULED: <2026-02-01 Sun .+2d>
-sub-task contents
+FFF after upd8.
+** GGG (after upd8)
+:PROPERTIES:
+:UID: 608a8d33-54fe-55dd-b877-a4944b2be2ed
+:END:
+GGG after upd8.
+*** HHH (after upd8)
+:PROPERTIES:
+:UID: 1438dc0e-da7d-5a82-9233-59d1ac453018
+:END:
+HHH after upd8.
+**** TODO [#B] III (new)
+SCHEDULED: <2026-02-15 Sun>
+III new node.
+***** JJJ (new)
+JJJ new node.

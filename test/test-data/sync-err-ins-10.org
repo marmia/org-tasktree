@@ -1,8 +1,0 @@
-#+title: Test Data - Sync Case Error Insert 10
-
-* PROJ [#B] proj1 :sync:test:01:
-DEADLINE: <2026-01-20 Tue> SCHEDULED: <2026-01-01 Thu>
-proj1 notes
-** TODO [#A] task1 :sync:test:01:
-DEADLINE: <Hello 2026>
-task1 notes

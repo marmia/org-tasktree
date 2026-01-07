@@ -1,8 +1,27 @@
 #+title: Test Data - Sync Case Normal Upd 06
 
-* TODO [#B] task (after update) :task:after:upd:
-SCHEDULED: <2026-02-01 Sun .+2d>
+* AAA (after upd5)
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-upd000000004
+:UID: 82a4e7b7-207f-5583-8e8c-47503339b07b
 :END:
-task update contents
+AAA after upd5.
+** BBB (after upd5)
+:PROPERTIES:
+:UID: c01ef21b-3bda-5a2b-9179-20fc145215e9
+:END:
+BBB after upd5.
+*** CCC (after upd5)
+:PROPERTIES:
+:UID: 69f0ecdd-d8ee-5970-81b2-4edf5e985240
+:END:
+CCC after upd5.
+**** EEE (after upd5)
+:PROPERTIES:
+:UID: 7e84806d-9bdc-584c-a678-88140ad824b0
+:END:
+EEE after upd5.
+*** DDD (after upd5)
+:PROPERTIES:
+:UID: 1ccee950-21b1-5ec2-bac7-384c1c9cae6f
+:END:
+DDD after upd5.

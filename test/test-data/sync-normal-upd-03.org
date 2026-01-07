@@ -1,29 +1,17 @@
 #+title: Test Data - Sync Case Normal Upd 03
 
-* PROJ [#B] proj (after update) :proj:after:upd:
-DEADLINE: <2026-02-20 Fri> SCHEDULED: <2026-02-01 Sun>
+* AAA (after upd3-a)
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-upd000000001
+:UID: 82a4e7b7-207f-5583-8e8c-47503339b07b
 :END:
-proj update contents
-** PHASE [#B] phase (after update) :phase:after:upd:
-SCHEDULED: <2026-02-01 Sun> DEADLINE: <2026-02-10 Tue>
+AAA after upd3-a.
+** BBB (after upd3-a)
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-upd000000002
+:UID: c01ef21b-3bda-5a2b-9179-20fc145215e9
 :END:
-phase update contents
-*** [#B] group (after update) :group:after:upd:
-SCHEDULED: <2026-02-01 Sun> DEADLINE: <2026-02-05 Thu>
+BBB after upd3-a.
+*** CCC (after upd3-a)
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-upd000000003
+:UID: 69f0ecdd-d8ee-5970-81b2-4edf5e985240
 :END:
-group update contents
-**** TODO [#B] task (after update) :task:after:upd:
-SCHEDULED: <2026-02-01 Sun .+2d>
-:PROPERTIES:
-:UID: 00000000-0000-0000-0000-upd000000004
-:END:
-task update contents
-***** TODO [#B] task-1 :task:after:upd:
-SCHEDULED: <2026-02-01 Sun .+2d>
-sub-task contents
+CCC after upd3-a.

@@ -1,26 +1,28 @@
 #+title: Test Data - Sync Case Error Upd 02
 
-* PROJ [#B] proj (after update) :proj:after:upd:
-DEADLINE: <2026-02-20 Fri> SCHEDULED: <2026-02-01 Sun>
+* AAA (after err2)
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-upd000000001
+:UID: 82a4e7b7-207f-5583-8e8c-47503339b07b
 :END:
-proj update contents
-** PHASE [#B] phase (after update) :phase:after:upd:
-SCHEDULED: <2026-02-01 Sun> DEADLINE: <2026-02-10 Tue>
+AAA after err2.
+** BBB (after err2)
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-upd000000002
+:UID: c01ef21b-3bda-5a2b-9179-20fc145215e9
 :END:
-phase update contents
-*** PHASE [#B] phase1-1 (after update) :group:after:upd:
-SCHEDULED: <2026-02-01 Sun> DEADLINE: <2026-02-05 Thu>
+BBB after err2.
+*** CCC (after err2)
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-upd000000003
+:UID: 41fa2cd3-bfad-5711-952f-85867ee62386
 :END:
-group update contents
-**** TODO [#B] task (after update) :task:after:upd:
-SCHEDULED: <2026-02-01 Sun .+2d>
+CCC after err2.
+**** TODO [#A] DDD (after err2) :after:ddd:
+SCHEDULED: <2026-02-01 Sun .+1d> DEADLINE: <2026-02-10 Tue>
 :PROPERTIES:
-:UID: 00000000-0000-0000-0000-upd000000004
+:UID: 1ccee950-21b1-5ec2-bac7-384c1c9cae6f
 :END:
-task update contents
+DDD after err2.
+***** EEE (after err2)
+:PROPERTIES:
+:UID: 7e84806d-9bdc-584c-a678-88140ad824b0
+:END:
+EEE after err2.

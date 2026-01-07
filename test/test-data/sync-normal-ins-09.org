@@ -1,5 +1,0 @@
-#+title: Test Data - Sync Case Normal Insert 09
-
-* TODO [#A] task1 :sync:test:01:
-SCHEDULED: <2026-01-01 Thu +1d>
-task1 notes
