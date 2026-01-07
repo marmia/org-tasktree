@@ -129,7 +129,11 @@ VALUES is an alist of (KEY . VALUE).  FN is a function of no arguments."
      '((:title . "task")
        (:tags . "tag1,tag2"))
      (lambda ()
-       (should-error (org-tasktree-ui--submit-widget meta))))))
+       (let ((err (should-error (org-tasktree-ui--submit-widget meta)
+                                :type 'user-error)))
+         (should (string-match-p
+                  "Tags must contain only"
+                  (error-message-string err))))))))
 
 (ert-deftest org-tasktree-find-node-abnormal-ert-parent-missing ()
   "Abnormal case: missing parent should signal `user-error'."

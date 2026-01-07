@@ -395,7 +395,7 @@ POS may be an integer or a marker."
        t0)
       (car (org-tasktree-model-normalize-tags t0)))
      (t (user-error
-         "Tags must be like tag1:tag2 or :tag1:tag2: using [A-Za-z0-9_@#%]")))))
+         "Tags must contain only [A-Za-z0-9_@#%%] and be ':' separated")))))
 
 (defun org-tasktree-ui--validate-repeat (value)
   "Return normalized repeat string from VALUE or nil."

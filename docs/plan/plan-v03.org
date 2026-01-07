@@ -134,14 +134,14 @@
 *** DONE ユーザーテスト
 *** DONE コードレビュー
 
-** TODO M28: tags バリデーションエラー時のメッセージ修正
-*** TODO 修正内容の確認
+** DONE M28: tags バリデーションエラー時のメッセージ修正
+*** DONE 修正内容の確認
 - 現状のメッセージ: user-error: Not enough arguments for format string
-  - このメッセージでは、どの項目で入力エラーになっているのか分からない。
-*** TODO 実装
-*** TODO ERT テスト
-*** TODO ユーザーテスト
-*** TODO コードレビュー
+  - このメッセージでは、tags の入力でバリデーションエラーになったことが分からない。
+*** DONE 実装
+*** DONE ERT テスト
+*** DONE ユーザーテスト
+*** DONE コードレビュー
 
 ** TODO Airtable との連携
 ** 上位 Node の status が"DONE"になった場合に下位 Node も"DONE"に設定

@@ -115,11 +115,11 @@
     (dolist (tag tags)
       (unless (string-match-p "\\`[A-Za-z0-9_@#%]+\\'" tag)
         (user-error
-         "Tags must be like tag1:tag2 or :tag1:tag2: using [A-Za-z0-9_@#%]"))))
+         "Tags must contain only [A-Za-z0-9_@#%%] and be ':' separated"))))
   (when (and (null tags) line
              (string-match-p "\\s-+:[^ \t\r\n]+:$" line))
     (user-error
-     "Tags must be like tag1:tag2 or :tag1:tag2: using [A-Za-z0-9_@#%]")))
+     "Tags must contain only [A-Za-z0-9_@#%%] and be ':' separated")))
 
 (defun org-tasktree-sync--validate-planning (scheduled-raw scheduled
                                                            deadline-raw deadline)

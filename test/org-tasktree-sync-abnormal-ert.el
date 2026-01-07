@@ -23,8 +23,9 @@
   (should (equal (org-tasktree-model-node-to-plist before)
                  (org-tasktree-model-node-to-plist after))))
 
-(defun org-tasktree-sync-abnormal-ert--assert-upd-sync-failure (file)
-  "Assert that updating with FILE fails and keep the DB unchanged."
+(defun org-tasktree-sync-abnormal-ert--assert-upd-sync-failure (file &optional message)
+  "Assert that updating with FILE fails and keep the DB unchanged.
+MESSAGE is a regex string for the expected error message."
   (let* ((seed (org-tasktree-sync-ert--seed-update-tree))
          (nodes-before (list (plist-get seed :aaa)
                              (plist-get seed :bbb)
@@ -38,7 +39,11 @@
     (org-tasktree-sync-ert--with-org-buffer
      file
      (lambda ()
-       (should-error (org-tasktree-sync-buffer))))
+       (if message
+           (let ((err (should-error (org-tasktree-sync-buffer)
+                                    :type 'user-error)))
+             (should (string-match-p message (error-message-string err))))
+         (should-error (org-tasktree-sync-buffer)))))
     (should (= count-before (org-tasktree-sync-ert--node-count)))
     (dolist (node-before nodes-before)
       (org-tasktree-sync-abnormal-ert--assert-node-unchanged
@@ -84,7 +89,9 @@
 
 (ert-deftest org-tasktree-sync-abnormal-ert-upd10-invalid-tags ()
   "Test that invalid tags signal an error on update."
-  (org-tasktree-sync-abnormal-ert--assert-upd-sync-failure "sync-err-upd-10.org"))
+  (org-tasktree-sync-abnormal-ert--assert-upd-sync-failure
+   "sync-err-upd-10.org"
+   "Tags must contain only"))
 
 (provide 'org-tasktree-sync-abnormal-ert)
 ;;; org-tasktree-sync-abnormal-ert.el ends here
