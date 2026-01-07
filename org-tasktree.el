@@ -178,8 +178,14 @@ This value is used as the inbox title only at initialization time."
 
 (defun org-tasktree-search-by-query--execute (text title)
   "Execute query TEXT and show results using TITLE."
-  (let ((nodes (org-tasktree-query-search-by-query text)))
-    (org-tasktree-view-display-tree nodes title)))
+  (let* ((nodes (org-tasktree-query-search-by-query text))
+         (display-title (if (and (stringp title)
+                                 (not (string-empty-p title)))
+                            title
+                          "By query")))
+    (if nodes
+        (org-tasktree-view-display-tree nodes display-title)
+      (message "org-tasktree: no results"))))
 
 (defun org-tasktree-search-by-query--open-buffer (file)
   "Open query edit buffer for FILE."

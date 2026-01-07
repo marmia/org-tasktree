@@ -1,6 +1,8 @@
 #+TITLE: org-tasktree v0.1 実装計画
 #+STARTUP: showall
 
+※ obsolete: 本計画は旧仕様（v0.1）向けであり、現行仕様とは一致しない。
+
 * 目的 / スコープ
 
 - org-tasktree v0.1 を仕様書（docs/org-tasktree-spec.org）に沿って実装する。
@@ -482,4 +484,3 @@ id は「DB 内部の参照・最適化（JOIN 用）」という役割分担が
 *** DONE M10-1 仕様確認
 *** DONE M10-2 実装
 *** DONE M10-3 レビュー/テスト
-

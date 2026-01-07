@@ -1,7 +1,7 @@
 #+title: Plan V03
 
 * v0.3 対応項目
-** TODO M25: 仕様変更: - 基本コンセプトの変更 (node_type 削除)
+** DONE M25: 仕様変更: - 基本コンセプトの変更 (node_type 削除)
 *** DONE 変更内容の確認
   - タスクの階層構造に関する制約 (docs/spec/overview.org 17-24 行目)を撤廃。
   - nodes.node_type を廃止して node は制約なく階層構造を作れるものとする。
@@ -109,11 +109,15 @@
 **** DONE WIP コミット
 *** DONE main ブランチにマージ
 
-** TODO M26: org-tasktree-search-by-query の修正
-- バリデーションチェックが'scheduled', 'deadline'だけである。
-  - 他の項目もバリデーションチェックすべきか要検討
-- 検索結果が 0 件の場合に`*org-tasktree nil*`というバッファが生成される。
-  - バッファを生成せずにメッセージで検索結果 0 件と通知する。
+** DONE M26: org-tasktree-search-by-query の修正
+*** DONE 修正内容の確認
+1. 検索結果の出力バッファ名`*org-tasktree nil*`を`org-tasktree By query`に変更する。
+2. 検索結果が 0 件の場合にバッファを生成せずにメッセージで通知する。
+*** DONE 実装
+*** DONE ERT テスト
+*** DONE ユーザーテスト
+*** DONE コードレビュー
+
 ** TODO M27: tags のバリデーション仕様を org-mode の仕様に合わせる
 ** TODO Airtable との連携
 ** 上位 Node の status が"DONE"になった場合に下位 Node も"DONE"に設定

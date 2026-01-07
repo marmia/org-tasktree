@@ -11,6 +11,7 @@
 ;;; Code:
 
 (require 'ert)
+(require 'cl-lib)
 (require 'org-tasktree-search-ert)
 
 (ert-deftest org-tasktree-search-by-query-normal-ert-01 ()
@@ -276,6 +277,26 @@
     (org-tasktree-search-ert--assert-search-output
      (org-tasktree-search-ert--query-title "by-query-normal-22.yml")
      "by-query-normal-21.org")))
+
+(ert-deftest org-tasktree-search-by-query-normal-ert-23 ()
+  "Normal case: search by query returns no results."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-by-query-data)
+    (org-tasktree-search-ert--install-query-file "by-query-normal-23.yml")
+    (let (msg)
+      (org-tasktree-search-ert-with-query-selection "by-query-normal-23.yml"
+        (cl-letf (((symbol-function 'message)
+                   (lambda (fmt &rest args)
+                     (setq msg (apply #'format fmt args)))))
+          (save-window-excursion
+            (org-tasktree-search-by-query))))
+      (should (string= msg "org-tasktree: no results"))
+      (should-not
+       (get-buffer
+        (format "*org-tasktree %s*"
+                (org-tasktree-search-ert--query-title
+                 "by-query-normal-23.yml"))))
+      (should-not (get-buffer "*org-tasktree nil*")))))
 
 (provide 'org-tasktree-search-by-query-normal-ert)
 ;;; org-tasktree-search-by-query-normal-ert.el ends here
