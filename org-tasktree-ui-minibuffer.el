@@ -42,6 +42,15 @@
 (defvar org-tasktree-ui-minibuffer--last-exit-kind nil
   "Exit kind of the last org-tasktree minibuffer session.")
 
+(defvar org-tasktree-ui-minibuffer--marginalia-path-table nil
+  "Hash table mapping paths to entries for Marginalia annotations.")
+
+(defvar org-tasktree-ui-minibuffer--marginalia-column-widths nil
+  "Plist storing column widths for Marginalia annotations.")
+
+(defconst org-tasktree-ui-minibuffer--match-suffix-separator "\t"
+  "Separator used to append match-only text to completion candidates.")
+
 (defvar-local org-tasktree-ui-minibuffer--minibuffer-backspace-original nil
   "Original Backspace command in the minibuffer.")
 
@@ -59,6 +68,28 @@
 
 (defvar-local org-tasktree-ui-minibuffer--minibuffer-validate-fn nil
   "Validation function for org-tasktree minibuffer input.")
+
+(defvar org-tasktree-ui-minibuffer--marginalia-registered nil
+  "Non-nil when the Marginalia annotator is registered for org-tasktree.")
+
+(defun org-tasktree-ui-minibuffer--maybe-register-marginalia ()
+  "Register Marginalia annotator for `org-tasktree-find-node'."
+  (when (and (not org-tasktree-ui-minibuffer--marginalia-registered)
+             (or (boundp 'marginalia-annotators)
+                 (boundp 'marginalia-annotator-registry)))
+    (when (boundp 'marginalia-annotators)
+      (unless (assq 'org-tasktree-node marginalia-annotators)
+        (add-to-list 'marginalia-annotators
+                     '(org-tasktree-node
+                       org-tasktree-ui-minibuffer--marginalia-annotate))))
+    (when (boundp 'marginalia-annotator-registry)
+      (add-to-list 'marginalia-annotator-registry
+                   '(org-tasktree-node
+                     . org-tasktree-ui-minibuffer--marginalia-annotate)))
+    (when (boundp 'marginalia-command-categories)
+      (add-to-list 'marginalia-command-categories
+                   '(org-tasktree-find-node . org-tasktree-node)))
+    (setq org-tasktree-ui-minibuffer--marginalia-registered t)))
 
 (defun org-tasktree-ui-minibuffer--completion-color (type)
   "Return configured completion color for TYPE symbol."
@@ -98,10 +129,12 @@
      ((member "group" tag-list) 'group)
      (t 'task))))
 
-(defun org-tasktree-ui-minibuffer--make-completion-candidate (title type)
+(defun org-tasktree-ui-minibuffer--make-completion-candidate
+    (title type &optional todo-keyword tags)
   "Return a propertized completion candidate for TITLE and TYPE.
 
-TYPE is one of the symbols `project', `phase', `group', or `task'."
+TYPE is one of the symbols `project', `phase', `group', or `task'.
+TODO-KEYWORD and TAGS are stored as candidate metadata."
   (let* ((suffix (pcase type ((or 'project 'phase 'group) "/") (_ "")))
          (display (concat title suffix))
          (color (org-tasktree-ui-minibuffer--completion-color type))
@@ -110,17 +143,30 @@ TYPE is one of the symbols `project', `phase', `group', or `task'."
     (propertize display
                 'face face
                 'org-tasktree-ui-minibuffer--raw title
-                'org-tasktree-ui-minibuffer--candidate-type type)))
+                'org-tasktree-ui-minibuffer--candidate-type type
+                'org-tasktree-ui-minibuffer--todo-keyword todo-keyword
+                'org-tasktree-ui-minibuffer--tags tags)))
 
-(defun org-tasktree-ui-minibuffer--make-path-candidate (path type)
-  "Return a propertized completion candidate for PATH and TYPE."
+(defun org-tasktree-ui-minibuffer--make-path-candidate
+    (path type &optional todo-keyword tags)
+  "Return a propertized completion candidate for PATH and TYPE.
+
+TODO-KEYWORD and TAGS are stored as candidate metadata."
   (let* ((color (org-tasktree-ui-minibuffer--completion-color type))
          (face (and (stringp color) (not (string-empty-p color))
-                    `(:foreground ,color))))
-    (propertize path
+                    `(:foreground ,color)))
+         (suffix (org-tasktree-ui-minibuffer--match-suffix
+                  todo-keyword
+                  tags))
+         (match (if suffix (concat path suffix) path))
+         (display (if face (propertize path 'face face) path)))
+    (propertize match
+                'display display
                 'face face
                 'org-tasktree-ui-minibuffer--raw path
-                'org-tasktree-ui-minibuffer--candidate-type type)))
+                'org-tasktree-ui-minibuffer--candidate-type type
+                'org-tasktree-ui-minibuffer--todo-keyword todo-keyword
+                'org-tasktree-ui-minibuffer--tags tags)))
 
 (defun org-tasktree-ui-minibuffer--candidate-raw (candidate)
   "Return the raw title string for completion CANDIDATE."
@@ -129,9 +175,80 @@ TYPE is one of the symbols `project', `phase', `group', or `task'."
           (string-remove-suffix "/" candidate)
         candidate)))
 
+(defun org-tasktree-ui-minibuffer--match-suffix (todo tags)
+  "Return match-only suffix for TODO and TAGS, or nil."
+  (let ((todo-text (and (stringp todo) (not (string-empty-p todo)) todo))
+        (tags-text (and (stringp tags) (not (string-empty-p tags)) tags)))
+    (when (or todo-text tags-text)
+      (concat org-tasktree-ui-minibuffer--match-suffix-separator
+              (string-join (delq nil (list todo-text tags-text)) " ")))))
+
+(defun org-tasktree-ui-minibuffer--strip-match-suffix (text)
+  "Return TEXT without match-only suffix."
+  (let ((pos (and (stringp text)
+                  (string-match-p
+                   org-tasktree-ui-minibuffer--match-suffix-separator text))))
+    (if (and pos (>= pos 0))
+        (substring text 0 pos)
+      text)))
+
 (defun org-tasktree-ui-minibuffer--candidate-type (candidate)
   "Return the candidate type symbol for completion CANDIDATE, or nil."
   (get-text-property 0 'org-tasktree-ui-minibuffer--candidate-type candidate))
+
+(defun org-tasktree-ui-minibuffer--marginalia-entry (candidate)
+  "Return path entry for CANDIDATE in Marginalia."
+  (let ((table org-tasktree-ui-minibuffer--marginalia-path-table))
+    (when (hash-table-p table)
+      (gethash (org-tasktree-ui-minibuffer--candidate-raw candidate) table))))
+
+(defun org-tasktree-ui-minibuffer--annotation-raw (candidate)
+  "Return raw annotation string for CANDIDATE."
+  (let* ((entry (org-tasktree-ui-minibuffer--marginalia-entry candidate))
+         (node (plist-get entry :node))
+         (todo (and node (org-tasktree-model-node-todo-keyword node)))
+         (tags (and node (org-tasktree-model-node-tags node)))
+         (todo-text (and (stringp todo) (not (string-empty-p todo)) todo))
+         (tags-text (and (stringp tags) (not (string-empty-p tags)) tags))
+         (parts (delq nil (list todo-text tags-text))))
+    (if parts
+        (string-join parts " ")
+      "")))
+
+(defun org-tasktree-ui-minibuffer--marginalia-column-width (key)
+  "Return column width for KEY in Marginalia annotations."
+  (let ((width (plist-get org-tasktree-ui-minibuffer--marginalia-column-widths
+                          key)))
+    (when (and (integerp width) (> width 0))
+      width)))
+
+(defun org-tasktree-ui-minibuffer--marginalia-pad (value width)
+  "Return VALUE padded to WIDTH for Marginalia display."
+  (let ((text (or value "")))
+    (if (and (integerp width) (> width 0))
+        (format (format "%%-%ds" width) text)
+      text)))
+
+(defun org-tasktree-ui-minibuffer--marginalia-annotate (candidate)
+  "Return Marginalia annotation string for CANDIDATE."
+  (let* ((entry (org-tasktree-ui-minibuffer--marginalia-entry candidate))
+         (node (plist-get entry :node))
+         (todo (and node (org-tasktree-model-node-todo-keyword node)))
+         (tags (and node (org-tasktree-model-node-tags node))))
+    (if (and (string-empty-p (or todo "")) (string-empty-p (or tags "")))
+        ""
+      (let* ((todo-width (org-tasktree-ui-minibuffer--marginalia-column-width
+                          :todo))
+             (todo-text (org-tasktree-ui-minibuffer--marginalia-pad
+                         todo
+                         todo-width))
+             (tags-text (or tags ""))
+             (sep (if (boundp 'marginalia-separator) marginalia-separator "  "))
+             (align (propertize " " 'marginalia--align t)))
+        (concat align
+                sep
+                todo-text
+                (if (string-empty-p tags-text) "" (concat sep tags-text)))))))
 
 (defun org-tasktree-ui-minibuffer--titles (nodes)
   "Return list of titles from NODES."
@@ -176,7 +293,8 @@ TYPE is one of the symbols `project', `phase', `group', or `task'."
                    (nth index cands))
                   (t nil))))
       (when (stringp cand)
-        (substring-no-properties cand)))))
+        (org-tasktree-ui-minibuffer--strip-match-suffix
+         (substring-no-properties cand))))))
 
 (defun org-tasktree-ui-minibuffer--minibuffer-accept ()
   "Handle RET in org-tasktree minibuffer."
@@ -263,7 +381,8 @@ Signal `user-error' to keep minibuffer open and show the error."
                                (when auto
                                  (let (result)
                                    (dolist (cand cands (nreverse result))
-                                     (let ((s (substring-no-properties cand)))
+                                     (let ((s (org-tasktree-ui-minibuffer--strip-match-suffix
+                                               (substring-no-properties cand))))
                                        (when (and (string-suffix-p "/" s)
                                                   (memq (org-tasktree-ui-minibuffer--candidate-type
                                                          cand)
@@ -328,7 +447,8 @@ Signal `user-error' to keep minibuffer open and show the error."
 (defun org-tasktree-ui-minibuffer--normalize-node-path (input)
   "Normalize INPUT string as node path.
 Strip trailing slashes and signal `user-error' when invalid."
-  (let ((trimmed (string-trim (or input ""))))
+  (let* ((raw (org-tasktree-ui-minibuffer--strip-match-suffix (or input "")))
+         (trimmed (string-trim raw)))
     (when (string-empty-p trimmed)
       (user-error "Node path is required"))
     (when (string-prefix-p "/" trimmed)
@@ -344,6 +464,7 @@ Strip trailing slashes and signal `user-error' when invalid."
 (defun org-tasktree-ui-minibuffer-read-node ()
   "Prompt for node path via `completing-read'.
 Return plist describing an existing or new node selection."
+  (org-tasktree-ui-minibuffer--maybe-register-marginalia)
   (let* ((nodes (org-tasktree-query-open-tree))
          (id-map (org-tasktree-ui-minibuffer--id-map nodes))
          (entries nil)
@@ -357,22 +478,36 @@ Return plist describing an existing or new node selection."
     (setq entries
           (sort entries
                 (lambda (a b)
-                  (string< (plist-get a :path)
-                           (plist-get b :path)))))
-    (let* ((display-cands
+                          (string< (plist-get a :path)
+                                   (plist-get b :path)))))
+    (let* ((todo-width 0)
+           (tags-width 0))
+      (dolist (entry entries)
+        (let* ((node (plist-get entry :node))
+               (todo (org-tasktree-model-node-todo-keyword node))
+               (tags (org-tasktree-model-node-tags node)))
+          (setq todo-width (max todo-width (string-width (or todo ""))))
+          (setq tags-width (max tags-width (string-width (or tags ""))))))
+      (let* ((display-cands
             (sort
              (mapcar
-              (lambda (entry)
-                (let* ((node (plist-get entry :node))
+             (lambda (entry)
+               (let* ((node (plist-get entry :node))
+                       (todo (org-tasktree-model-node-todo-keyword node))
+                       (tags (org-tasktree-model-node-tags node))
                        (type (org-tasktree-ui-minibuffer--type-from-tags
                               (org-tasktree-model-node-tags node))))
                   (org-tasktree-ui-minibuffer--make-path-candidate
                    (plist-get entry :path)
-                   type)))
-              entries)
+                   type
+                   todo
+                   tags)))
+             entries)
              (lambda (a b)
-               (string< (substring-no-properties a)
-                        (substring-no-properties b)))))
+               (string< (org-tasktree-ui-minibuffer--strip-match-suffix
+                         (substring-no-properties a))
+                        (org-tasktree-ui-minibuffer--strip-match-suffix
+                         (substring-no-properties b))))))
            (validate-fn
             (lambda (input)
               (let* ((path (org-tasktree-ui-minibuffer--normalize-node-path input))
@@ -390,14 +525,22 @@ Return plist describing an existing or new node selection."
                     (when (and parent-segments (not parent-entry))
                       (user-error "Parent path not found: %s" parent-path)))))))
            (choice (let ((completion-extra-properties
-                          '(:display-sort-function identity :cycle-sort-function identity)))
+                          '(:display-sort-function identity
+                            :cycle-sort-function identity
+                            :category org-tasktree-node
+                            :annotation-function
+                            org-tasktree-ui-minibuffer--annotation-raw)))
+                     (let ((org-tasktree-ui-minibuffer--marginalia-path-table
+                            path-table)
+                           (org-tasktree-ui-minibuffer--marginalia-column-widths
+                            (list :todo todo-width :tags tags-width)))
                      (org-tasktree-ui-minibuffer--completing-read
                       "find node: "
                       display-cands
                       nil
                       nil
                       nil
-                      validate-fn)))
+                      validate-fn))))
            (raw (org-tasktree-ui-minibuffer--candidate-raw choice))
            (path (org-tasktree-ui-minibuffer--normalize-node-path raw))
            (existing (gethash path path-table)))
@@ -418,7 +561,7 @@ Return plist describing an existing or new node selection."
                 :parent-node (and parent-entry (plist-get parent-entry :node))
                 :parent-path-titles (and parent-entry
                                          (plist-get parent-entry :titles))
-                :path path))))))
+                :path path)))))))
 
 (provide 'org-tasktree-ui-minibuffer)
 ;;; org-tasktree-ui-minibuffer.el ends here

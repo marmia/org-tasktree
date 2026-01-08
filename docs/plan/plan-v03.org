@@ -143,8 +143,21 @@
 *** DONE ユーザーテスト
 *** DONE コードレビュー
 
-** TODO Airtable との連携
+** M29: org-tasktree-find-node の Marginalia 対応
+*** TODO 仕様の確認
+- `org-tasktree-find-node` のミニバッファに Marginalia の注釈を表示
+  - 表示項目: todo_keyword, tasgs
+*** TODO 実装
+*** TODO ERT テスト
+*** TODO ユーザーテスト
+*** TODO コードレビュー
+
 ** 上位 Node の status が"DONE"になった場合に下位 Node も"DONE"に設定
+* v0.4 以降
+** ChatGPT との連携
+** ガントチャートライクな Project / Phase 管理
+** XDG 対応
+** MELPA 公開対応
 ** 繰り返しタスクの履歴登録
 ** CLOSED 表示・履歴管理
 org-mode の以下の履歴情報の扱いを検討
@@ -158,10 +171,6 @@ CLOCK: [2025-12-03 Wed 09:30]--[2025-12-03 Wed 10:35] => 1:05
 :END:
 ```
 
-* v0.4 以降
-** ガントチャートライクな Project / Phase 管理
+
 ** 新規作成: org-tasktree-project-archive
 ** 新規作成: org-tasktree-project-restore
-** DB マイグレーション機構
-** XDG 対応
-** MELPA 公開対応
