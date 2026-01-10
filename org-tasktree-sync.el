@@ -1,7 +1,7 @@
 ;;; org-tasktree-sync.el --- Sync org buffers into org-tasktree -*- lexical-binding: t; -*-
-;; Package-Requires: ((emacs "29.1") (org "9.6"))
-;; URL: https://github.com/marmia/org-tasktree
 ;; Version: 0.1.0
+;; URL: https://github.com/marmia/org-tasktree
+;; Package-Requires: ((emacs "29.1") (org "9.6"))
 
 ;;; Commentary:
 ;;
@@ -27,33 +27,12 @@
   "Return non-nil when VALUE is a non-empty string."
   (and (stringp value) (not (string-empty-p value))))
 
-(defun org-tasktree-sync--extract-date (raw)
-  "Extract YYYY-MM-DD from RAW timestamp string."
-  (when (and raw
-             (string-match "\\([0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}\\)" raw))
-    (match-string 1 raw)))
-
-(defun org-tasktree-sync--extract-repeat (raw)
-  "Extract repeat string from RAW timestamp string."
-  (when (and raw
-             (string-match
-              "\\(?:\\+\\+\\|\\+\\|\\.\\+\\)[0-9]+[dwmy]\\(?:/[0-9]+\\)?"
-              raw))
-    (match-string 0 raw)))
-
-(defun org-tasktree-sync--validate-repeat-raw (raw)
-  "Validate repeat syntax in RAW or signal `user-error'."
-  (when (and raw
-             (string-match "\\(?:\\+\\+\\|\\+\\|\\.\\+\\)" raw)
-             (null (org-tasktree-sync--extract-repeat raw)))
-    (user-error "Repeat must follow org repeat syntax")))
-
 (defun org-tasktree-sync--timestamp-info (timestamp)
   "Return cons of (DATE . REPEAT) for TIMESTAMP element."
   (when timestamp
     (let* ((raw (org-element-property :raw-value timestamp))
-           (date (org-tasktree-sync--extract-date raw))
-           (repeat (org-tasktree-sync--extract-repeat raw)))
+           (date (org-tasktree-model--extract-date raw))
+           (repeat (org-tasktree-model--extract-repeat raw)))
       (cons date repeat))))
 
 (defun org-tasktree-sync--planning-raw (headline)
@@ -90,53 +69,6 @@
             (setq deadline-raw (match-string 1 text))
             (setq start (match-end 0))))
         (list :scheduled-raw scheduled-raw :deadline-raw deadline-raw)))))
-
-(defun org-tasktree-sync--validate-title (value)
-  "Return normalized title string from VALUE or signal `user-error'."
-  (let ((title (and value (string-trim value))))
-    (unless (and title (not (string-empty-p title)))
-      (user-error "Title is required"))
-    (when (string-match-p "/" title)
-      (user-error "Title must not include '/'"))
-    (when (string-match-p "[[:cntrl:]]" title)
-      (user-error "Title must not include control characters"))
-    title))
-
-(defun org-tasktree-sync--validate-priority-cookie (line)
-  "Validate priority cookie in LINE or signal `user-error'."
-  (when (and line (string-match "\\[#\\([^]]+\\)\\]" line))
-    (let ((raw (match-string 1 line)))
-      (unless (string-match-p "\\`[[:alnum:]]\\'" raw)
-        (user-error "Priority must be a single alphanumeric character")))))
-
-(defun org-tasktree-sync--validate-tags (tags line)
-  "Validate TAGS list and LINE suffix or signal `user-error'."
-  (when tags
-    (dolist (tag tags)
-      (unless (string-match-p "\\`[A-Za-z0-9_@#%]+\\'" tag)
-        (user-error
-         "Tags must contain only [A-Za-z0-9_@#%%] and be ':' separated"))))
-  (when (and (null tags) line
-             (string-match-p "\\s-+:[^ \t\r\n]+:$" line))
-    (user-error
-     "Tags must contain only [A-Za-z0-9_@#%%] and be ':' separated")))
-
-(defun org-tasktree-sync--validate-planning (scheduled-raw scheduled
-                                                           deadline-raw deadline)
-  "Validate planning fields using raw text.
-SCHEDULED-RAW and DEADLINE-RAW are raw timestamp strings (or empty when
-present).  SCHEDULED and DEADLINE are parsed timestamp elements."
-  (when scheduled-raw
-    (unless scheduled
-      (user-error "Scheduled must be YYYY-MM-DD or nil"))
-    (unless (org-tasktree-sync--extract-date scheduled-raw)
-      (user-error "Scheduled must be YYYY-MM-DD or nil"))
-    (org-tasktree-sync--validate-repeat-raw scheduled-raw))
-  (when deadline-raw
-    (unless deadline
-      (user-error "Deadline must be YYYY-MM-DD or nil"))
-    (unless (org-tasktree-sync--extract-date deadline-raw)
-      (user-error "Deadline must be YYYY-MM-DD or nil"))))
 
 (defun org-tasktree-sync--strip-properties (text)
   "Remove PROPERTIES drawers from TEXT."
@@ -193,88 +125,158 @@ present).  SCHEDULED and DEADLINE are parsed timestamp elements."
         (when (string-match-p "\\S-" text)
           text)))))
 
+(defun org-tasktree-sync--headline-line (marker)
+  "Return line text at MARKER or nil."
+  (when marker
+    (org-with-point-at marker
+      (buffer-substring-no-properties
+       (line-beginning-position)
+       (line-end-position)))))
+
+(defun org-tasktree-sync--headline-delete-flag (line)
+  "Return non-nil when LINE is marked for deletion."
+  (and (stringp line)
+       (string-match-p
+        (concat "^\\*+\\s-+" org-tasktree-sync--delete-keyword "\\b")
+        line)))
+
+(defun org-tasktree-sync--headline-title (raw-title delete-flag)
+  "Return validated title from RAW-TITLE and DELETE-FLAG."
+  (let ((title raw-title))
+    (when (and delete-flag
+               (string-prefix-p
+                (concat org-tasktree-sync--delete-keyword " ")
+                title))
+      (setq title (string-remove-prefix
+                   (concat org-tasktree-sync--delete-keyword " ")
+                   title)))
+    (org-tasktree-model-validate-title title)))
+
+(defun org-tasktree-sync--headline-tags-raw (line)
+  "Return raw tags suffix from LINE or nil."
+  (when (and line
+             (string-match
+              "\\s-+\\(:[^ \t\r\n]+:\\)\\s-*\\'"
+              line))
+    (match-string 1 line)))
+
+(defun org-tasktree-sync--headline-parent (headline)
+  "Return parent headline element of HEADLINE or nil."
+  (let ((parent (org-element-property :parent headline)))
+    (while (and parent (not (eq (org-element-type parent) 'headline)))
+      (setq parent (org-element-property :parent parent)))
+    parent))
+
+(defun org-tasktree-sync--headline-parent-uid (parent)
+  "Return UID string for PARENT headline element or nil."
+  (when parent
+    (org-with-point-at
+        (org-element-property :begin parent)
+      (org-entry-get nil "UID"))))
+
+(defun org-tasktree-sync--headline-priority-cookie (line)
+  "Return priority cookie from LINE or nil."
+  (when (and line (string-match "\\[#\\([^]]+\\)\\]" line))
+    (match-string 1 line)))
+
+(defun org-tasktree-sync--headline->raw (headline)
+  "Return raw plist data from HEADLINE."
+  (let* ((begin (org-element-property :begin headline))
+         (marker (and begin (copy-marker begin t)))
+         (level (org-element-property :level headline))
+         (todo (org-element-property :todo-keyword headline))
+         (todo (or todo (org-with-point-at marker (org-get-todo-state))))
+         (raw-title (org-element-property :raw-value headline))
+         (line (org-tasktree-sync--headline-line marker))
+         (planning (org-tasktree-sync--planning-raw headline))
+         (scheduled-raw (plist-get planning :scheduled-raw))
+         (deadline-raw (plist-get planning :deadline-raw))
+         (delete-flag (org-tasktree-sync--headline-delete-flag line))
+         (title (org-tasktree-sync--headline-title raw-title delete-flag))
+         (priority (org-element-property :priority headline))
+         (tags (org-element-property :tags headline))
+         (tags-raw (org-tasktree-sync--headline-tags-raw line))
+         (scheduled (org-element-property :scheduled headline))
+         (deadline (org-element-property :deadline headline))
+         (content (org-tasktree-sync--extract-content headline))
+         (uid (and marker
+                   (org-with-point-at marker
+                     (org-entry-get nil "UID"))))
+         (parent (org-tasktree-sync--headline-parent headline))
+         (parent-uid (org-tasktree-sync--headline-parent-uid parent))
+         (priority-cookie (org-tasktree-sync--headline-priority-cookie line)))
+    (when priority-cookie
+      (org-tasktree-model-validate-priority priority-cookie))
+    (org-tasktree-model-validate-tags-list tags line)
+    (org-tasktree-model-validate-planning-raw
+     scheduled-raw scheduled deadline-raw deadline)
+    (list :begin begin
+          :marker marker
+          :level level
+          :todo todo
+          :delete delete-flag
+          :title title
+          :priority (and priority (char-to-string priority))
+          :tags tags
+          :tags-raw tags-raw
+          :scheduled (org-tasktree-sync--timestamp-info scheduled)
+          :deadline (org-tasktree-sync--timestamp-info deadline)
+          :content content
+          :uid uid
+          :parent-uid parent-uid
+          :parent-present (and parent t))))
+
 (defun org-tasktree-sync--collect-headlines ()
   "Return list of headline plists in buffer order."
   (org-with-wide-buffer
     (let ((tree (org-element-parse-buffer)))
-      (org-element-map tree 'headline
-        (lambda (hl)
-          (let* ((begin (org-element-property :begin hl))
-                 (marker (and begin (copy-marker begin t)))
-                 (level (org-element-property :level hl))
-                 (todo (org-element-property :todo-keyword hl))
-                 (todo (or todo (org-with-point-at marker (org-get-todo-state))))
-                 (title (org-element-property :raw-value hl))
-                 (line (and marker
-                            (org-with-point-at marker
-                              (buffer-substring-no-properties
-                               (line-beginning-position)
-                               (line-end-position)))))
-                 (planning (org-tasktree-sync--planning-raw hl))
-                 (scheduled-raw (plist-get planning :scheduled-raw))
-                 (deadline-raw (plist-get planning :deadline-raw))
-                 (delete-flag (and (stringp line)
-                                   (string-match-p
-                                    (concat "^\\*+\\s-+"
-                                            org-tasktree-sync--delete-keyword
-                                            "\\b")
-                                    line)))
-                 (title (if (and delete-flag
-                                 (string-prefix-p
-                                  (concat org-tasktree-sync--delete-keyword " ")
-                                  title))
-                            (string-remove-prefix
-                             (concat org-tasktree-sync--delete-keyword " ")
-                             title)
-                          title))
-                 (title (org-tasktree-sync--validate-title title))
-                 (priority (org-element-property :priority hl))
-                 (tags (org-element-property :tags hl))
-                 (tags-raw (and line
-                                (string-match
-                                 "\\s-+\\(:[^ \t\r\n]+:\\)\\s-*\\'"
-                                 line)
-                                (match-string 1 line)))
-                 (scheduled (org-element-property :scheduled hl))
-                 (deadline (org-element-property :deadline hl))
-                 (content (org-tasktree-sync--extract-content hl))
-                 (uid (and marker
-                           (org-with-point-at marker
-                             (org-entry-get nil "UID"))))
-                 (parent (org-element-property :parent hl))
-                 (parent (when parent
-                           (while (and parent
-                                       (not (eq (org-element-type parent)
-                                                'headline)))
-                             (setq parent (org-element-property :parent parent)))
-                           parent))
-                 (parent-uid (and parent
-                                  (org-with-point-at
-                           (org-element-property :begin parent)
-                            (org-entry-get nil "UID")))))
-            (org-tasktree-sync--validate-priority-cookie line)
-            (org-tasktree-sync--validate-tags tags line)
-            (org-tasktree-sync--validate-planning
-             scheduled-raw scheduled deadline-raw deadline)
-            (list :begin begin
-                  :marker marker
-                  :level level
-                  :todo todo
-                  :delete delete-flag
-                  :title title
-                  :priority (and priority (char-to-string priority))
-                  :tags tags
-                  :tags-raw tags-raw
-                  :scheduled (org-tasktree-sync--timestamp-info scheduled)
-                  :deadline (org-tasktree-sync--timestamp-info deadline)
-                  :content content
-                  :uid uid
-                  :parent-uid parent-uid
-                  :parent-present (and parent t))))))))
+      (org-element-map tree 'headline #'org-tasktree-sync--headline->raw))))
 
 (defun org-tasktree-sync--status-from-todo (todo)
   "Return status string from TODO keyword."
   (if (string= todo "DONE") "DONE" "OPEN"))
+
+(defun org-tasktree-sync--stack-pop-to-level (stack level)
+  "Return STACK popped until it is below LEVEL."
+  (while (and stack
+              (>= (plist-get (car stack) :level) level))
+    (pop stack))
+  stack)
+
+(defun org-tasktree-sync--stack-push (stack level delete-flag)
+  "Return STACK with LEVEL and DELETE-FLAG pushed."
+  (push (list :level level :delete delete-flag) stack)
+  stack)
+
+(defun org-tasktree-sync--ignore-raw-item-p (todo uid)
+  "Return non-nil when TODO is done and UID is missing."
+  (and (string= todo "DONE")
+       (not (org-tasktree-sync--nonempty-string-p uid))))
+
+(defun org-tasktree-sync--build-item (raw cache effective-stack cached)
+  "Return item plist built from RAW.
+CACHE is UID->node hash.  EFFECTIVE-STACK contains included ancestors.
+CACHED is non-nil when RAW's UID exists in CACHE."
+  (let* ((parent-uid (plist-get raw :parent-uid))
+         (parent-present (plist-get raw :parent-present))
+         (parent-cached (and parent-uid (gethash parent-uid cache)))
+         (scope-limited (plist-get raw :scope-limited))
+         (parent-placeholder
+          (when (and (null (car effective-stack)) parent-uid)
+            (unless parent-cached
+              (user-error "Parent UID not found in DB (uid=%s)" parent-uid))
+            (list :uid parent-uid)))
+         (status (org-tasktree-sync--status-from-todo
+                  (plist-get raw :todo)))
+         (parent (or (car effective-stack) parent-placeholder)))
+    (when (and parent-present (null parent-uid)
+               (null parent)
+               (not scope-limited))
+      (user-error "Parent UID missing for selected headline"))
+    (append raw
+            (list :status status
+                  :parent parent
+                  :existing (and cached t)))))
 
 (defun org-tasktree-sync--build-items (raw-items cache)
   "Return plist with :items and :delete-uids from RAW-ITEMS and CACHE."
@@ -291,45 +293,25 @@ present).  SCHEDULED and DEADLINE are parsed timestamp elements."
         (when (and (org-tasktree-sync--nonempty-string-p uid)
                    (not cached))
           (user-error "UID not found in DB (uid=%s)" uid))
-        (while (and full-stack
-                    (>= (plist-get (car full-stack) :level) level))
-          (pop full-stack))
-        (while (and effective-stack
-                    (>= (plist-get (car effective-stack) :level) level))
-          (pop effective-stack))
+        (setq full-stack (org-tasktree-sync--stack-pop-to-level
+                          full-stack level))
+        (setq effective-stack (org-tasktree-sync--stack-pop-to-level
+                               effective-stack level))
         (let* ((parent-full (car full-stack))
                (delete-ancestor (and parent-full
                                      (plist-get parent-full :delete)))
                (delete-flag (or delete-self delete-ancestor))
-               (ignore (and (string= todo "DONE")
-                            (not (org-tasktree-sync--nonempty-string-p uid)))))
-          (push (list :level level :delete delete-flag) full-stack)
+               (ignore (org-tasktree-sync--ignore-raw-item-p todo uid)))
+          (setq full-stack (org-tasktree-sync--stack-push
+                            full-stack level delete-flag))
           (when delete-self
             (push uid delete-uids))
           (unless (or delete-flag ignore
                       (and (plist-get raw :delete) (not uid)))
-            (let* ((parent-uid (plist-get raw :parent-uid))
-                   (parent-present (plist-get raw :parent-present))
-                   (parent-cached (and parent-uid (gethash parent-uid cache)))
-                   (scope-limited (plist-get raw :scope-limited))
-                   (parent-placeholder
-                    (when (and (null (car effective-stack)) parent-uid)
-                      (unless parent-cached
-                        (user-error
-                         "Parent UID not found in DB (uid=%s)" parent-uid))
-                      (list :uid parent-uid)))
-                   (status (org-tasktree-sync--status-from-todo todo))
-                   (parent (or (car effective-stack) parent-placeholder)))
-              (when (and parent-present (null parent-uid)
-                         (null parent)
-                         (not scope-limited))
-                (user-error "Parent UID missing for selected headline"))
-              (let ((item (append raw
-                                  (list :status status
-                                        :parent parent
-                                        :existing (and cached t)))))
-                (push item items)
-                (push item effective-stack)))))))
+            (let ((item (org-tasktree-sync--build-item
+                         raw cache effective-stack cached)))
+              (push item items)
+              (push item effective-stack))))))
     (let ((delete-set (delete-dups delete-uids)))
       (list
        :items (nreverse items)

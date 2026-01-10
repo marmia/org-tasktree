@@ -12,7 +12,6 @@
 
 (require 'ert)
 (require 'org)
-(require 'rx)
 (require 'subr-x)
 (require 'org-tasktree)
 (require 'org-tasktree-db)
@@ -20,7 +19,10 @@
 (require 'org-tasktree-query)
 (require 'org-tasktree-view)
 (require 'org-tasktree-test-helper)
-(require 'org-tasktree-ui-minibuffer)
+
+(declare-function org-tasktree-query-parser--today "org-tasktree-query-parser")
+(declare-function org-tasktree-query-parser--days-from-now
+                  "org-tasktree-query-parser")
 
 (defconst org-tasktree-search-ert--base-time
   (encode-time 0 0 0 25 12 2025)
@@ -132,76 +134,6 @@
     (when buffer
       (kill-buffer buffer))))
 
-(defun org-tasktree-search-ert--replace-sql-now (text)
-  "Return TEXT with SQLite now() dates replaced by the base time."
-  (let ((regex
-         (rx "date('now','localtime'"
-             (? ",'" (group (or "+" "-") (+ digit)) " day" (? "s") "'")
-             ")"))
-        (pos 0)
-        (parts nil))
-    (while (string-match regex text pos)
-      (let* ((delta-str (match-string 1 text))
-             (days (if delta-str (string-to-number delta-str) 0))
-             (date (org-tasktree-search-ert--format-date
-                    (org-tasktree-search-ert--time-days-from
-                     org-tasktree-search-ert--base-time days))))
-        (push (substring text pos (match-beginning 0)) parts)
-        (push (format "'%s'" date) parts)
-        (setq pos (match-end 0))))
-    (push (substring text pos) parts)
-    (apply #'concat (nreverse parts))))
-
-(defun org-tasktree-search-ert--exec-sql-file (file)
-  "Execute SQL statements loaded from FILE."
-  (let* ((text (with-temp-buffer
-                 (insert-file-contents file)
-                 (buffer-string)))
-         (text (org-tasktree-search-ert--replace-sql-now text))
-         (stmts (seq-filter
-                 (lambda (s) (string-match-p "\\S-" s))
-                 (mapcar #'string-trim
-                         (split-string text ";" t)))))
-    (org-tasktree-db--with-db db
-      (dolist (stmt stmts)
-        (sqlite-execute db stmt)))))
-
-(defun org-tasktree-search-ert--by-query-sql-path ()
-  "Return absolute path for by-query SQL seed file."
-  (expand-file-name "test/by-query-testdata.sql"
-                    (org-tasktree-search-ert--repo-root)))
-
-(defun org-tasktree-search-ert--by-query-file-path (name)
-  "Return absolute path for query file NAME."
-  (expand-file-name (concat "test/test-data/query/" name)
-                    (org-tasktree-search-ert--repo-root)))
-
-(defun org-tasktree-search-ert--seed-by-query-data ()
-  "Seed DB with by-query test data."
-  (org-tasktree-test-helper-reset-db)
-  (org-tasktree-search-ert--exec-sql-file
-   (org-tasktree-search-ert--by-query-sql-path)))
-
-(defun org-tasktree-search-ert--install-query-file (name)
-  "Copy query file NAME into `org-tasktree-query-dir'."
-  (let* ((src (org-tasktree-search-ert--by-query-file-path name))
-         (dest-dir (org-tasktree-test-helper--query-dir))
-         (dest (expand-file-name name dest-dir)))
-    (make-directory dest-dir t)
-    (copy-file src dest t)))
-
-(defun org-tasktree-search-ert--query-title (name)
-  "Return result buffer title for query file NAME."
-  (file-name-base name))
-
-(defmacro org-tasktree-search-ert-with-query-selection (choice &rest body)
-  "Run BODY with query selection stubbed to return CHOICE."
-  (declare (indent 1))
-  `(cl-letf (((symbol-function 'org-tasktree-ui-minibuffer--completing-read)
-              (lambda (_prompt _cands &rest _args)
-                ,choice)))
-     ,@body))
-
 (defun org-tasktree-search-ert--fetch-node-by-uid (uid)
   "Return node for UID or nil."
   (org-tasktree-db--with-db db
@@ -223,147 +155,117 @@
   (org-tasktree-search-ert--fetch-node-by-uid
    (org-tasktree-model-node-uid node)))
 
+(defun org-tasktree-search-ert--make-node (spec parent-id)
+  "Return node from SPEC and PARENT-ID."
+  (org-tasktree-model-node-create
+   :uid (plist-get spec :uid)
+   :todo-keyword (plist-get spec :todo-keyword)
+   :title (plist-get spec :title)
+   :priority (plist-get spec :priority)
+   :scheduled (plist-get spec :scheduled)
+   :deadline (plist-get spec :deadline)
+   :repeat (plist-get spec :repeat)
+   :closed-at (plist-get spec :closed-at)
+   :tags (plist-get spec :tags)
+   :content (plist-get spec :content)
+   :status (or (plist-get spec :status) "OPEN")
+   :parent-id parent-id))
+
+(defun org-tasktree-search-ert--seed-nodes (specs)
+  "Insert SPECS and return hash of keyed nodes."
+  (let ((nodes (make-hash-table :test 'eq)))
+    (dolist (spec specs)
+      (let* ((key (plist-get spec :key))
+             (parent-key (plist-get spec :parent))
+             (parent-node (and parent-key (gethash parent-key nodes)))
+             (parent-id (and parent-node (org-tasktree-model-node-id parent-node)))
+             (node (org-tasktree-search-ert--make-node spec parent-id))
+             (saved (org-tasktree-search-ert--insert-node node)))
+        (puthash key saved nodes)))
+    nodes))
+
 (defun org-tasktree-search-ert--seed-normal-data ()
   "Seed DB with search test data."
   (org-tasktree-test-helper-reset-db)
-  (let* ((project (org-tasktree-model-node-create
-                   :uid "5d4937b3-1fe0-50cb-a885-b85873e6bcaf"
-                   :todo-keyword nil
-                   :title "proj1"
-                   :priority "A"
-                   :scheduled nil
-                   :deadline nil
-                   :repeat nil
-                   :closed-at nil
-                   :tags nil
-                   :content "This is a project node."
-                   :status "OPEN"
-                   :parent-id nil))
-        (project-node (org-tasktree-search-ert--insert-node project))
-        (project-id (org-tasktree-model-node-id project-node))
-        (phase (org-tasktree-model-node-create
-                :uid "1e7c4080-66a8-5243-bc6f-31116a2524ca"
-                :todo-keyword nil
-                :title "phase1"
-                :priority nil
-                :scheduled nil
-                :deadline nil
-                :repeat nil
-                :closed-at nil
-                :tags nil
-                :content "This is a phase."
-                :status "OPEN"
-                :parent-id project-id))
-        (phase-node (org-tasktree-search-ert--insert-node phase))
-        (phase-id (org-tasktree-model-node-id phase-node))
-        (group (org-tasktree-model-node-create
-                :uid "6c966182-ae9c-5470-b549-e10cf191c651"
-                :todo-keyword nil
-                :title "group1"
-                :priority nil
-                :scheduled nil
-                :deadline nil
-                :repeat nil
-                :closed-at nil
-                :tags nil
-                :content "This is a group."
-                :status "OPEN"
-                :parent-id phase-id))
-        (group-node (org-tasktree-search-ert--insert-node group))
-        (group-id (org-tasktree-model-node-id group-node))
-        (task-done (org-tasktree-model-node-create
-                    :uid "84d9b1fa-88a4-5b0e-861a-7476087ed2f6"
-                    :todo-keyword "DONE"
-                    :title "task-done"
-                    :priority nil
-                    :scheduled nil
-                    :deadline nil
-                    :repeat nil
-                    :closed-at nil
-                    :tags nil
-                    :content "This is a done task."
-                    :status "DONE"
-                    :parent-id group-id))
-        (today (org-tasktree-query--today))
-        (yesterday (org-tasktree-query--days-from-now -1))
-        (tomorrow (org-tasktree-query--days-from-now 1))
-        (task-today (org-tasktree-model-node-create
-                      :uid "e3085041-8060-537f-bda7-1a9da956b8a7"
-                      :todo-keyword "TODO"
-                      :title "task-today"
-                      :priority "A"
-                      :scheduled today
-                      :deadline "2026-01-20"
-                      :repeat nil
-                      :closed-at nil
-                      :tags nil
-                      :content "This is a today task."
-                      :status "OPEN"
-                      :parent-id project-id))
-         (task-yesterday (org-tasktree-model-node-create
-                          :uid "2172d110-82a5-569a-889d-2141e9600991"
-                          :todo-keyword "TODO"
-                          :title "task-yesterday"
-                          :priority "A"
-                          :scheduled yesterday
-                          :deadline "2026-01-20"
-                          :repeat nil
-                          :closed-at nil
-                          :tags nil
-                          :content "This is a yesterday task."
-                          :status "OPEN"
-                          :parent-id project-id))
-         (task-overdue (org-tasktree-model-node-create
-                        :uid "61d1d63d-864d-5fc3-91a2-bdcabdb78cf1"
-                        :todo-keyword "TODO"
-                        :title "task-overdue"
-                        :priority "A"
-                        :scheduled yesterday
-                        :deadline yesterday
-                        :repeat nil
-                        :closed-at nil
-                        :tags nil
-                        :content "This is a overdue task."
-                        :status "OPEN"
-                        :parent-id project-id))
-         (task-tomorrow (org-tasktree-model-node-create
-                         :uid "bff290e4-2ed6-520f-99ce-56ec6325d203"
-                         :todo-keyword "TODO"
-                         :title "task-tomorrow"
-                         :priority "A"
-                         :scheduled tomorrow
-                         :deadline "2026-01-20"
-                         :repeat nil
-                         :closed-at nil
-                         :tags nil
-                         :content "This is a tomorrow task."
-                         :status "OPEN"
-                         :parent-id project-id))
-         (task-unscheduled (org-tasktree-model-node-create
-                            :uid "9e5e1b66-a262-58dc-9b72-7ee052d5ca27"
-                            :todo-keyword "TODO"
-                            :title "task-unscheduled"
-                            :priority "A"
-                            :scheduled nil
-                            :deadline "2026-01-20"
-                            :repeat nil
-                            :closed-at nil
-                            :tags nil
-                            :content "This is a unscheduled task."
-                            :status "OPEN"
-                            :parent-id project-id)))
-    (org-tasktree-db-commit-nodes
-     (list task-done
-           task-today
-           task-yesterday
-           task-overdue
-           task-tomorrow
-           task-unscheduled))))
+  (let* ((today (org-tasktree-query-parser--today))
+         (yesterday (org-tasktree-query-parser--days-from-now -1))
+         (tomorrow (org-tasktree-query-parser--days-from-now 1))
+         (specs
+          (list
+           (list :key :project
+                 :uid "5d4937b3-1fe0-50cb-a885-b85873e6bcaf"
+                 :title "proj1"
+                 :priority "A"
+                 :content "This is a project node.")
+           (list :key :phase
+                 :uid "1e7c4080-66a8-5243-bc6f-31116a2524ca"
+                 :title "phase1"
+                 :content "This is a phase."
+                 :parent :project)
+           (list :key :group
+                 :uid "6c966182-ae9c-5470-b549-e10cf191c651"
+                 :title "group1"
+                 :content "This is a group."
+                 :parent :phase)
+           (list :key :task-done
+                 :uid "84d9b1fa-88a4-5b0e-861a-7476087ed2f6"
+                 :todo-keyword "DONE"
+                 :title "task-done"
+                 :content "This is a done task."
+                 :status "DONE"
+                 :parent :group)
+           (list :key :task-today
+                 :uid "e3085041-8060-537f-bda7-1a9da956b8a7"
+                 :todo-keyword "TODO"
+                 :title "task-today"
+                 :priority "A"
+                 :scheduled today
+                 :deadline "2026-01-20"
+                 :content "This is a today task."
+                 :parent :project)
+           (list :key :task-yesterday
+                 :uid "2172d110-82a5-569a-889d-2141e9600991"
+                 :todo-keyword "TODO"
+                 :title "task-yesterday"
+                 :priority "A"
+                 :scheduled yesterday
+                 :deadline "2026-01-20"
+                 :content "This is a yesterday task."
+                 :parent :project)
+           (list :key :task-overdue
+                 :uid "61d1d63d-864d-5fc3-91a2-bdcabdb78cf1"
+                 :todo-keyword "TODO"
+                 :title "task-overdue"
+                 :priority "A"
+                 :scheduled yesterday
+                 :deadline yesterday
+                 :content "This is a overdue task."
+                 :parent :project)
+           (list :key :task-tomorrow
+                 :uid "bff290e4-2ed6-520f-99ce-56ec6325d203"
+                 :todo-keyword "TODO"
+                 :title "task-tomorrow"
+                 :priority "A"
+                 :scheduled tomorrow
+                 :deadline "2026-01-20"
+                 :content "This is a tomorrow task."
+                 :parent :project)
+           (list :key :task-unscheduled
+                 :uid "9e5e1b66-a262-58dc-9b72-7ee052d5ca27"
+                 :todo-keyword "TODO"
+                 :title "task-unscheduled"
+                 :priority "A"
+                 :scheduled nil
+                 :deadline "2026-01-20"
+                 :content "This is a unscheduled task."
+                 :parent :project))))
+    (org-tasktree-search-ert--seed-nodes specs)))
 
 (defun org-tasktree-search-ert--seed-invalid-date-data ()
   "Seed DB with invalid date test data."
   (org-tasktree-test-helper-reset-db)
   (org-tasktree-db--with-db db
+    ;; NOTE: Use raw SQL to bypass model validation for invalid dates.
     (sqlite-execute
      db
      (string-join
@@ -389,6 +291,7 @@
              "OPEN"
              "2025-12-25T00:00:00+09:00"
              "2025-12-25T00:00:00+09:00"))
+    ;; NOTE: Invalid scheduled/deadline values for error paths.
     (sqlite-execute
      db
      (string-join

@@ -1,0 +1,40 @@
+#+TITLE: org-tasktree Files Specification
+#+STARTUP: showall
+
+* 目的
+本書は org-tasktree のディレクトリ構成と、プロジェクトルート直下の
+Emacs Lisp ファイルの役割を簡潔に整理する。
+テストコード/テストデータの詳細は `docs/spec/test-spec.org` に委ねる。
+
+* ディレクトリ構成（ルート）
+- `docs/`: 仕様・計画などのドキュメント
+  - `docs/spec/`: 仕様ドキュメント
+  - `docs/plan/`: 作業計画
+- `test/`: テストコード/テストデータ（詳細は `docs/spec/test-spec.org`）
+- `work/`: 調査・補足資料
+- `.codex/`: Codex 向け設定/スキル
+- `.serena/`: Serena 向け設定
+- `.ck/`: ck 検索用の作業ディレクトリ
+- `.org-tasktree-tmp/`: 実行・テスト時の一時ディレクトリ
+- `.git/`: Git 管理情報
+- `AGENTS.md`: Codex 運用ルール
+- `README.org`: プロジェクト概要
+- `.dir-locals.el`: Emacs 設定
+
+* ルート直下の *.el 一覧
+| ファイル                        | 役割                                              |
+|---------------------------------+---------------------------------------------------|
+| `org-tasktree.el`               | 公開 API とユーザー向けコマンドのエントリポイント |
+| `org-tasktree-db.el`            | SQLite を用いた DB 層（スキーマ/CRUD）            |
+| `org-tasktree-model.el`         | モデル定義と正規化/バリデーション                 |
+| `org-tasktree-query.el`         | クエリ実行の公開 API                              |
+| `org-tasktree-query-parser.el`  | クエリのパース処理                                |
+| `org-tasktree-query-sql.el`     | パース結果から SQL を組み立てる                   |
+| `org-tasktree-query-edit.el`    | クエリ保存/編集の補助処理                         |
+| `org-tasktree-sync.el`          | org バッファから DB への同期                      |
+| `org-tasktree-view.el`          | 検索結果などの表示バッファ生成                    |
+| `org-tasktree-ui.el`            | UI の公開 API と入口                              |
+| `org-tasktree-ui-minibuffer.el` | ミニバッファ UI（候補生成/選択）                  |
+| `org-tasktree-ui-widget.el`     | ウィジェット UI（編集バッファ/入力補助）          |
+| `org-tasktree-ui-edit.el`       | 編集フロー（検証/保存/キャンセル）                |
+| `org-tasktree-autoloads.el`     | 自動生成の autoload（コミット対象外）             |

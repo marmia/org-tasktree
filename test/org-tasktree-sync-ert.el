@@ -23,6 +23,70 @@
 
 (defvar repo-root)
 
+(defconst org-tasktree-sync-ert--uid-aaa
+  "82a4e7b7-207f-5583-8e8c-47503339b07b")
+(defconst org-tasktree-sync-ert--uid-bbb
+  "c01ef21b-3bda-5a2b-9179-20fc145215e9")
+(defconst org-tasktree-sync-ert--uid-ccc
+  "69f0ecdd-d8ee-5970-81b2-4edf5e985240")
+(defconst org-tasktree-sync-ert--uid-ddd
+  "1ccee950-21b1-5ec2-bac7-384c1c9cae6f")
+(defconst org-tasktree-sync-ert--uid-eee
+  "7e84806d-9bdc-584c-a678-88140ad824b0")
+(defconst org-tasktree-sync-ert--uid-fff
+  "ca706ec4-dc8e-568c-a157-012e585b741d")
+(defconst org-tasktree-sync-ert--uid-ggg
+  "608a8d33-54fe-55dd-b877-a4944b2be2ed")
+(defconst org-tasktree-sync-ert--uid-hhh
+  "1438dc0e-da7d-5a82-9233-59d1ac453018")
+
+(defconst org-tasktree-sync-ert--update-seed-spec
+  (list
+   (list :key :aaa
+         :uid org-tasktree-sync-ert--uid-aaa
+         :title "AAA (before update)"
+         :content "AAA before update.")
+   (list :key :bbb
+         :uid org-tasktree-sync-ert--uid-bbb
+         :title "BBB (before update)"
+         :content "BBB before update."
+         :parent :aaa)
+   (list :key :ccc
+         :uid org-tasktree-sync-ert--uid-ccc
+         :title "CCC (before update)"
+         :content "CCC before update."
+         :parent :bbb)
+   (list :key :ddd
+         :uid org-tasktree-sync-ert--uid-ddd
+         :todo-keyword "TODO"
+         :title "DDD (before update)"
+         :priority "C"
+         :scheduled "2026-01-10"
+         :deadline "2026-01-20"
+         :tags ":before:ddd:"
+         :content "DDD before update."
+         :parent :ccc)
+   (list :key :eee
+         :uid org-tasktree-sync-ert--uid-eee
+         :title "EEE (before update)"
+         :content "EEE before update."
+         :parent :ddd)
+   (list :key :fff
+         :uid org-tasktree-sync-ert--uid-fff
+         :title "FFF (before update)"
+         :content "FFF before update.")
+   (list :key :ggg
+         :uid org-tasktree-sync-ert--uid-ggg
+         :title "GGG (before update)"
+         :content "GGG before update."
+         :parent :fff)
+   (list :key :hhh
+         :uid org-tasktree-sync-ert--uid-hhh
+         :title "HHH (before update)"
+         :content "HHH before update."
+         :parent :ggg))
+  "Seed data spec for update tests.")
+
 (defun org-tasktree-sync-ert--repo-root ()
   "Return repo root for test run."
   (if (and (boundp 'repo-root) (stringp repo-root))
@@ -112,6 +176,17 @@ Signals an error when multiple rows match."
                     rows)
             #'string<))))
 
+(defun org-tasktree-sync-ert--tags-string (tags)
+  "Return normalized tag string for TAGS list."
+  (org-tasktree-model-tags->org-string tags))
+
+(defun org-tasktree-sync-ert--assert-node-tags (node expected-tags)
+  "Assert NODE has EXPECTED-TAGS in node_tags."
+  (let* ((node-id (org-tasktree-model-node-id node))
+         (tags (org-tasktree-sync-ert--fetch-node-tags node-id))
+         (expected (sort (or expected-tags '()) #'string<)))
+    (should (equal expected tags))))
+
 (defun org-tasktree-sync-ert--insert-node (node)
   "Insert NODE and return the saved node."
   (org-tasktree-db-commit-nodes (list node))
@@ -122,124 +197,31 @@ Signals an error when multiple rows match."
   "Reset DB and insert baseline update tree.
 Returns plist with :aaa :bbb :ccc :ddd :eee :fff :ggg :hhh nodes."
   (org-tasktree-test-helper-reset-db)
-  (let* ((aaa (org-tasktree-model-node-create
-               :uid "82a4e7b7-207f-5583-8e8c-47503339b07b"
-               :todo-keyword nil
-               :title "AAA (before update)"
-               :priority nil
-               :scheduled nil
-               :deadline nil
-               :repeat nil
-               :tags nil
-               :content "AAA before update."
-               :status "OPEN"
-               :parent-id nil))
-         (aaa-node (org-tasktree-sync-ert--insert-node aaa))
-         (aaa-id (org-tasktree-model-node-id aaa-node))
-         (bbb (org-tasktree-model-node-create
-               :uid "c01ef21b-3bda-5a2b-9179-20fc145215e9"
-               :todo-keyword nil
-               :title "BBB (before update)"
-               :priority nil
-               :scheduled nil
-               :deadline nil
-               :repeat nil
-               :tags nil
-               :content "BBB before update."
-               :status "OPEN"
-               :parent-id aaa-id))
-         (bbb-node (org-tasktree-sync-ert--insert-node bbb))
-         (bbb-id (org-tasktree-model-node-id bbb-node))
-         (ccc (org-tasktree-model-node-create
-               :uid "69f0ecdd-d8ee-5970-81b2-4edf5e985240"
-               :todo-keyword nil
-               :title "CCC (before update)"
-               :priority nil
-               :scheduled nil
-               :deadline nil
-               :repeat nil
-               :tags nil
-               :content "CCC before update."
-               :status "OPEN"
-               :parent-id bbb-id))
-         (ccc-node (org-tasktree-sync-ert--insert-node ccc))
-         (ccc-id (org-tasktree-model-node-id ccc-node))
-         (ddd (org-tasktree-model-node-create
-               :uid "1ccee950-21b1-5ec2-bac7-384c1c9cae6f"
-               :todo-keyword "TODO"
-               :title "DDD (before update)"
-               :priority "C"
-               :scheduled "2026-01-10"
-               :deadline "2026-01-20"
-               :repeat nil
-               :tags ":before:ddd:"
-               :content "DDD before update."
-               :status "OPEN"
-               :parent-id ccc-id))
-         (ddd-node (org-tasktree-sync-ert--insert-node ddd))
-         (ddd-id (org-tasktree-model-node-id ddd-node))
-         (eee (org-tasktree-model-node-create
-               :uid "7e84806d-9bdc-584c-a678-88140ad824b0"
-               :todo-keyword nil
-               :title "EEE (before update)"
-               :priority nil
-               :scheduled nil
-               :deadline nil
-               :repeat nil
-               :tags nil
-               :content "EEE before update."
-               :status "OPEN"
-               :parent-id ddd-id))
-         (eee-node (org-tasktree-sync-ert--insert-node eee))
-         (fff (org-tasktree-model-node-create
-               :uid "ca706ec4-dc8e-568c-a157-012e585b741d"
-               :todo-keyword nil
-               :title "FFF (before update)"
-               :priority nil
-               :scheduled nil
-               :deadline nil
-               :repeat nil
-               :tags nil
-               :content "FFF before update."
-               :status "OPEN"
-               :parent-id nil))
-         (fff-node (org-tasktree-sync-ert--insert-node fff))
-         (fff-id (org-tasktree-model-node-id fff-node))
-         (ggg (org-tasktree-model-node-create
-               :uid "608a8d33-54fe-55dd-b877-a4944b2be2ed"
-               :todo-keyword nil
-               :title "GGG (before update)"
-               :priority nil
-               :scheduled nil
-               :deadline nil
-               :repeat nil
-               :tags nil
-               :content "GGG before update."
-               :status "OPEN"
-               :parent-id fff-id))
-         (ggg-node (org-tasktree-sync-ert--insert-node ggg))
-         (ggg-id (org-tasktree-model-node-id ggg-node))
-         (hhh (org-tasktree-model-node-create
-               :uid "1438dc0e-da7d-5a82-9233-59d1ac453018"
-               :todo-keyword nil
-               :title "HHH (before update)"
-               :priority nil
-               :scheduled nil
-               :deadline nil
-               :repeat nil
-               :tags nil
-               :content "HHH before update."
-               :status "OPEN"
-               :parent-id ggg-id))
-         (hhh-node (org-tasktree-sync-ert--insert-node hhh)))
-    (list :aaa aaa-node
-          :bbb bbb-node
-          :ccc ccc-node
-          :ddd ddd-node
-          :eee eee-node
-          :fff fff-node
-          :ggg ggg-node
-          :hhh hhh-node)))
+  (let ((nodes (make-hash-table :test 'eq)))
+    (dolist (spec org-tasktree-sync-ert--update-seed-spec)
+      (let* ((key (plist-get spec :key))
+             (parent-key (plist-get spec :parent))
+             (parent-node (and parent-key (gethash parent-key nodes)))
+             (parent-id (and parent-node (org-tasktree-model-node-id parent-node)))
+             (node (org-tasktree-model-node-create
+                    :uid (plist-get spec :uid)
+                    :todo-keyword (plist-get spec :todo-keyword)
+                    :title (plist-get spec :title)
+                    :priority (plist-get spec :priority)
+                    :scheduled (plist-get spec :scheduled)
+                    :deadline (plist-get spec :deadline)
+                    :repeat (plist-get spec :repeat)
+                    :tags (plist-get spec :tags)
+                    :content (plist-get spec :content)
+                    :status (or (plist-get spec :status) "OPEN")
+                    :parent-id parent-id))
+             (saved (org-tasktree-sync-ert--insert-node node)))
+        (puthash key saved nodes)))
+    (let (result)
+      (dolist (spec org-tasktree-sync-ert--update-seed-spec)
+        (let ((key (plist-get spec :key)))
+          (setq result (plist-put result key (gethash key nodes)))))
+      result)))
 
 (defun org-tasktree-sync-ert--sync-file-without-reset (file)
   "Sync org data from FILE without resetting DB."

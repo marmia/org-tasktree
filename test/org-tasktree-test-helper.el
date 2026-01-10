@@ -56,7 +56,7 @@
 TIME must be a time value suitable for `current-time'."
   (declare (indent 1))
   `(cl-letf (((symbol-function 'current-time) (lambda () ,time))
-             (org-tasktree-query--now-function (lambda () ,time)))
+             (org-tasktree-query-parser--now-function (lambda () ,time)))
      ,@body))
 
 (provide 'org-tasktree-test-helper)

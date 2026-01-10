@@ -143,14 +143,153 @@
 *** DONE ユーザーテスト
 *** DONE コードレビュー
 
-** M29: org-tasktree-find-node の Marginalia 対応
-*** TODO 仕様の確認
+** DONE M29: org-tasktree-find-node の Marginalia 対応
+*** DONE 仕様の確認
 - `org-tasktree-find-node` のミニバッファに Marginalia の注釈を表示
   - 表示項目: todo_keyword, tasgs
-*** TODO 実装
-*** TODO ERT テスト
-*** TODO ユーザーテスト
-*** TODO コードレビュー
+*** DONE 実装
+*** DONE ERT テスト
+*** DONE ユーザーテスト
+*** DONE コードレビュー
+
+** DONE M30: リファクタリング
+*** DONE リファクタリング計画
+
+**** 方針
+- 最優先の観点は「コーディングエージェントがメンテしやすい構造」。
+  - 役割の分離、関数の短縮、依存関係の明確化、変更範囲の局所化を重視する。
+- 仕様や外部動作は維持し、構造整理のみに限定する。
+- 優先度は High -> Medium -> Low で進め、低優先は必要最小限に留める。
+- 分割/移動は小さな単位で実施し、都度テストと lint を通す。
+
+**** 対象ファイル別計画（プロダクトコード）
+***** org-tasktree.el
+- `org-tasktree-search-by-query--*` の編集/バッファ補助を新設ファイルへ移動し、入口としての責務に集中する。
+- 新設モジュールの `require` を整理する。
+
+***** org-tasktree-query.el
+- 公開 API を残し、解析/SQL 生成を分離する。
+- `org-tasktree-query--field-definitions` と `org-tasktree-query--query-keys` を整理し、定義の重複を解消する。
+
+***** org-tasktree-query-parser.el（新規）
+- `org-tasktree-query--tokenize` / `org-tasktree-query--parse-expression` / `org-tasktree-query--parse-term` / `org-tasktree-query--parse-query-text` を移動する。
+- エラー文言と解析結果のデータ構造は現状互換で維持する。
+
+***** org-tasktree-query-sql.el（新規）
+- `org-tasktree-query--build-*-term` / `org-tasktree-query--build-field-condition` / `org-tasktree-query--build-sql-*` を移動する。
+- SQL インジェクション対策の挙動は現状維持する。
+
+***** org-tasktree-query-edit.el（新規）
+- `org-tasktree-search-by-query--*` の編集/キーマップ/バッファ操作を移動する。
+- `org-tasktree-search-by-query` の公開コマンドも同ファイルへ移動し、`org-tasktree.el` から `require` する。
+
+***** org-tasktree-ui.el
+- 公開 API と共通ユーティリティに限定し、widget/編集バッファ処理を分離する。
+- 連続空行を削除する。
+- v0.3 仕様と矛盾する `node_type` 系の処理は参照確認のうえ削除、または legacy として隔離する。
+
+***** org-tasktree-ui-widget.el（新規）
+- widget 生成、widget 用 keymap、入力欄ヘルパーを集約する。
+
+***** org-tasktree-ui-edit.el（新規）
+- 編集バッファの生成/描画/確定/キャンセル処理を集約する。
+- `completion-at-point-functions` との責務分担を明確化する（必要であれば `org-tasktree-ui-minibuffer.el` 側と整理）。
+
+***** org-tasktree-ui-minibuffer.el
+- `org-tasktree-ui-minibuffer--completing-read` を前処理/フック/キーマップ設定に分離する。
+- `org-tasktree-ui-minibuffer-read-node` の候補生成/検証/表示処理を段階的に分割する。
+- 変数名の大幅な変更は避け、不要な変更量を抑える。
+
+***** org-tasktree-sync.el
+- `org-tasktree-sync--build-items` をスタック管理と item 構築に分割する。
+- `org-tasktree-sync--collect-headlines` の長い `lambda` をヘルパー関数に分割する。
+- sync 内バリデーションのうち汎用的なものは `org-tasktree-model.el` に移動する。
+
+***** org-tasktree-model.el
+- sync 由来の汎用バリデーション関数を受け入れ、責務を集約する。
+- 既存の public API は維持する。
+
+**** 対象ファイル別計画（テストコード）
+***** test/org-tasktree-sync-normal-ert.el
+- insert/update の 2 ファイルに分割し、各ファイルの責務を明確化する（現状 del テストが無いため）。
+
+***** test/org-tasktree-sync-normal-ins-ert.el（新規）
+- ins1-ins4 を移動する。
+
+***** test/org-tasktree-sync-normal-upd-ert.el（新規）
+- upd1-upd8 を移動する。
+
+***** test/org-tasktree-sync-ert.el
+- seed 関数の重複を簡素化し、必要なら小さなファクトリを導入する。
+
+***** test/org-tasktree-search-ert.el
+- by-query 関連ヘルパーを別ファイルへ分離する。
+- seed 関数をファクトリ化して冗長性を削減する。
+- SQL 直書きの seed には補足コメントを付与する。
+
+***** test/org-tasktree-search-by-query-ert.el（新規）
+- by-query 専用ヘルパー（seed/ファイル配置/選択スタブ）を集約する。
+
+***** test/org-tasktree-search-by-query-normal-ert.el
+- データ駆動テストに変換し、ケース表 + ループで集約する。
+- 共通の setup/実行/比較をマクロ化する。
+
+***** test/org-tasktree-find-node-normal-ert.el
+- DONE ツリー挿入ヘルパーを `org-tasktree-find-node-ert.el` に移動する。
+
+***** test/org-tasktree-find-node-ert.el
+- 移動したヘルパーを受け入れ、再利用可能な形に整える。
+
+
+*** DONE リファクタリング実施
+
+**** 実装計画（作業セット）
+***** DONE 作業セット 1: Query 分割（parser/sql/edit）
+- `org-tasktree-query.el` を parser/sql/edit に分割し、公開 API を最小化。
+- `org-tasktree.el` の `search-by-query` 編集系を `org-tasktree-query-edit.el` へ移動し `require` を整理。
+- 影響範囲の ERT テスト: by-query normal/abnormal を実行。
+- ユーザーテスト: `org-tasktree-search-by-query` の編集/実行フローを確認。
+- コードレビュー: WIP で /review。
+- WIP コミット。
+
+***** DONE 作業セット 2: UI-minibuffer の段階的分割
+- `org-tasktree-ui-minibuffer--completing-read` を前処理/フック/キーマップに分割。
+- `org-tasktree-ui-minibuffer-read-node` を候補生成/検証/確定に分割。
+- 影響範囲の ERT テスト: find-node normal/abnormal を実行。
+- ユーザーテスト: `org-tasktree-find-node` の候補/選択動作を確認。
+- コードレビュー: WIP で /review。
+- WIP コミット。
+
+***** DONE 作業セット 3: UI-widget/edit 分割 + v0.3 互換整理
+- `org-tasktree-ui.el` を widget/edit に分割し、公開 API に集中。
+- `node_type` 系の v0.3 非互換コードを参照確認のうえ削除または隔離。
+- 影響範囲の ERT テスト: find-node normal/abnormal を実行。
+- ユーザーテスト: 編集バッファの入力/確定/キャンセルを確認。
+- コードレビュー: WIP で /review。
+- WIP コミット。
+
+***** DONE 作業セット 4: Sync 分割 + Model バリデーション集約
+- `org-tasktree-sync.el` の長い関数をヘルパー分割。
+- UI と重複するバリデーションを `org-tasktree-model.el` に集約。
+- 影響範囲の ERT テスト: sync normal/abnormal を実行。
+- ユーザーテスト: `org-tasktree-sync-buffer/region/subtree` を確認。
+- コードレビュー: WIP で /review。
+- WIP コミット。
+
+***** DONE 作業セット 5: Sync テストの分割
+- `test/org-tasktree-sync-normal-ert.el` を ins/upd に分割。
+- `test/org-tasktree-sync-ert.el` の seed を簡素化。
+- 影響範囲の ERT テスト: sync normal/abnormal を実行。
+- コードレビュー: WIP で /review。
+- WIP コミット。
+
+***** DONE 作業セット 6: Search / by-query テストの整理
+- `test/org-tasktree-search-ert.el` から by-query 専用ヘルパーを分離。
+- `test/org-tasktree-search-by-query-normal-ert.el` をデータ駆動化。
+- `test/org-tasktree-find-node-normal-ert.el` の helper を `*-ert.el` へ移動。
+- 影響範囲の ERT テスト: search normal/abnormal + by-query normal/abnormal + find-node normal/abnormal を実行。
+- コードレビュー: WIP で /review。
+- WIP コミット。
 
 ** 上位 Node の status が"DONE"になった場合に下位 Node も"DONE"に設定
 * v0.4 以降

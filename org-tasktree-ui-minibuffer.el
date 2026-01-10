@@ -343,6 +343,67 @@ TODO-KEYWORD and TAGS are stored as candidate metadata."
              (with-current-buffer buf
                (exit-minibuffer)))))))))
 
+(defun org-tasktree-ui-minibuffer--auto-enter-candidates (cands)
+  "Return auto-enter candidate list derived from CANDS."
+  (let (result)
+    (dolist (cand cands (nreverse result))
+      (let ((text (org-tasktree-ui-minibuffer--strip-match-suffix
+                   (substring-no-properties cand))))
+        (when (and (string-suffix-p "/" text)
+                   (memq (org-tasktree-ui-minibuffer--candidate-type cand)
+                         '(project phase group task)))
+          (push text result))))))
+
+(defun org-tasktree-ui-minibuffer--install-minibuffer-keymap (validate-fn)
+  "Install org-tasktree keymap for the active minibuffer.
+When VALIDATE-FN is non-nil, bind RET to the custom accept handler."
+  (setq-local org-tasktree-ui-minibuffer--minibuffer-backspace-original
+              (or (key-binding (kbd "DEL") t)
+                  (key-binding (kbd "<backspace>") t)
+                  #'delete-backward-char))
+  (let ((map (make-sparse-keymap))
+        (backspace #'org-tasktree-ui-minibuffer--minibuffer-backspace)
+        (shift-enter #'org-tasktree-ui-minibuffer--minibuffer-shift-enter)
+        (accept #'org-tasktree-ui-minibuffer--minibuffer-accept))
+    (set-keymap-parent map (current-local-map))
+    (define-key map (kbd "DEL") backspace)
+    (define-key map (kbd "<backspace>") backspace)
+    (define-key map (kbd "S-<return>") shift-enter)
+    (define-key map (kbd "S-RET") shift-enter)
+    (when validate-fn
+      (define-key map (kbd "RET") accept)
+      (define-key map (kbd "<return>") accept)
+      (define-key map (kbd "C-m") accept)
+      (define-key map (kbd "C-j") accept))
+    (use-local-map map)))
+
+(defun org-tasktree-ui-minibuffer--setup-minibuffer
+    (allow-backspace-up allow-auto-enter validate-fn cands)
+  "Setup minibuffer state for org-tasktree completions.
+ALLOW-BACKSPACE-UP and ALLOW-AUTO-ENTER control behavior, while
+VALIDATE-FN is the optional validation function and CANDS are candidates."
+  (setq-local org-tasktree-ui-minibuffer--minibuffer-backspace-up-enabled
+              (and allow-backspace-up t))
+  (setq-local org-tasktree-ui-minibuffer--minibuffer-auto-enter-enabled
+              (and allow-auto-enter t))
+  (setq-local org-tasktree-ui-minibuffer--minibuffer-original-local-map
+              (current-local-map))
+  (setq-local org-tasktree-ui-minibuffer--minibuffer-validate-fn
+              validate-fn)
+  (setq-local org-tasktree-ui-minibuffer--minibuffer-auto-enter-candidates
+              (when allow-auto-enter
+                (org-tasktree-ui-minibuffer--auto-enter-candidates cands)))
+  (when org-tasktree-ui-minibuffer--minibuffer-auto-enter-enabled
+    (add-hook 'post-command-hook
+              #'org-tasktree-ui-minibuffer--minibuffer-maybe-auto-enter
+              nil
+              t))
+  (add-hook 'minibuffer-exit-hook
+            #'org-tasktree-ui-minibuffer--minibuffer-cleanup
+            nil
+            t)
+  (org-tasktree-ui-minibuffer--install-minibuffer-keymap validate-fn))
+
 (defun org-tasktree-ui-minibuffer--completing-read
     (prompt cands &optional require-match allow-backspace-up allow-auto-enter validate-fn)
   "Read a completion from CANDS with PROMPT.
@@ -362,60 +423,16 @@ Signal `user-error' to keep minibuffer open and show the error."
           ;; have already installed their minibuffer keymap bindings.
           (let ((buf (current-buffer))
                 (allow allow-backspace-up)
-                (auto allow-auto-enter))
+                (auto allow-auto-enter)
+                (candidates cands))
             (run-at-time
              0
              nil
              (lambda ()
                (when (buffer-live-p buf)
                  (with-current-buffer buf
-                   (setq-local org-tasktree-ui-minibuffer--minibuffer-backspace-up-enabled
-                               (and allow t))
-                   (setq-local org-tasktree-ui-minibuffer--minibuffer-auto-enter-enabled
-                               (and auto t))
-                   (setq-local org-tasktree-ui-minibuffer--minibuffer-original-local-map
-                               (current-local-map))
-                   (setq-local org-tasktree-ui-minibuffer--minibuffer-validate-fn
-                               validate-fn)
-                   (setq-local org-tasktree-ui-minibuffer--minibuffer-auto-enter-candidates
-                               (when auto
-                                 (let (result)
-                                   (dolist (cand cands (nreverse result))
-                                     (let ((s (org-tasktree-ui-minibuffer--strip-match-suffix
-                                               (substring-no-properties cand))))
-                                       (when (and (string-suffix-p "/" s)
-                                                  (memq (org-tasktree-ui-minibuffer--candidate-type
-                                                         cand)
-                                                        '(project phase group task)))
-                                         (push s result)))))))
-                   (when org-tasktree-ui-minibuffer--minibuffer-auto-enter-enabled
-                     (add-hook 'post-command-hook
-                               #'org-tasktree-ui-minibuffer--minibuffer-maybe-auto-enter
-                               nil
-                               t))
-                   (add-hook 'minibuffer-exit-hook
-                             #'org-tasktree-ui-minibuffer--minibuffer-cleanup
-                             nil
-                             t)
-                   (setq-local org-tasktree-ui-minibuffer--minibuffer-backspace-original
-                               (or (key-binding (kbd "DEL") t)
-                                   (key-binding (kbd "<backspace>") t)
-                                   #'delete-backward-char))
-                   (let ((map (make-sparse-keymap))
-                         (backspace #'org-tasktree-ui-minibuffer--minibuffer-backspace)
-                         (shift-enter #'org-tasktree-ui-minibuffer--minibuffer-shift-enter)
-                         (accept #'org-tasktree-ui-minibuffer--minibuffer-accept))
-                     (set-keymap-parent map (current-local-map))
-                     (define-key map (kbd "DEL") backspace)
-                     (define-key map (kbd "<backspace>") backspace)
-                     (define-key map (kbd "S-<return>") shift-enter)
-                     (define-key map (kbd "S-RET") shift-enter)
-                     (when validate-fn
-                       (define-key map (kbd "RET") accept)
-                       (define-key map (kbd "<return>") accept)
-                       (define-key map (kbd "C-m") accept)
-                       (define-key map (kbd "C-j") accept))
-                     (use-local-map map))))))))
+                   (org-tasktree-ui-minibuffer--setup-minibuffer
+                    allow auto validate-fn candidates)))))))
       (completing-read prompt cands nil require-match))))
 
 (defun org-tasktree-ui-minibuffer--id-map (nodes)
@@ -461,89 +478,116 @@ Strip trailing slashes and signal `user-error' when invalid."
       (user-error "Node path must not contain empty segments"))
     trimmed))
 
+(defun org-tasktree-ui-minibuffer--path-entry (node id-map)
+  "Return path entry plist for NODE using ID-MAP."
+  (let* ((titles (org-tasktree-ui-minibuffer--titles-path node id-map))
+         (path (org-tasktree-ui-minibuffer--format-path-slash titles)))
+    (list :path path :node node :titles titles)))
+
+(defun org-tasktree-ui-minibuffer--collect-path-entries (nodes)
+  "Return (ENTRIES . PATH-TABLE) built from NODES."
+  (let* ((id-map (org-tasktree-ui-minibuffer--id-map nodes))
+         (entries nil)
+         (path-table (make-hash-table :test 'equal)))
+    (dolist (node nodes)
+      (let ((entry (org-tasktree-ui-minibuffer--path-entry node id-map)))
+        (push entry entries)
+        (puthash (plist-get entry :path) entry path-table)))
+    (setq entries
+          (sort entries
+                (lambda (a b)
+                  (string< (plist-get a :path)
+                           (plist-get b :path)))))
+    (cons entries path-table)))
+
+(defun org-tasktree-ui-minibuffer--column-widths (entries)
+  "Return plist of column widths for ENTRIES."
+  (let ((todo-width 0)
+        (tags-width 0))
+    (dolist (entry entries)
+      (let* ((node (plist-get entry :node))
+             (todo (org-tasktree-model-node-todo-keyword node))
+             (tags (org-tasktree-model-node-tags node)))
+        (setq todo-width (max todo-width (string-width (or todo ""))))
+        (setq tags-width (max tags-width (string-width (or tags ""))))))
+    (list :todo todo-width :tags tags-width)))
+
+(defun org-tasktree-ui-minibuffer--display-candidates (entries)
+  "Return sorted display candidates for ENTRIES."
+  (sort
+   (mapcar
+    (lambda (entry)
+      (let* ((node (plist-get entry :node))
+             (todo (org-tasktree-model-node-todo-keyword node))
+             (tags (org-tasktree-model-node-tags node))
+             (type (org-tasktree-ui-minibuffer--type-from-tags
+                    (org-tasktree-model-node-tags node))))
+        (org-tasktree-ui-minibuffer--make-path-candidate
+         (plist-get entry :path)
+         type
+         todo
+         tags)))
+    entries)
+   (lambda (a b)
+     (string<
+      (org-tasktree-ui-minibuffer--strip-match-suffix
+       (substring-no-properties a))
+      (org-tasktree-ui-minibuffer--strip-match-suffix
+       (substring-no-properties b))))))
+
+(defun org-tasktree-ui-minibuffer--validate-node-path (input path-table)
+  "Validate INPUT path against PATH-TABLE."
+  (let* ((path (org-tasktree-ui-minibuffer--normalize-node-path input))
+         (existing (gethash path path-table)))
+    (unless existing
+      (let* ((segments (split-string path "/" t))
+             (new-title (car (last segments)))
+             (parent-segments (butlast segments))
+             (parent-path (org-tasktree-ui-minibuffer--format-path-slash
+                           parent-segments))
+             (parent-entry (and parent-segments
+                                (gethash parent-path path-table))))
+        (when (string-empty-p (or new-title ""))
+          (user-error "Node title is required"))
+        (when (and parent-segments (not parent-entry))
+          (user-error "Parent path not found: %s" parent-path))))))
+
+(defun org-tasktree-ui-minibuffer--read-node-choice
+    (display-cands path-table widths)
+  "Return user choice from DISPLAY-CANDS using PATH-TABLE and WIDTHS."
+  (let ((completion-extra-properties
+         '(:display-sort-function identity
+           :cycle-sort-function identity
+           :category org-tasktree-node
+           :annotation-function org-tasktree-ui-minibuffer--annotation-raw)))
+    (let ((org-tasktree-ui-minibuffer--marginalia-path-table path-table)
+          (org-tasktree-ui-minibuffer--marginalia-column-widths widths))
+      (org-tasktree-ui-minibuffer--completing-read
+       "find node: "
+       display-cands
+       nil
+       nil
+       nil
+       (lambda (input)
+         (org-tasktree-ui-minibuffer--validate-node-path input path-table))))))
+
 (defun org-tasktree-ui-minibuffer-read-node ()
   "Prompt for node path via `completing-read'.
 Return plist describing an existing or new node selection."
   (org-tasktree-ui-minibuffer--maybe-register-marginalia)
   (let* ((nodes (org-tasktree-query-open-tree))
-         (id-map (org-tasktree-ui-minibuffer--id-map nodes))
-         (entries nil)
-         (path-table (make-hash-table :test 'equal)))
-    (dolist (node nodes)
-      (let* ((titles (org-tasktree-ui-minibuffer--titles-path node id-map))
-             (path (org-tasktree-ui-minibuffer--format-path-slash titles))
-             (entry (list :path path :node node :titles titles)))
-        (push entry entries)
-        (puthash path entry path-table)))
-    (setq entries
-          (sort entries
-                (lambda (a b)
-                          (string< (plist-get a :path)
-                                   (plist-get b :path)))))
-    (let* ((todo-width 0)
-           (tags-width 0))
-      (dolist (entry entries)
-        (let* ((node (plist-get entry :node))
-               (todo (org-tasktree-model-node-todo-keyword node))
-               (tags (org-tasktree-model-node-tags node)))
-          (setq todo-width (max todo-width (string-width (or todo ""))))
-          (setq tags-width (max tags-width (string-width (or tags ""))))))
-      (let* ((display-cands
-            (sort
-             (mapcar
-             (lambda (entry)
-               (let* ((node (plist-get entry :node))
-                       (todo (org-tasktree-model-node-todo-keyword node))
-                       (tags (org-tasktree-model-node-tags node))
-                       (type (org-tasktree-ui-minibuffer--type-from-tags
-                              (org-tasktree-model-node-tags node))))
-                  (org-tasktree-ui-minibuffer--make-path-candidate
-                   (plist-get entry :path)
-                   type
-                   todo
-                   tags)))
-             entries)
-             (lambda (a b)
-               (string< (org-tasktree-ui-minibuffer--strip-match-suffix
-                         (substring-no-properties a))
-                        (org-tasktree-ui-minibuffer--strip-match-suffix
-                         (substring-no-properties b))))))
-           (validate-fn
-            (lambda (input)
-              (let* ((path (org-tasktree-ui-minibuffer--normalize-node-path input))
-                     (existing (gethash path path-table)))
-                (unless existing
-                  (let* ((segments (split-string path "/" t))
-                         (new-title (car (last segments)))
-                         (parent-segments (butlast segments))
-                         (parent-path (org-tasktree-ui-minibuffer--format-path-slash
-                                       parent-segments))
-                         (parent-entry (and parent-segments
-                                            (gethash parent-path path-table))))
-                    (when (string-empty-p (or new-title ""))
-                      (user-error "Node title is required"))
-                    (when (and parent-segments (not parent-entry))
-                      (user-error "Parent path not found: %s" parent-path)))))))
-           (choice (let ((completion-extra-properties
-                          '(:display-sort-function identity
-                            :cycle-sort-function identity
-                            :category org-tasktree-node
-                            :annotation-function
-                            org-tasktree-ui-minibuffer--annotation-raw)))
-                     (let ((org-tasktree-ui-minibuffer--marginalia-path-table
-                            path-table)
-                           (org-tasktree-ui-minibuffer--marginalia-column-widths
-                            (list :todo todo-width :tags tags-width)))
-                     (org-tasktree-ui-minibuffer--completing-read
-                      "find node: "
-                      display-cands
-                      nil
-                      nil
-                      nil
-                      validate-fn))))
-           (raw (org-tasktree-ui-minibuffer--candidate-raw choice))
-           (path (org-tasktree-ui-minibuffer--normalize-node-path raw))
-           (existing (gethash path path-table)))
+         (entry-data (org-tasktree-ui-minibuffer--collect-path-entries nodes))
+         (entries (car entry-data))
+         (path-table (cdr entry-data))
+         (widths (org-tasktree-ui-minibuffer--column-widths entries))
+         (display-cands (org-tasktree-ui-minibuffer--display-candidates entries))
+         (choice (org-tasktree-ui-minibuffer--read-node-choice
+                  display-cands
+                  path-table
+                  widths))
+         (raw (org-tasktree-ui-minibuffer--candidate-raw choice))
+         (path (org-tasktree-ui-minibuffer--normalize-node-path raw))
+         (existing (gethash path path-table)))
       (if existing
           (list :existing t
                 :node (plist-get existing :node)
@@ -561,7 +605,7 @@ Return plist describing an existing or new node selection."
                 :parent-node (and parent-entry (plist-get parent-entry :node))
                 :parent-path-titles (and parent-entry
                                          (plist-get parent-entry :titles))
-                :path path)))))))
+                :path path)))))
 
 (provide 'org-tasktree-ui-minibuffer)
 ;;; org-tasktree-ui-minibuffer.el ends here

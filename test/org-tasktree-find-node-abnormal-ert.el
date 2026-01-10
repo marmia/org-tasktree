@@ -25,9 +25,9 @@ VALUES is an alist of (KEY . VALUE).  FN is a function of no arguments."
   (let ((table (make-hash-table :test 'equal)))
     (dolist (pair values)
       (puthash (car pair) (cdr pair) table))
-    (cl-letf (((symbol-function 'org-tasktree-ui--widget-value)
+    (cl-letf (((symbol-function 'org-tasktree-ui-widget--value)
                (lambda (key) (gethash key table)))
-              ((symbol-function 'org-tasktree-ui--widget-value-raw)
+              ((symbol-function 'org-tasktree-ui-widget--value-raw)
                (lambda (key) (gethash key table))))
       (funcall fn))))
 
@@ -52,7 +52,7 @@ VALUES is an alist of (KEY . VALUE).  FN is a function of no arguments."
     (org-tasktree-find-node-abnormal-ert--with-widget-values
      '((:title . "  "))
      (lambda ()
-       (should-error (org-tasktree-ui--submit-widget meta))))))
+       (should-error (org-tasktree-ui-edit--submit-widget meta))))))
 
 (ert-deftest org-tasktree-find-node-abnormal-ert-invalid-title ()
   "Abnormal case: title with '/' should signal `user-error'."
@@ -62,7 +62,7 @@ VALUES is an alist of (KEY . VALUE).  FN is a function of no arguments."
     (org-tasktree-find-node-abnormal-ert--with-widget-values
      '((:title . "a/b"))
      (lambda ()
-       (should-error (org-tasktree-ui--submit-widget meta))))))
+       (should-error (org-tasktree-ui-edit--submit-widget meta))))))
 
 (ert-deftest org-tasktree-find-node-abnormal-ert-invalid-priority ()
   "Abnormal case: invalid priority should signal `user-error'."
@@ -73,7 +73,7 @@ VALUES is an alist of (KEY . VALUE).  FN is a function of no arguments."
      '((:title . "task")
        (:priority . "AA"))
      (lambda ()
-       (should-error (org-tasktree-ui--submit-widget meta))))))
+       (should-error (org-tasktree-ui-edit--submit-widget meta))))))
 
 (ert-deftest org-tasktree-find-node-abnormal-ert-invalid-scheduled ()
   "Abnormal case: invalid scheduled date should signal `user-error'."
@@ -84,7 +84,7 @@ VALUES is an alist of (KEY . VALUE).  FN is a function of no arguments."
      '((:title . "task")
        (:scheduled . "2025-02-30"))
      (lambda ()
-       (should-error (org-tasktree-ui--submit-widget meta))))))
+       (should-error (org-tasktree-ui-edit--submit-widget meta))))))
 
 (ert-deftest org-tasktree-find-node-abnormal-ert-invalid-deadline ()
   "Abnormal case: invalid deadline date should signal `user-error'."
@@ -95,7 +95,7 @@ VALUES is an alist of (KEY . VALUE).  FN is a function of no arguments."
      '((:title . "task")
        (:deadline . "2025-02-30"))
      (lambda ()
-       (should-error (org-tasktree-ui--submit-widget meta))))))
+       (should-error (org-tasktree-ui-edit--submit-widget meta))))))
 
 (ert-deftest org-tasktree-find-node-abnormal-ert-schedule-after-deadline ()
   "Abnormal case: scheduled after deadline should signal `user-error'."
@@ -107,7 +107,7 @@ VALUES is an alist of (KEY . VALUE).  FN is a function of no arguments."
        (:scheduled . "2025-12-31")
        (:deadline . "2025-12-01"))
      (lambda ()
-       (should-error (org-tasktree-ui--submit-widget meta))))))
+       (should-error (org-tasktree-ui-edit--submit-widget meta))))))
 
 (ert-deftest org-tasktree-find-node-abnormal-ert-invalid-repeat ()
   "Abnormal case: invalid repeat should signal `user-error'."
@@ -118,7 +118,7 @@ VALUES is an alist of (KEY . VALUE).  FN is a function of no arguments."
      '((:title . "task")
        (:repeat . "1d"))
      (lambda ()
-       (should-error (org-tasktree-ui--submit-widget meta))))))
+       (should-error (org-tasktree-ui-edit--submit-widget meta))))))
 
 (ert-deftest org-tasktree-find-node-abnormal-ert-invalid-tags ()
   "Abnormal case: invalid tags should signal `user-error'."
@@ -129,7 +129,7 @@ VALUES is an alist of (KEY . VALUE).  FN is a function of no arguments."
      '((:title . "task")
        (:tags . "tag1,tag2"))
      (lambda ()
-       (let ((err (should-error (org-tasktree-ui--submit-widget meta)
+       (let ((err (should-error (org-tasktree-ui-edit--submit-widget meta)
                                 :type 'user-error)))
          (should (string-match-p
                   "Tags must contain only"
@@ -142,7 +142,7 @@ VALUES is an alist of (KEY . VALUE).  FN is a function of no arguments."
     (org-tasktree-find-node-abnormal-ert--with-widget-values
      '((:title . "task1"))
      (lambda ()
-       (should-error (org-tasktree-ui--submit-widget meta))))))
+       (should-error (org-tasktree-ui-edit--submit-widget meta))))))
 
 (provide 'org-tasktree-find-node-abnormal-ert)
 ;;; org-tasktree-find-node-abnormal-ert.el ends here

@@ -6,7 +6,7 @@
 
 * 対象範囲
 - ERT による自動テスト（正常系/異常系）
-- データ層（DB）、検索、同期、UI 補助関数の振る舞い
+- データ層（DB）、検索（通常/クエリ）、同期、find-node の振る舞い
 - UI 操作を伴う処理（リージョン選択、カーソル移動、対話入力など）はテスト対象外とする
 
 * テスト環境
@@ -15,12 +15,40 @@
 - テスト実行はバッチモード（非対話）で行う
 - テスト用 DB とクエリ保存先は専用ディレクトリに分離する
 
+* ERTファイル構成
+** sync
+- helper: `test/org-tasktree-sync-ert.el`
+- normal: `test/org-tasktree-sync-normal-ins-ert.el` / `test/org-tasktree-sync-normal-upd-ert.el`
+- abnormal: `test/org-tasktree-sync-abnormal-ert.el`
+
+** search（通常検索）
+- helper: `test/org-tasktree-search-ert.el`
+- normal: `test/org-tasktree-search-normal-ert.el`
+- abnormal: `test/org-tasktree-search-abnormal-ert.el`
+
+** search-by-query
+- helper: `test/org-tasktree-search-by-query-ert.el`
+- normal: `test/org-tasktree-search-by-query-normal-ert.el`
+- abnormal: `test/org-tasktree-search-by-query-abnormal-ert.el`
+
+** find-node
+- helper: `test/org-tasktree-find-node-ert.el`
+- normal: `test/org-tasktree-find-node-normal-ert.el`
+- abnormal: `test/org-tasktree-find-node-abnormal-ert.el`
+
+** init
+- `test/org-tasktree-init-ert.el`（正常/異常を同一ファイルに定義）
+
 * 実行手順
 ** ERT 実行
-- `test/run-ert.sh` を実行する
+- 全件: `test/run-ert.sh`
+- 一部: `test/run-ert.sh test/xxx-ert.el ...`
+- helper ファイルのみの実行ではテストは走らない（定義がないため）
 
 * テストデータと再現性
 - テストデータは `test/test-data/` に置く
+- by-query の SQL seed は `test/by-query-testdata.sql`
+- by-query の query ファイルは `test/test-data/query/`
 - 期待結果の比較はプレースホルダー展開後に行う
 - 日付依存のテストは固定時刻で実行し、非決定性を排除する
 - 曜日付き日付は英語ロケールで表記する

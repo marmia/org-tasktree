@@ -42,57 +42,6 @@
            "FROM nodes WHERE title=? LIMIT 1;")
           (vector title)))))
 
-(defun org-tasktree-find-node-normal-ert--insert-done-tree ()
-  "Insert a DONE tree under a separate project."
-  (let* ((project (org-tasktree-find-node-ert--make-node
-                   :uid "99999999-9999-4999-8999-999999999999"
-                   :title "archive"
-                   :todo-keyword nil
-                   :status "DONE"
-                   :parent-id nil
-                   :tags ":project:"))
-         (phase (org-tasktree-find-node-ert--make-node
-                 :uid "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
-                 :title "archive-phase"
-                 :todo-keyword nil
-                 :status "DONE"
-                 :parent-id :keep
-                 :tags ":phase:"))
-         (group (org-tasktree-find-node-ert--make-node
-                 :uid "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
-                 :title "archive-group"
-                 :todo-keyword nil
-                 :status "DONE"
-                 :parent-id :keep
-                 :tags ":group:"))
-         (task (org-tasktree-find-node-ert--make-node
-                :uid "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
-                :title "archive-task"
-                :todo-keyword "DONE"
-                :status "DONE"
-                :parent-id :keep
-                :tags ":unit_test:task2:"))
-         (child (org-tasktree-find-node-ert--make-node
-                 :uid "dddddddd-dddd-4ddd-8ddd-dddddddddddd"
-                 :title "archive-child"
-                 :todo-keyword "DONE"
-                 :status "DONE"
-                 :parent-id :keep
-                 :tags nil)))
-    (let* ((project-node (org-tasktree-find-node-ert--insert-node project))
-           (project-id (org-tasktree-model-node-id project-node)))
-      (setf (org-tasktree-model-node-parent-id phase) project-id)
-      (let* ((phase-node (org-tasktree-find-node-ert--insert-node phase))
-             (phase-id (org-tasktree-model-node-id phase-node)))
-        (setf (org-tasktree-model-node-parent-id group) phase-id)
-        (let* ((group-node (org-tasktree-find-node-ert--insert-node group))
-               (group-id (org-tasktree-model-node-id group-node)))
-          (setf (org-tasktree-model-node-parent-id task) group-id)
-          (let* ((task-node (org-tasktree-find-node-ert--insert-node task))
-                 (task-id (org-tasktree-model-node-id task-node)))
-            (setf (org-tasktree-model-node-parent-id child) task-id)
-            (org-tasktree-find-node-ert--insert-node child)))))))
-
 (defun org-tasktree-find-node-normal-ert--candidate-type (cands path)
   "Return candidate type for PATH in CANDS."
   (let ((cand (seq-find
@@ -105,7 +54,7 @@
 (ert-deftest org-tasktree-find-node-normal-ert-open-tree-candidates ()
   "Normal case: candidates include OPEN nodes only."
   (org-tasktree-find-node-ert--seed-open-tree)
-  (org-tasktree-find-node-normal-ert--insert-done-tree)
+  (org-tasktree-find-node-ert--insert-done-tree)
   (let (org-tasktree-find-node-ert--captured-cands)
     (cl-letf (((symbol-function 'org-tasktree-ui-minibuffer--completing-read)
                (lambda (_prompt cands &rest _args)
@@ -194,11 +143,11 @@
                       (:tags . "unit_test:task1_upd")
                       (:content . "updated content")))
         (puthash (car pair) (cdr pair) table))
-      (cl-letf (((symbol-function 'org-tasktree-ui--widget-value)
+      (cl-letf (((symbol-function 'org-tasktree-ui-widget--value)
                  (lambda (key) (gethash key table)))
-                ((symbol-function 'org-tasktree-ui--widget-value-raw)
+                ((symbol-function 'org-tasktree-ui-widget--value-raw)
                  (lambda (key) (gethash key table))))
-        (let ((node (org-tasktree-ui--submit-widget meta)))
+        (let ((node (org-tasktree-ui-edit--submit-widget meta)))
           (should (equal (org-tasktree-model-node-id node) task-id))
           (should (equal (org-tasktree-model-node-title node) "task1-upd")))))
     (let* ((updated (org-tasktree-find-node-normal-ert--select-node

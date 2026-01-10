@@ -43,9 +43,9 @@ VALUES must be an alist of (KEY . VALUE) pairs."
   `(let ((table (make-hash-table :test 'equal)))
      (dolist (pair ,values)
        (puthash (car pair) (cdr pair) table))
-     (cl-letf (((symbol-function 'org-tasktree-ui--widget-value)
+     (cl-letf (((symbol-function 'org-tasktree-ui-widget--value)
                 (lambda (key) (gethash key table)))
-               ((symbol-function 'org-tasktree-ui--widget-value-raw)
+               ((symbol-function 'org-tasktree-ui-widget--value-raw)
                 (lambda (key) (gethash key table))))
        ,@body)))
 
@@ -156,6 +156,57 @@ and TAGS are the org tags."
         (dolist (node (list caps-project mixed-phase-group mixed-project-group))
           (setf (org-tasktree-model-node-parent-id node) project-id)
           (org-tasktree-find-node-ert--insert-node node))
+        (setf (org-tasktree-model-node-parent-id group) phase-id)
+        (let* ((group-node (org-tasktree-find-node-ert--insert-node group))
+               (group-id (org-tasktree-model-node-id group-node)))
+          (setf (org-tasktree-model-node-parent-id task) group-id)
+          (let* ((task-node (org-tasktree-find-node-ert--insert-node task))
+                 (task-id (org-tasktree-model-node-id task-node)))
+            (setf (org-tasktree-model-node-parent-id child) task-id)
+            (org-tasktree-find-node-ert--insert-node child)))))))
+
+(defun org-tasktree-find-node-ert--insert-done-tree ()
+  "Insert a DONE tree under a separate project."
+  (let* ((project (org-tasktree-find-node-ert--make-node
+                   :uid "99999999-9999-4999-8999-999999999999"
+                   :title "archive"
+                   :todo-keyword nil
+                   :status "DONE"
+                   :parent-id nil
+                   :tags ":project:"))
+         (phase (org-tasktree-find-node-ert--make-node
+                 :uid "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+                 :title "archive-phase"
+                 :todo-keyword nil
+                 :status "DONE"
+                 :parent-id :keep
+                 :tags ":phase:"))
+         (group (org-tasktree-find-node-ert--make-node
+                 :uid "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+                 :title "archive-group"
+                 :todo-keyword nil
+                 :status "DONE"
+                 :parent-id :keep
+                 :tags ":group:"))
+         (task (org-tasktree-find-node-ert--make-node
+                :uid "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
+                :title "archive-task"
+                :todo-keyword "DONE"
+                :status "DONE"
+                :parent-id :keep
+                :tags ":unit_test:task2:"))
+         (child (org-tasktree-find-node-ert--make-node
+                 :uid "dddddddd-dddd-4ddd-8ddd-dddddddddddd"
+                 :title "archive-child"
+                 :todo-keyword "DONE"
+                 :status "DONE"
+                 :parent-id :keep
+                 :tags nil)))
+    (let* ((project-node (org-tasktree-find-node-ert--insert-node project))
+           (project-id (org-tasktree-model-node-id project-node)))
+      (setf (org-tasktree-model-node-parent-id phase) project-id)
+      (let* ((phase-node (org-tasktree-find-node-ert--insert-node phase))
+             (phase-id (org-tasktree-model-node-id phase-node)))
         (setf (org-tasktree-model-node-parent-id group) phase-id)
         (let* ((group-node (org-tasktree-find-node-ert--insert-node group))
                (group-id (org-tasktree-model-node-id group-node)))

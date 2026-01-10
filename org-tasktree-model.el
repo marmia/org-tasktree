@@ -1,7 +1,7 @@
 ;;; org-tasktree-model.el --- Data model for org-tasktree -*- lexical-binding: t; -*-
-;; Package-Requires: ((emacs "29.1") (org "9.6"))
-;; URL: https://github.com/marmia/org-tasktree
 ;; Version: 0.1.0
+;; URL: https://github.com/marmia/org-tasktree
+;; Package-Requires: ((emacs "29.1") (org "9.6"))
 
 ;;; Commentary:
 ;;
@@ -157,6 +157,20 @@ omitted, starting from `uid'."
         "\\`\\(?:\\+\\|\\+\\+\\|\\.\\+\\)[0-9]+[dwmy]\\(?:/[0-9]+\\)?\\'"
         value)))
 
+(defun org-tasktree-model--extract-date (raw)
+  "Extract YYYY-MM-DD from RAW timestamp string."
+  (when (and raw
+             (string-match "\\([0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}\\)" raw))
+    (match-string 1 raw)))
+
+(defun org-tasktree-model--extract-repeat (raw)
+  "Extract repeat string from RAW timestamp string."
+  (when (and raw
+             (string-match
+              "\\(?:\\+\\+\\|\\+\\|\\.\\+\\)[0-9]+[dwmy]\\(?:/[0-9]+\\)?"
+              raw))
+    (match-string 0 raw)))
+
 (defun org-tasktree-model--title-valid-p (title)
   "Return non-nil when TITLE does not include control characters."
   (and (stringp title)
@@ -204,6 +218,89 @@ or nil when empty, and LIST is de-duplicated tag strings."
               (concat ":" (string-join unique ":") ":"))
             unique)))
    (t (user-error "Invalid tags value: %S" tags))))
+
+(defun org-tasktree-model-validate-title (value)
+  "Return normalized title string from VALUE or signal `user-error'."
+  (let ((title (and value (string-trim value))))
+    (unless (and title (not (string-empty-p title)))
+      (user-error "Title is required"))
+    (when (string-match-p "/" title)
+      (user-error "Title must not include '/'"))
+    (unless (org-tasktree-model--title-valid-p title)
+      (user-error "Title must not include control characters"))
+    title))
+
+(defun org-tasktree-model-validate-priority (value)
+  "Return normalized priority string from VALUE or nil."
+  (let ((p (and value (string-trim value))))
+    (cond
+     ((or (null p) (string-empty-p p)) nil)
+     ((org-tasktree-model--priority-valid-p p)
+      (org-tasktree-model--normalize-priority p))
+     (t (user-error "Priority must be a single alphanumeric character")))))
+
+(defun org-tasktree-model-validate-tags (value)
+  "Return normalized tags string from VALUE or nil."
+  (let ((t0 (and value (string-trim value))))
+    (cond
+     ((or (null t0) (string-empty-p t0)) nil)
+     ((string-match-p
+       "\\`\\(?::\\)?[A-Za-z0-9_@#%]+\\(?::[A-Za-z0-9_@#%]+\\)*\\(?::\\)?\\'"
+       t0)
+      (car (org-tasktree-model-normalize-tags t0)))
+     (t (user-error
+         "Tags must contain only [A-Za-z0-9_@#%%] and be ':' separated")))))
+
+(defun org-tasktree-model-validate-tags-list (tags line)
+  "Validate TAGS list and LINE suffix or signal `user-error'.
+Returns TAGS when validation succeeds."
+  (when tags
+    (dolist (tag tags)
+      (unless (string-match-p "\\`[A-Za-z0-9_@#%]+\\'" tag)
+        (user-error
+         "Tags must contain only [A-Za-z0-9_@#%%] and be ':' separated"))))
+  (when (and (null tags) line
+             (string-match-p "\\s-+:[^ \t\r\n]+:$" line))
+    (user-error
+     "Tags must contain only [A-Za-z0-9_@#%%] and be ':' separated"))
+  tags)
+
+(defun org-tasktree-model-validate-repeat (value)
+  "Return normalized repeat string from VALUE or nil."
+  (let ((r0 (and value (string-trim value))))
+    (cond
+     ((or (null r0) (string-empty-p r0)) nil)
+     ((org-tasktree-model--valid-repeat-p r0) r0)
+     (t (user-error "Repeat must follow org repeat syntax")))))
+
+(defun org-tasktree-model-validate-repeat-raw (raw)
+  "Validate repeat syntax in RAW or signal `user-error'."
+  (when (and raw
+             (string-match "\\(?:\\+\\+\\|\\+\\|\\.\\+\\)" raw)
+             (null (org-tasktree-model--extract-repeat raw)))
+    (user-error "Repeat must follow org repeat syntax")))
+
+(defun org-tasktree-model-validate-planning-raw (scheduled-raw scheduled
+                                                               deadline-raw deadline)
+  "Validate planning fields using raw text.
+SCHEDULED-RAW and DEADLINE-RAW are raw timestamp strings (or empty when
+present).  SCHEDULED and DEADLINE are parsed timestamp elements."
+  (when scheduled-raw
+    (unless scheduled
+      (user-error "Scheduled must be YYYY-MM-DD or nil"))
+    (unless (org-tasktree-model--extract-date scheduled-raw)
+      (user-error "Scheduled must be YYYY-MM-DD or nil"))
+    (org-tasktree-model-validate-repeat-raw scheduled-raw))
+  (when deadline-raw
+    (unless deadline
+      (user-error "Deadline must be YYYY-MM-DD or nil"))
+    (unless (org-tasktree-model--extract-date deadline-raw)
+      (user-error "Deadline must be YYYY-MM-DD or nil"))))
+
+(defun org-tasktree-model-validate-schedule-deadline (scheduled deadline)
+  "Validate SCHEDULED and DEADLINE ordering."
+  (when (and scheduled deadline (string-lessp deadline scheduled))
+    (user-error "Deadline must be >= scheduled")))
 
 (defun org-tasktree-model-tags->org-string (tags)
   "Return TAGS as org tag suffix `:tag1:tag2:' or nil."
