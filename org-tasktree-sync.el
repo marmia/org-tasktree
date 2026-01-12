@@ -454,18 +454,24 @@ CACHED is non-nil when RAW's UID exists in CACHE."
 (defun org-tasktree-sync-subtree ()
   "Sync subtree at point into SQLite database."
   (interactive)
-  (unless (org-at-heading-p)
-    (user-error "Point is not at a heading"))
   (atomic-change-group
     (org-with-wide-buffer
       (save-excursion
-        (org-back-to-heading t)
-        (let* ((beg (point))
-               (end (save-excursion
-                      (org-end-of-subtree t t)
-                      (point)))
-               (raw-items (org-tasktree-sync--collect-headlines-in-range beg end)))
-          (org-tasktree-sync--sync-raw-items raw-items))))))
+        (let ((heading-pos
+               (condition-case nil
+                   (progn
+                     (org-back-to-heading t)
+                     (point))
+                 (error nil))))
+          (unless heading-pos
+            (user-error "No heading above point"))
+          (goto-char heading-pos)
+          (let* ((beg (point))
+                 (end (save-excursion
+                        (org-end-of-subtree t t)
+                        (point)))
+                 (raw-items (org-tasktree-sync--collect-headlines-in-range beg end)))
+            (org-tasktree-sync--sync-raw-items raw-items)))))))
 
 (provide 'org-tasktree-sync)
 ;;; org-tasktree-sync.el ends here

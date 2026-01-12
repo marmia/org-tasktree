@@ -240,9 +240,7 @@
 ***** test/org-tasktree-find-node-ert.el
 - 移動したヘルパーを受け入れ、再利用可能な形に整える。
 
-
 *** DONE リファクタリング実施
-
 **** 実装計画（作業セット）
 ***** DONE 作業セット 1: Query 分割（parser/sql/edit）
 - `org-tasktree-query.el` を parser/sql/edit に分割し、公開 API を最小化。
@@ -290,6 +288,48 @@
 - 影響範囲の ERT テスト: search normal/abnormal + by-query normal/abnormal + find-node normal/abnormal を実行。
 - コードレビュー: WIP で /review。
 - WIP コミット。
+
+** DONE M31: org-tasktree-sync-subtree の改修
+*** DONE 仕様の確認
+- `org-tasktree-sync-subtree`の現在の実装では Emacs 上のカーソル位置が見出し行にないとエラーメッセージが表示されるが、
+  カーソルが見出し行になくても`org-tasktree-sync-subtree` を実行できるようにする。
+- カーソルのある行から見て最も近い上の行の見出しを処理対象とする。
+- カーソル位置より上の行に見出しがない場合は、エラーメッセージを表示する。
+
+例:
+  #+begin_src org
+  * AAA
+    ** BBB
+    <cursor position>
+    *** CCC
+    * DDD
+  #+end_src
+
+  上記の例では'BBB/CCC'を処理対象とする。
+  
+*** DONE 実装
+*** DONE ERT テスト
+*** DONE ユーザーテスト
+*** DONE コードレビュー
+
+** M32: 見出しに'/'を含む場合の対応
+*** TODO 仕様の確認
+- 現在の仕様では、`sync-*`で見出しに'/'を含む場合は、バリデーションチェックでエラーになる。
+- 問題は、`sync-region/subtree`で更新対象の見出しと関係のない見出しに'/'を含まれている場合もバリデーションエラーとなる点である。
+  
+考えられる対応方法:
+1. `title`の禁足文字から'/'を外す。
+   そもそも'/'を禁足文字にしたのは、`find-node`のミニバッファで Node パスを'/'区切りで表示しているので title に'/'が入っていると紛らわしいからである。`title`に'/'を指定できないのは不便ではある。
+   禁足文字から'/'を外す場合は、`find-node`のミニバッファの表示をどうするか検討する必要がある。
+2. `sync-region/subtree`で更新対象外の見出しはバリデーションチェックしないようにする。
+3. 1 と 2 の両方の修正を行う。
+
+結論:
+
+*** TODO 実装
+*** TODO ERT テスト
+*** TODO ユーザーテスト
+*** TODO コードレビュー
 
 ** 上位 Node の status が"DONE"になった場合に下位 Node も"DONE"に設定
 * v0.4 以降
