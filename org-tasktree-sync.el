@@ -423,16 +423,18 @@ CACHED is non-nil when RAW's UID exists in CACHE."
 
 (defun org-tasktree-sync--collect-headlines-in-range (beg end)
   "Return headline plists whose begin is within BEG..END."
-  (let* ((items (org-tasktree-sync--collect-headlines))
-         (in-range
-          (seq-filter
-           (lambda (item)
-             (let ((pos (plist-get item :begin)))
-               (and (integerp pos) (<= beg pos) (< pos end))))
-           items)))
-    (mapcar (lambda (item)
-              (plist-put item :scope-limited t))
-            in-range)))
+  (org-with-wide-buffer
+    (let* ((tree (org-element-parse-buffer))
+           (items
+            (org-element-map tree 'headline
+              (lambda (headline)
+                (let ((pos (org-element-property :begin headline)))
+                  (when (and (integerp pos) (<= beg pos) (< pos end))
+                    (org-tasktree-sync--headline->raw headline))))))
+           (in-range (seq-filter #'identity items)))
+      (mapcar (lambda (item)
+                (plist-put item :scope-limited t))
+              in-range))))
 
 (defun org-tasktree-sync-buffer ()
   "Sync current org buffer into SQLite database."
