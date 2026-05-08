@@ -331,25 +331,59 @@
 *** DONE ユーザーテスト
 *** DONE コードレビュー
 
-** 上位 Node の status が"DONE"になった場合に下位 Node も"DONE"に設定
-* v0.4 以降
-** ChatGPT との連携
-** ガントチャートライクな Project / Phase 管理
-** XDG 対応
-** MELPA 公開対応
-** 繰り返しタスクの履歴登録
-** CLOSED 表示・履歴管理
-org-mode の以下の履歴情報の扱いを検討
-```
-CLOSED: <2025-12-09 Tue 21:45>
+** M33 上位 Node の status が"DONE"になった場合に下位 Node も"DONE"に設定
+*** DONE 仕様の確認
+- `org-tasktree-sync-buffer`, `org-tasktree-sync-region`, `org-tasktree-sync-subtree` で Node の status が "DONE" になった場合に下位 Node も "DONE" に設定する。
+- DB に既に存在する全子孫を一括で DONE にする。
+- 更新対象は `nodes.status` / `nodes.todo_keyword` / `nodes.closed_at` / `nodes.updated_at` とする。
+- 上位 Node と子孫 Node の `todo_keyword` は "DONE" に設定する。
+- 上位 Node と子孫 Node の `closed_at` は sync 実行時の timestamp に設定する。
+- 上位 Node が "DONE" になった場合、sync 対象スコープ外の DB 子孫も DONE にする。
+- 上位 Node 自身が新規作成された場合は、DB 上の既存子孫が存在しないため追加更新は発生しない。
+- 上位 Node が "OPEN" の場合、子孫の status は変更しない。
+*** DONE ドキュメント追加・修正
+- docs/spec/sync-commit.org に DONE 伝播仕様を追記する。
+- docs/spec/test-case.org に DONE 伝播の正常系 test case を追加する。
+*** DONE 実装
+- `org-tasktree-sync.el` または `org-tasktree-db.el` に、指定 Node の DB 子孫を `status='DONE'` に更新する処理を追加する。
+- `org-tasktree-sync-*` の commit 後、保存された Node の status が "DONE" の場合に子孫 DONE 更新を実行する。
+- 既存の `DEL` 子孫削除処理とは独立した処理として実装する。
+*** DONE ERT テスト
+- `org-tasktree-sync-buffer` で親 Node を DONE にした場合、DB 上の子孫 Node が DONE になること。
+- `org-tasktree-sync-region` / `org-tasktree-sync-subtree` で、sync スコープ外の既存 DB 子孫も DONE になること。
+- 親 Node が OPEN の場合、子孫 Node の status が変更されないこと。
+- 上位 Node と子孫 Node の `todo_keyword` が DONE になること。
+- 上位 Node と子孫 Node の `closed_at` に sync 実行時の timestamp が設定されること。
+*** TODO ユーザーテスト
+- 既存ツリーの親見出しを DONE にして `org-tasktree-sync-subtree` を実行し、検索結果または DB で子孫が DONE になることを確認する。
+*** TODO コードレビュー
 
-:LOGBOOK:
-CLOCK: [2025-12-01 Mon 12:00]
-CLOCK: [2025-12-02 Tue 09:00]--[2025-12-02 Tue 12:00] => 3:00
-CLOCK: [2025-12-03 Wed 09:30]--[2025-12-03 Wed 10:35] => 1:05
-:END:
-```
+** M34 `org-tasktree-find-node`の Node 別カラー設定の変更
+*** TODO 仕様の確認
+`tags`フィールドの値によって以下の色を設定する。
+- domain: 青
+- project: 緑
+- phase: ピンク
+- group: オレンジ
+- domain / project / phase / group タグが無い場合は task 相当として白を設定する。
+- 大小文字は区別しない。
+- 複数の分類タグが混在する場合は `domain > project > phase > group > task` の順で優先して決定する。
+- この変更は表示色のみを変更し、親子階層の制約は追加しない。
 
-
-** 新規作成: org-tasktree-project-archive
-** 新規作成: org-tasktree-project-restore
+*** TODO ドキュメント追加・修正
+- docs/spec/overview.org に domain tag を使った推奨階層例を追記する。
+- docs/spec/ui.org に `org-tasktree-find-node` の Node 別カラー判定仕様を追記する。
+- docs/spec/customization.org に completion color 用 defcustom を追記する。
+*** TODO 実装
+- `org-tasktree-ui-minibuffer--type-from-tags` に `domain` 判定を追加する。
+- `org-tasktree-ui-minibuffer--completion-color` に `domain` を追加する。
+- `org-tasktree-ui-minibuffer-completion-color-domain` を追加する。
+- 既存色を新仕様に合わせて変更する。
+*** TODO ERT テスト
+- `:domain:` tag の candidate type が `domain` になること。
+- `:Domain:` のように大小文字が混在しても `domain` になること。
+- `:domain:project:` のように複数分類タグがある場合、優先順位どおり `domain` になること。
+- 分類 tag が無い場合は `task` になること。
+*** TODO ユーザーテスト
+- `org-tasktree-find-node` を起動し、domain / project / phase / group / task 相当の Node がそれぞれ指定色で表示されることを確認する。
+*** TODO コードレビュー

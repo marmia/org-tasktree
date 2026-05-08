@@ -8,6 +8,9 @@ work/
 .serena/
 .codex/
 .ck/
+scripts/
+__pycache__/
+*.pyc
 
 # Emacs temporary/compiled files
 *~

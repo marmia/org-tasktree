@@ -93,4 +93,15 @@
 3. トランザクション開始
 4. 親ノードから順に、`uid` が既存の場合は UPDATE、未登録の場合は INSERT（id/uid/created_at は不変、updated_at は現在時刻）
 5. node_tags を対象 node_id について DELETE し、tags 文字列からパースしたタグを INSERT
-6. COMMIT
+6. 保存されたノードの status が DONE の場合、そのノードと DB 上の全子孫ノードを完了状態に更新する
+7. COMMIT
+
+** DONE status の子孫伝播
+
+- `org-tasktree-sync-buffer` / `org-tasktree-sync-region` / `org-tasktree-sync-subtree` は、保存されたノードの status が DONE の場合、そのノードと DB に既に存在する全子孫ノードを完了状態にする。
+- 更新対象は `nodes.status` / `nodes.todo_keyword` / `nodes.closed_at` / `nodes.updated_at` とする。
+- status は `DONE`、todo_keyword は `DONE`、closed_at と updated_at は sync 実行時の timestamp に設定する。
+- DONE 伝播は sync 対象スコープ外の DB 子孫にも適用する。
+- 上位ノード自身が新規作成された場合、DB 上の既存子孫は存在しないため追加更新は発生しない。
+- 上位ノードの status が OPEN の場合、子孫ノードの status は変更しない。
+- DONE 伝播は DEL による子孫削除処理とは独立して実行する。

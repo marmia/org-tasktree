@@ -383,6 +383,37 @@ id, title, parent_id, status, tags
 - III の parent_id は HHH、JJJ の parent_id は III。
 - 各 node の全カラムが期待値どおりに設定される（未指定属性は NULL）。
 
+**** case-upd9: 親 node を DONE にした場合、DB 子孫も DONE になる
+***** テストデータ
+- 更新後の見出し構成:
+  - DONE AAA
+    - BBB
+      - CCC
+        - DDD
+          - EEE
+- 入力データ: test/test-data/sync-normal-upd-09.org
+***** 期待される結果
+- AAA の `status` / `todo_keyword` が DONE になり、`closed_at` に sync 実行時の timestamp が設定される。
+- AAA の DB 子孫である BBB/CCC/DDD/EEE の `status` / `todo_keyword` も DONE になり、`closed_at` に sync 実行時の timestamp が設定される。
+
+**** case-upd10: 部分 sync で DONE にした場合、スコープ外 DB 子孫も DONE になる
+***** テストデータ
+- 更新後の見出し構成:
+  - DONE BBB
+- 入力データ: test/test-data/sync-normal-upd-10.org
+***** 期待される結果
+- BBB の `status` / `todo_keyword` が DONE になり、`closed_at` に sync 実行時の timestamp が設定される。
+- sync スコープ外の DB 子孫である CCC/DDD/EEE の `status` / `todo_keyword` も DONE になり、`closed_at` に sync 実行時の timestamp が設定される。
+
+**** case-upd11: 親 node が OPEN の場合、DB 子孫 status は変更されない
+***** テストデータ
+- 更新後の見出し構成:
+  - BBB
+- 入力データ: test/test-data/sync-normal-upd-11.org
+***** 期待される結果
+- BBB の status は OPEN のままである。
+- DB 子孫である CCC/DDD/EEE の status は変更されない。
+
 ** 異常系
 *** テスト共通手順
 - 最初に初期化処理(org-tasktree-test-helper-reset-db)を実行

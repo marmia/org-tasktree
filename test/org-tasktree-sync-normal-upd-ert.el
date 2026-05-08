@@ -11,9 +11,22 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'ert)
 (require 'org-tasktree-model)
 (require 'org-tasktree-sync-ert)
+
+(defun org-tasktree-sync-normal-upd-ert--set-node-fields
+    (uid &rest fields)
+  "Set node FIELDS for UID in the test database."
+  (org-tasktree-db--with-db db
+    (while fields
+      (let ((column (pop fields))
+            (value (pop fields)))
+        (sqlite-execute
+         db
+         (format "UPDATE nodes SET %s = ? WHERE uid = ?;" column)
+         (vector value uid))))))
 
 (ert-deftest org-tasktree-sync-normal-upd-ert1-full-path ()
   "Normal case: update full path (single tree)."
@@ -357,6 +370,108 @@
        :status "OPEN"
        :parent-id iii-id
        :expect-nil '(:todo-keyword :priority :scheduled :deadline :repeat :tags)))))
+
+(ert-deftest org-tasktree-sync-normal-upd-ert9-done-cascades-buffer ()
+  "Normal case: DONE parent cascades to DB descendants in buffer sync."
+  (org-tasktree-sync-ert--seed-update-tree)
+  (org-tasktree-sync-ert--sync-file-without-reset "sync-normal-upd-09.org")
+  (let ((aaa (org-tasktree-sync-ert--fetch-node-by-uid
+              org-tasktree-sync-ert--uid-aaa))
+        (bbb (org-tasktree-sync-ert--fetch-node-by-uid
+              org-tasktree-sync-ert--uid-bbb))
+        (ccc (org-tasktree-sync-ert--fetch-node-by-uid
+              org-tasktree-sync-ert--uid-ccc))
+        (ddd (org-tasktree-sync-ert--fetch-node-by-uid
+              org-tasktree-sync-ert--uid-ddd))
+        (eee (org-tasktree-sync-ert--fetch-node-by-uid
+              org-tasktree-sync-ert--uid-eee)))
+    (dolist (node (list aaa bbb ccc ddd eee))
+      (should (equal "DONE" (org-tasktree-model-node-status node)))
+      (should (equal "DONE" (org-tasktree-model-node-todo-keyword node)))
+      (org-tasktree-sync-ert--assert-nonempty-string
+       (org-tasktree-model-node-closed-at node)
+       "closed_at"))))
+
+(ert-deftest org-tasktree-sync-normal-upd-ert10-done-cascades-region ()
+  "Normal case: DONE parent cascades to descendants outside region."
+  (org-tasktree-sync-ert--seed-update-tree)
+  (org-tasktree-sync-normal-upd-ert--set-node-fields
+   org-tasktree-sync-ert--uid-ddd
+   "closed_at" "2026-01-15T10:00:00+09:00")
+  (org-tasktree-sync-ert--with-org-buffer
+   "sync-normal-upd-10.org"
+   (lambda ()
+     (cl-letf (((symbol-function 'use-region-p) (lambda () t)))
+       (org-tasktree-sync-region (point-min) (point-max)))))
+  (let ((bbb (org-tasktree-sync-ert--fetch-node-by-uid
+              org-tasktree-sync-ert--uid-bbb))
+        (ccc (org-tasktree-sync-ert--fetch-node-by-uid
+              org-tasktree-sync-ert--uid-ccc))
+        (ddd (org-tasktree-sync-ert--fetch-node-by-uid
+              org-tasktree-sync-ert--uid-ddd))
+        (eee (org-tasktree-sync-ert--fetch-node-by-uid
+              org-tasktree-sync-ert--uid-eee)))
+    (dolist (node (list bbb ccc ddd eee))
+      (should (equal "DONE" (org-tasktree-model-node-status node)))
+      (should (equal "DONE" (org-tasktree-model-node-todo-keyword node)))
+      (org-tasktree-sync-ert--assert-nonempty-string
+       (org-tasktree-model-node-closed-at node)
+       "closed_at"))
+    (should-not (equal "2026-01-15T10:00:00+09:00"
+                       (org-tasktree-model-node-closed-at ddd)))))
+
+(ert-deftest org-tasktree-sync-normal-upd-ert11-done-cascades-subtree ()
+  "Normal case: DONE parent cascades to descendants outside subtree."
+  (org-tasktree-sync-ert--seed-update-tree)
+  (org-tasktree-sync-normal-upd-ert--set-node-fields
+   org-tasktree-sync-ert--uid-ddd
+   "closed_at" "2026-01-16T10:00:00+09:00")
+  (org-tasktree-sync-ert--with-org-buffer
+   "sync-normal-upd-10.org"
+   (lambda ()
+     (goto-char (point-min))
+     (search-forward "BBB")
+     (org-tasktree-sync-subtree)))
+  (let ((bbb (org-tasktree-sync-ert--fetch-node-by-uid
+              org-tasktree-sync-ert--uid-bbb))
+        (ccc (org-tasktree-sync-ert--fetch-node-by-uid
+              org-tasktree-sync-ert--uid-ccc))
+        (ddd (org-tasktree-sync-ert--fetch-node-by-uid
+              org-tasktree-sync-ert--uid-ddd))
+        (eee (org-tasktree-sync-ert--fetch-node-by-uid
+              org-tasktree-sync-ert--uid-eee)))
+    (dolist (node (list bbb ccc ddd eee))
+      (should (equal "DONE" (org-tasktree-model-node-status node)))
+      (should (equal "DONE" (org-tasktree-model-node-todo-keyword node)))
+      (org-tasktree-sync-ert--assert-nonempty-string
+       (org-tasktree-model-node-closed-at node)
+       "closed_at"))
+    (should-not (equal "2026-01-16T10:00:00+09:00"
+                       (org-tasktree-model-node-closed-at ddd)))))
+
+(ert-deftest org-tasktree-sync-normal-upd-ert12-open-does-not-cascade ()
+  "Normal case: OPEN parent does not change descendant status."
+  (org-tasktree-sync-ert--seed-update-tree)
+  (org-tasktree-sync-normal-upd-ert--set-node-fields
+   org-tasktree-sync-ert--uid-ddd
+   "status" "DONE")
+  (org-tasktree-sync-ert--with-org-buffer
+   "sync-normal-upd-11.org"
+   (lambda ()
+     (cl-letf (((symbol-function 'use-region-p) (lambda () t)))
+       (org-tasktree-sync-region (point-min) (point-max)))))
+  (let ((bbb (org-tasktree-sync-ert--fetch-node-by-uid
+              org-tasktree-sync-ert--uid-bbb))
+        (ccc (org-tasktree-sync-ert--fetch-node-by-uid
+              org-tasktree-sync-ert--uid-ccc))
+        (ddd (org-tasktree-sync-ert--fetch-node-by-uid
+              org-tasktree-sync-ert--uid-ddd))
+        (eee (org-tasktree-sync-ert--fetch-node-by-uid
+              org-tasktree-sync-ert--uid-eee)))
+    (should (equal "OPEN" (org-tasktree-model-node-status bbb)))
+    (should (equal "OPEN" (org-tasktree-model-node-status ccc)))
+    (should (equal "DONE" (org-tasktree-model-node-status ddd)))
+    (should (equal "OPEN" (org-tasktree-model-node-status eee)))))
 
 (provide 'org-tasktree-sync-normal-upd-ert)
 ;;; org-tasktree-sync-normal-upd-ert.el ends here

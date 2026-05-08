@@ -1,0 +1,7 @@
+#+title: Test Data - Sync Case Normal Upd 10
+
+* DONE BBB (after upd10)
+:PROPERTIES:
+:UID: c01ef21b-3bda-5a2b-9179-20fc145215e9
+:END:
+BBB after upd10.

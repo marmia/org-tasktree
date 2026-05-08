@@ -338,8 +338,8 @@ CACHED is non-nil when RAW's UID exists in CACHE."
       (or (and parent-uid (gethash parent-uid uid->id))
           (user-error "Parent ID not resolved for uid=%s" parent-uid)))))
 
-(defun org-tasktree-sync--item->node (item uid->id)
-  "Convert ITEM to `org-tasktree-model-node' using UID->ID."
+(defun org-tasktree-sync--item->node (item uid->id now)
+  "Convert ITEM to `org-tasktree-model-node' using UID->ID and NOW."
   (let* ((uid (org-tasktree-sync--ensure-uid item))
          (existing (plist-get item :existing))
          (parent (plist-get item :parent))
@@ -363,17 +363,18 @@ CACHED is non-nil when RAW's UID exists in CACHE."
                 (tags (org-tasktree-model-tags->org-string tags))
                 (t nil)))
          (content (plist-get item :content))
-         (status (plist-get item :status)))
+         (status (plist-get item :status))
+         (done (string= status "DONE")))
     (org-tasktree-model-node-create
      :uid uid
      :parent-id parent-id
-     :todo-keyword todo-keyword
+     :todo-keyword (if done "DONE" todo-keyword)
      :title (plist-get item :title)
      :priority priority
      :scheduled scheduled
      :deadline deadline
      :repeat repeat
-     :closed-at nil
+     :closed-at (and done now)
      :tags tags
      :content content
      :status status)))
@@ -395,6 +396,7 @@ CACHED is non-nil when RAW's UID exists in CACHE."
              (delete-uids (plist-get build :delete-uids))
              (now (format-time-string "%FT%T%:z" (current-time)))
              (uid->id (make-hash-table :test 'equal))
+             (done-node-ids nil)
              (delete-count (org-tasktree-db-count-subtree-by-uids
                             db delete-uids)))
         (dolist (uid uids)
@@ -409,14 +411,18 @@ CACHED is non-nil when RAW's UID exists in CACHE."
          cache)
         (org-tasktree-db-delete-subtree-by-uids db delete-uids)
         (dolist (item items)
-          (let* ((node (org-tasktree-sync--item->node item uid->id))
+          (let* ((node (org-tasktree-sync--item->node item uid->id now))
                  (prepared (org-tasktree-db-commit-nodes-with-db
                             db (list node) cache now))
                  (saved (car prepared))
                  (saved-id (org-tasktree-model-node-id saved))
                  (saved-uid (org-tasktree-model-node-uid saved)))
             (when (numberp saved-id)
-              (puthash saved-uid saved-id uid->id))))
+              (puthash saved-uid saved-id uid->id)
+              (when (string= (org-tasktree-model-node-status saved) "DONE")
+                (push saved-id done-node-ids)))))
+        (org-tasktree-db-mark-descendants-done
+         db (delete-dups done-node-ids) now)
         (message "org-tasktree: sync completed (updated %d, deleted %d)"
                  (length items)
                  delete-count)))))

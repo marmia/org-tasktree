@@ -197,6 +197,37 @@ NOW is an optional timestamp string for updated_at."
            (row (car (sqlite-select db sql (apply #'vector uids)))))
       (if row (org-tasktree-db--row-nth row 0) 0))))
 
+(defun org-tasktree-db-mark-descendants-done (db node-ids now)
+  "Mark DB descendants of NODE-IDS as DONE using timestamp NOW.
+Only descendant rows are updated.  NODE-IDS themselves are not changed.
+The update changes `nodes.status', `nodes.todo_keyword',
+`nodes.closed_at', and `nodes.updated_at' only.
+Return the number of changed rows."
+  (if (null node-ids)
+      0
+    (let* ((placeholder (org-tasktree-db--sql-in (length node-ids)))
+           (sql (format
+                 (mapconcat
+                  #'identity
+                  '("WITH RECURSIVE descendants(id) AS ("
+                    "  SELECT id FROM nodes WHERE parent_id IN %s"
+                    "  UNION"
+                    "  SELECT n.id FROM nodes n"
+                    "    JOIN descendants d ON n.parent_id = d.id"
+                    ")"
+                    "UPDATE nodes"
+                    "   SET status = 'DONE',"
+                    "       todo_keyword = 'DONE',"
+                    "       closed_at = ?,"
+                    "       updated_at = ?"
+                    " WHERE id IN (SELECT id FROM descendants);")
+                  "\n")
+                 placeholder))
+           (params (apply #'vector (append node-ids (list now now)))))
+      (sqlite-execute db sql params)
+      (let ((row (car (sqlite-select db "SELECT changes();"))))
+        (if row (org-tasktree-db--row-nth row 0) 0)))))
+
 (defun org-tasktree-db--last-rowid (db)
   "Return last inserted rowid on DB."
   (let ((rows (sqlite-select db "SELECT last_insert_rowid();")))
