@@ -55,5 +55,18 @@
     (should-error (org-tasktree-search-all)
                   :type 'user-error)))
 
+(ert-deftest org-tasktree-search-abnormal-ert-error-open ()
+  "Abnormal case: invalid scheduled values raise `user-error'."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-invalid-date-data)
+    (should-error (org-tasktree-search-open)
+                  :type 'user-error)))
+
+(ert-deftest org-tasktree-search-abnormal-ert-open-tree-allows-invalid-dates ()
+  "Abnormal case: open-tree completion allows invalid dates."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-invalid-date-data)
+    (should (= 2 (length (org-tasktree-query-open-tree))))))
+
 (provide 'org-tasktree-search-abnormal-ert)
 ;;; org-tasktree-search-abnormal-ert.el ends here

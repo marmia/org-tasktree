@@ -73,5 +73,15 @@
      "All"
      "search-normal-06.org")))
 
+(ert-deftest org-tasktree-search-normal-ert-open ()
+  "Normal case: search OPEN nodes."
+  (org-tasktree-test-helper-with-fixed-time org-tasktree-search-ert--base-time
+    (org-tasktree-search-ert--seed-normal-data)
+    (save-window-excursion
+      (org-tasktree-search-open))
+    (org-tasktree-search-ert--assert-search-output
+     "Open"
+     "search-normal-07.org")))
+
 (provide 'org-tasktree-search-normal-ert)
 ;;; org-tasktree-search-normal-ert.el ends here

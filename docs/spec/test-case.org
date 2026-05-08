@@ -733,6 +733,11 @@ id, title, parent_id, status, tags
 - test/test-data/search-normal-06.org
 **** 期待される結果
 - 出力バッファの内容と検証用テストデータの内容に差分がない。
+*** case-normal-07: org-tasktree-search-open
+**** 検証用テストデータ
+- test/test-data/search-normal-07.org
+**** 期待される結果
+- 出力バッファの内容と検証用テストデータの内容に差分がない。
 
 ** 異常系
 *** 異常系テストケース共通・テストデータ
@@ -850,6 +855,13 @@ COMMIT;
 *** case-err-06: org-tasktree-search-all
 **** テスト実施方法
 異常系初期データを登録した状態で`org-tasktree-search-all`を実行
+
+**** 期待される結果
+- `user-error` が発生する
+
+*** case-err-07: org-tasktree-search-open
+**** テスト実施方法
+異常系初期データを登録した状態で`org-tasktree-search-open`を実行
 
 **** 期待される結果
 - `user-error` が発生する

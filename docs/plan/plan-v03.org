@@ -358,7 +358,7 @@
 - 既存ツリーの親見出しを DONE にして `org-tasktree-sync-subtree` を実行し、検索結果または DB で子孫が DONE になることを確認する。
 *** DONE コードレビュー
 
-** M34 `org-tasktree-find-node`の Node 別カラー設定の変更
+** DONE M34 `org-tasktree-find-node`の Node 別カラー設定の変更
 *** DONE 仕様の確認
 `tags`フィールドの値によって以下の色を設定する。
 - domain: グリーン (#40C97E)
@@ -384,6 +384,16 @@
 - `:Domain:` のように大小文字が混在しても `domain` になること。
 - `:domain:project:` のように複数分類タグがある場合、優先順位どおり `domain` になること。
 - 分類 tag が無い場合は `task` になること。
-*** TODO ユーザーテスト
+*** DONE ユーザーテスト
 - `org-tasktree-find-node` を起動し、domain / project / phase / group / task 相当の Node がそれぞれ指定色で表示されることを確認する。
-*** TODO コードレビュー
+*** DONE コードレビュー
+
+** DONE M35 `org-tasktree-search-open`関数の追加
+*** DONE 仕様の確認
+- `org-tasktree-search-all`関数は、全 Node を取得するが、`status = OPEN`の Node のみを取得する `org-tasktree-search-open`を作成する。
+
+*** DONE ドキュメント追加・修正
+*** DONE 実装
+*** DONE ERT テスト
+*** DONE ユーザーテスト
+*** DONE コードレビュー

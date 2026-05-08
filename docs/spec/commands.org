@@ -230,6 +230,18 @@
 - 出力バッファを開き、org-mode 形式でツリーを展開する
   - 出力バッファは`q`キーで閉じる
 
+** org-tasktree-search-open
+*** 目的
+- nodes テーブルから status=OPEN のデータのみを取得して出力バッファに org-mode 形式で出力する。
+- status=DONE のデータは出力しない。
+
+*** 処理内容
+- nodes テーブルから status=OPEN のデータのみを取得する。
+  - node 情報は重複なく正規化したデータを取得
+  - 所得する属性情報: uid, todo_keyword, title, priority, scheduled, deadline, tags, content
+- 出力バッファを開き、org-mode 形式でツリーを展開する
+  - 出力バッファは`q`キーで閉じる
+
 ** org-tasktree-search-by-query
 *** 目的
 - `org-tasktree-query-dir`配下の YAML クエリーで tasktree を検索・取得する。

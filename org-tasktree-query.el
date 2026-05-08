@@ -88,6 +88,17 @@ Parents are included."
     (org-tasktree-query-sql--validate-date-field db "deadline"))
   (org-tasktree-query-sql--fetch "1=1" []))
 
+(defun org-tasktree-query-search-open ()
+  "Return OPEN nodes.
+DONE nodes are excluded, including ancestors."
+  (org-tasktree-db--with-db db
+    (org-tasktree-query-sql--validate-date-field db "scheduled")
+    (org-tasktree-query-sql--validate-date-field db "deadline"))
+  (seq-filter
+   (lambda (node)
+     (equal (org-tasktree-model-node-status node) "OPEN"))
+   (org-tasktree-query-sql--fetch "status='OPEN'" [])))
+
 (defun org-tasktree-query-default-template ()
   "Return default query YAML template string."
   (string-join
@@ -127,8 +138,8 @@ Parents are included."
 (defun org-tasktree-query-open-tree ()
   "Return OPEN nodes in preorder."
   (seq-filter
-   (lambda (n)
-     (equal (org-tasktree-model-node-status n) "OPEN"))
+   (lambda (node)
+     (equal (org-tasktree-model-node-status node) "OPEN"))
    (org-tasktree-query-sql--fetch "status='OPEN'" [])))
 
 (defun org-tasktree-query-get-node-by-id (id)

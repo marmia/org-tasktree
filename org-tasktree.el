@@ -21,7 +21,7 @@
 (require 'org-tasktree-ui)
 (require 'org-tasktree-sync)
 
-(declare-function org-tasktree-ui-edit-node "org-tasktree-ui")
+(declare-function org-tasktree-ui-edit-node "org-tasktree-ui-edit")
 
 (defgroup org-tasktree nil
   "Task management via `org-mode' UI backed by SQLite."
@@ -109,6 +109,13 @@ This value is used as the inbox title only at initialization time."
   (org-tasktree-view-display-tree
    (org-tasktree-query-search-all)
    "All"))
+
+(defun org-tasktree-search-open ()
+  "Search OPEN nodes."
+  (interactive)
+  (org-tasktree-view-display-tree
+   (org-tasktree-query-search-open)
+   "Open"))
 
 (defun org-tasktree-search-by-query ()
   "Search task tree by YAML query."
