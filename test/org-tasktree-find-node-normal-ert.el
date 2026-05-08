@@ -68,9 +68,12 @@
       (should (member "work/design/alpha" raw))
       (should (member "work/design/alpha/task1" raw))
       (should (member "work/design/alpha/task1/child1" raw))
+      (should (member "domain1" raw))
       (should (member "work/caps-project" raw))
+      (should (member "work/caps-domain" raw))
       (should (member "work/mixed-phase-group" raw))
       (should (member "work/mixed-project-group" raw))
+      (should (member "work/mixed-domain-project" raw))
       (should-not (member "archive" raw))
       (should-not (seq-some
                    (lambda (path)
@@ -96,10 +99,18 @@
                      (org-tasktree-find-node-normal-ert--candidate-type
                       org-tasktree-find-node-ert--captured-cands
                       "work/design/alpha/task1/child1")))
+      (should (equal 'domain
+                     (org-tasktree-find-node-normal-ert--candidate-type
+                      org-tasktree-find-node-ert--captured-cands
+                      "domain1")))
       (should (equal 'project
                      (org-tasktree-find-node-normal-ert--candidate-type
                       org-tasktree-find-node-ert--captured-cands
                       "work/caps-project")))
+      (should (equal 'domain
+                     (org-tasktree-find-node-normal-ert--candidate-type
+                      org-tasktree-find-node-ert--captured-cands
+                      "work/caps-domain")))
       (should (equal 'phase
                      (org-tasktree-find-node-normal-ert--candidate-type
                       org-tasktree-find-node-ert--captured-cands
@@ -107,7 +118,50 @@
       (should (equal 'project
                      (org-tasktree-find-node-normal-ert--candidate-type
                       org-tasktree-find-node-ert--captured-cands
-                      "work/mixed-project-group"))))))
+                      "work/mixed-project-group")))
+      (should (equal 'domain
+                     (org-tasktree-find-node-normal-ert--candidate-type
+                      org-tasktree-find-node-ert--captured-cands
+                      "work/mixed-domain-project"))))))
+
+(ert-deftest org-tasktree-find-node-normal-ert-type-from-tags ()
+  "Normal case: candidate type follows classification tag priority."
+  (should (equal 'domain
+                 (org-tasktree-ui-minibuffer--type-from-tags ":domain:")))
+  (should (equal 'domain
+                 (org-tasktree-ui-minibuffer--type-from-tags ":Domain:")))
+  (should (equal 'domain
+                 (org-tasktree-ui-minibuffer--type-from-tags
+                  ":domain:project:")))
+  (should (equal 'project
+                 (org-tasktree-ui-minibuffer--type-from-tags
+                  ":project:phase:")))
+  (should (equal 'phase
+                 (org-tasktree-ui-minibuffer--type-from-tags
+                  ":phase:group:")))
+  (should (equal 'task
+                 (org-tasktree-ui-minibuffer--type-from-tags
+                  ":unit_test:task1:"))))
+
+(ert-deftest org-tasktree-find-node-normal-ert-unbound-domain-color ()
+  "Normal case: domain color has a fallback when its defcustom is unbound."
+  (let ((was-bound (boundp 'org-tasktree-ui-minibuffer-completion-color-domain))
+        (old-value (and (boundp 'org-tasktree-ui-minibuffer-completion-color-domain)
+                        org-tasktree-ui-minibuffer-completion-color-domain)))
+    (unwind-protect
+        (progn
+          (makunbound 'org-tasktree-ui-minibuffer-completion-color-domain)
+          (should (equal "#40C97E"
+                         (org-tasktree-ui-minibuffer--completion-color
+                          'domain)))
+          (should (stringp
+                   (org-tasktree-ui-minibuffer--make-path-candidate
+                    "domain1"
+                    'domain
+                    nil
+                    ":domain:"))))
+      (when was-bound
+        (setq org-tasktree-ui-minibuffer-completion-color-domain old-value)))))
 
 (ert-deftest org-tasktree-find-node-normal-ert-new-node-selection ()
   "Normal case: new node selection returns parent metadata."

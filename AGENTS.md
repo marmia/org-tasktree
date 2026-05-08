@@ -208,6 +208,22 @@ The following files are auto-generated and MUST NOT be committed:
 
 They may be deleted at any time and SHOULD be ignored by version control.
 
+### Local Emacs cache cleanup
+
+`test/cleanup.sh` only removes generated files inside this repository.
+When Doom Emacs / straight.el loads stale `org-tasktree` byte-compiled
+or native-compiled files from the user Emacs cache, run:
+
+```sh
+scripts/cleanup-emacs-cache.sh
+```
+
+This script is for local development cache cleanup.  It removes
+`org-tasktree*.elc` from the Doom straight build directory and
+`org-tasktree*.eln` from the Doom native compilation cache.  Do not fold
+this behavior into the normal test cleanup workflow, because those paths are
+user-environment-specific and outside the repository.
+
 ---
 ## Project Notes
 

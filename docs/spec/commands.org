@@ -48,14 +48,15 @@
          personal/hobby/guitar
          personal/hobby/guitar/practice
          #+end_example
-     - tag に project/phase/group を設定している場合、tag に応じて色を分けて表示する。
-       - 大小文字は区別しない。
-       - tag が混在する場合は project > phase > group の順で優先する。
-       - Default 値:
-         - project: DeepSkyBlue
-         - phase: MediumSeaGreen
-         - group: DarkOrange
-         - task: white (project/phase/group タグ無し)
+   - tag に domain/project/phase/group を設定している場合、tag に応じて色を分けて表示する。
+     - 大小文字は区別しない。
+     - tag が混在する場合は domain > project > phase > group の順で優先する。
+     - Default 値:
+       - domain: #40C97E
+       - project: #66BFFF
+       - phase: #F08AC2
+       - group: #FFB366
+       - task: white (domain/project/phase/group タグ無し)
 
 2. ユーザーが node を入力/選択して'Enter'キーを押すと node 編集バッファを開く
    - ユーザーが既存の node 名を入力した場合、更新処理として扱う。

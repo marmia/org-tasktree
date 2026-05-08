@@ -91,7 +91,14 @@ and TAGS are the org tags."
 
 (defun org-tasktree-find-node-ert--seed-open-tree ()
   "Seed a sample open tree for find-node test."
-  (let* ((project (org-tasktree-find-node-ert--make-node
+  (let* ((domain (org-tasktree-find-node-ert--make-node
+                  :uid "10101010-1010-4010-8010-101010101010"
+                  :title "domain1"
+                  :todo-keyword nil
+                  :status "OPEN"
+                  :parent-id nil
+                  :tags ":domain:"))
+         (project (org-tasktree-find-node-ert--make-node
                    :uid "11111111-1111-4111-8111-111111111111"
                    :title "work"
                    :todo-keyword nil
@@ -133,6 +140,13 @@ and TAGS are the org tags."
                         :status "OPEN"
                         :parent-id :keep
                         :tags ":Project:"))
+         (caps-domain (org-tasktree-find-node-ert--make-node
+                       :uid "60606060-6060-4060-8060-606060606060"
+                       :title "caps-domain"
+                       :todo-keyword nil
+                       :status "OPEN"
+                       :parent-id :keep
+                       :tags ":Domain:"))
          (mixed-phase-group (org-tasktree-find-node-ert--make-node
                              :uid "77777777-7777-4777-8777-777777777777"
                              :title "mixed-phase-group"
@@ -146,14 +160,26 @@ and TAGS are the org tags."
                                :todo-keyword nil
                                :status "OPEN"
                                :parent-id :keep
-                               :tags ":project:group:")))
+                               :tags ":project:group:"))
+         (mixed-domain-project (org-tasktree-find-node-ert--make-node
+                                :uid "80808080-8080-4080-8080-808080808080"
+                                :title "mixed-domain-project"
+                                :todo-keyword nil
+                                :status "OPEN"
+                                :parent-id :keep
+                                :tags ":domain:project:")))
     (org-tasktree-test-helper-reset-db)
+    (org-tasktree-find-node-ert--insert-node domain)
     (let* ((project-node (org-tasktree-find-node-ert--insert-node project))
            (project-id (org-tasktree-model-node-id project-node)))
       (setf (org-tasktree-model-node-parent-id phase) project-id)
       (let* ((phase-node (org-tasktree-find-node-ert--insert-node phase))
              (phase-id (org-tasktree-model-node-id phase-node)))
-        (dolist (node (list caps-project mixed-phase-group mixed-project-group))
+        (dolist (node (list caps-project
+                            caps-domain
+                            mixed-phase-group
+                            mixed-project-group
+                            mixed-domain-project))
           (setf (org-tasktree-model-node-parent-id node) project-id)
           (org-tasktree-find-node-ert--insert-node node))
         (setf (org-tasktree-model-node-parent-id group) phase-id)

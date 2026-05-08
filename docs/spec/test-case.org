@@ -56,9 +56,12 @@ id, title, parent_id, status, tags
 3, alpha, 2, OPEN, :group:
 4, task1, 3, OPEN, :unit_test:task1:
 5, child1, 4, OPEN, NULL
+14, domain1, NULL, OPEN, :domain:
 11, caps-project, 1, OPEN, :Project:
+15, caps-domain, 1, OPEN, :Domain:
 12, mixed-phase-group, 1, OPEN, :phase:group:
 13, mixed-project-group, 1, OPEN, :project:group:
+16, mixed-domain-project, 1, OPEN, :domain:project:
 6, archive, NULL, DONE, :project:
 7, archive-phase, 6, DONE, :phase:
 8, archive-group, 7, DONE, :group:
@@ -73,8 +76,8 @@ id, title, parent_id, status, tags
 **** 期待される結果
 - 候補リストに `Status=OPEN` のパスのみが含まれる（`DONE` は含まれない）
 - 候補リストの各候補に `org-tasktree-ui-minibuffer--candidate-type` が設定される
-  - tags に `project/phase/group` が含まれる場合、それぞれ `project/phase/group`
-  - tags が混在する場合は `project > phase > group` の順に優先
+  - tags に `domain/project/phase/group` が含まれる場合、それぞれ `domain/project/phase/group`
+  - tags が混在する場合は `domain > project > phase > group` の順に優先
   - tags が未指定の場合は `task`
   - tags は大文字小文字を区別しない
 - 既存ノード選択時、戻り値 plist に `:existing t` と `:node` が含まれる

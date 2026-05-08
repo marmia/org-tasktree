@@ -24,17 +24,22 @@
   :type 'color
   :group 'org-tasktree)
 
-(defcustom org-tasktree-ui-minibuffer-completion-color-project "DeepSkyBlue"
+(defcustom org-tasktree-ui-minibuffer-completion-color-domain "#40C97E"
+  "Foreground color for domain candidates in minibuffer completion."
+  :type 'color
+  :group 'org-tasktree)
+
+(defcustom org-tasktree-ui-minibuffer-completion-color-project "#66BFFF"
   "Foreground color for project candidates in minibuffer completion."
   :type 'color
   :group 'org-tasktree)
 
-(defcustom org-tasktree-ui-minibuffer-completion-color-phase "MediumSeaGreen"
+(defcustom org-tasktree-ui-minibuffer-completion-color-phase "#F08AC2"
   "Foreground color for phase candidates in minibuffer completion."
   :type 'color
   :group 'org-tasktree)
 
-(defcustom org-tasktree-ui-minibuffer-completion-color-group "DarkOrange"
+(defcustom org-tasktree-ui-minibuffer-completion-color-group "#FFB366"
   "Foreground color for group candidates in minibuffer completion."
   :type 'color
   :group 'org-tasktree)
@@ -72,6 +77,12 @@
 (defvar org-tasktree-ui-minibuffer--marginalia-registered nil
   "Non-nil when the Marginalia annotator is registered for org-tasktree.")
 
+(defun org-tasktree-ui-minibuffer--completion-color-value (symbol default)
+  "Return completion color SYMBOL value, or DEFAULT when SYMBOL is unbound."
+  (if (boundp symbol)
+      (symbol-value symbol)
+    default))
+
 (defun org-tasktree-ui-minibuffer--maybe-register-marginalia ()
   "Register Marginalia annotator for `org-tasktree-find-node'."
   (when (and (not org-tasktree-ui-minibuffer--marginalia-registered)
@@ -94,10 +105,21 @@
 (defun org-tasktree-ui-minibuffer--completion-color (type)
   "Return configured completion color for TYPE symbol."
   (pcase type
-    ('task org-tasktree-ui-minibuffer-completion-color-task)
-    ('project org-tasktree-ui-minibuffer-completion-color-project)
-    ('phase org-tasktree-ui-minibuffer-completion-color-phase)
-    ('group org-tasktree-ui-minibuffer-completion-color-group)
+    ('task
+     (org-tasktree-ui-minibuffer--completion-color-value
+      'org-tasktree-ui-minibuffer-completion-color-task "white"))
+    ('domain
+     (org-tasktree-ui-minibuffer--completion-color-value
+      'org-tasktree-ui-minibuffer-completion-color-domain "#40C97E"))
+    ('project
+     (org-tasktree-ui-minibuffer--completion-color-value
+      'org-tasktree-ui-minibuffer-completion-color-project "#66BFFF"))
+    ('phase
+     (org-tasktree-ui-minibuffer--completion-color-value
+      'org-tasktree-ui-minibuffer-completion-color-phase "#F08AC2"))
+    ('group
+     (org-tasktree-ui-minibuffer--completion-color-value
+      'org-tasktree-ui-minibuffer-completion-color-group "#FFB366"))
     (_ nil)))
 
 (defun org-tasktree-ui-minibuffer--normalize-tags (tags)
@@ -124,6 +146,7 @@
   "Return candidate type symbol inferred from TAGS."
   (let ((tag-list (org-tasktree-ui-minibuffer--normalize-tags tags)))
     (cond
+     ((member "domain" tag-list) 'domain)
      ((member "project" tag-list) 'project)
      ((member "phase" tag-list) 'phase)
      ((member "group" tag-list) 'group)
@@ -133,9 +156,9 @@
     (title type &optional todo-keyword tags)
   "Return a propertized completion candidate for TITLE and TYPE.
 
-TYPE is one of the symbols `project', `phase', `group', or `task'.
+TYPE is one of the symbols `domain', `project', `phase', `group', or `task'.
 TODO-KEYWORD and TAGS are stored as candidate metadata."
-  (let* ((suffix (pcase type ((or 'project 'phase 'group) "/") (_ "")))
+  (let* ((suffix (pcase type ((or 'domain 'project 'phase 'group) "/") (_ "")))
          (display (concat title suffix))
          (color (org-tasktree-ui-minibuffer--completion-color type))
          (face (and (stringp color) (not (string-empty-p color))
@@ -351,7 +374,7 @@ TODO-KEYWORD and TAGS are stored as candidate metadata."
                    (substring-no-properties cand))))
         (when (and (string-suffix-p "/" text)
                    (memq (org-tasktree-ui-minibuffer--candidate-type cand)
-                         '(project phase group task)))
+                         '(domain project phase group task)))
           (push text result))))))
 
 (defun org-tasktree-ui-minibuffer--install-minibuffer-keymap (validate-fn)

@@ -10,6 +10,24 @@
   未インストール環境では何も実行しない。
   これによりエラーを発生させない。
 
+** `org-tasktree-find-node` の Node 別カラー判定
+- `org-tasktree-find-node` の候補は、Node の `tags` フィールドに含まれる分類 tag で表示色を切り替える。
+- 判定対象の分類 tag:
+  - `domain`
+  - `project`
+  - `phase`
+  - `group`
+- tag の大小文字は区別しない。
+- 複数の分類 tag が混在する場合は、`domain > project > phase > group > task` の順で優先して candidate type を決定する。
+- `domain` / `project` / `phase` / `group` の分類 tag が無い場合は、`task` 相当として扱う。
+- この判定は表示色のみを変更し、親子階層の制約は追加しない。
+- 既定色:
+  - domain: #40C97E
+  - project: #66BFFF
+  - phase: #F08AC2
+  - group: #FFB366
+  - task: white
+
 * 編集バッファ仕様（widget.el）
 - `widget.el` を用いて表示欄と入力欄を分離した編集 UI を生成する。
 - UI 上部に親 Node のパスを表示する（未指定時は root 表記）。

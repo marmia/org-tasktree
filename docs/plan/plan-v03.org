@@ -331,7 +331,7 @@
 *** DONE ユーザーテスト
 *** DONE コードレビュー
 
-** M33 上位 Node の status が"DONE"になった場合に下位 Node も"DONE"に設定
+** DONE M33 上位 Node の status が"DONE"になった場合に下位 Node も"DONE"に設定
 *** DONE 仕様の確認
 - `org-tasktree-sync-buffer`, `org-tasktree-sync-region`, `org-tasktree-sync-subtree` で Node の status が "DONE" になった場合に下位 Node も "DONE" に設定する。
 - DB に既に存在する全子孫を一括で DONE にする。
@@ -354,32 +354,32 @@
 - 親 Node が OPEN の場合、子孫 Node の status が変更されないこと。
 - 上位 Node と子孫 Node の `todo_keyword` が DONE になること。
 - 上位 Node と子孫 Node の `closed_at` に sync 実行時の timestamp が設定されること。
-*** TODO ユーザーテスト
+*** DONE ユーザーテスト
 - 既存ツリーの親見出しを DONE にして `org-tasktree-sync-subtree` を実行し、検索結果または DB で子孫が DONE になることを確認する。
-*** TODO コードレビュー
+*** DONE コードレビュー
 
 ** M34 `org-tasktree-find-node`の Node 別カラー設定の変更
-*** TODO 仕様の確認
+*** DONE 仕様の確認
 `tags`フィールドの値によって以下の色を設定する。
-- domain: 青
-- project: 緑
-- phase: ピンク
-- group: オレンジ
+- domain: グリーン (#40C97E)
+- project: ブルー (#66BFFF)
+- phase: ピンク (#F08AC2)
+- group: オレンジ (#FFB366)
 - domain / project / phase / group タグが無い場合は task 相当として白を設定する。
 - 大小文字は区別しない。
 - 複数の分類タグが混在する場合は `domain > project > phase > group > task` の順で優先して決定する。
 - この変更は表示色のみを変更し、親子階層の制約は追加しない。
 
-*** TODO ドキュメント追加・修正
+*** DONE ドキュメント追加・修正
 - docs/spec/overview.org に domain tag を使った推奨階層例を追記する。
 - docs/spec/ui.org に `org-tasktree-find-node` の Node 別カラー判定仕様を追記する。
 - docs/spec/customization.org に completion color 用 defcustom を追記する。
-*** TODO 実装
+*** DONE 実装
 - `org-tasktree-ui-minibuffer--type-from-tags` に `domain` 判定を追加する。
 - `org-tasktree-ui-minibuffer--completion-color` に `domain` を追加する。
 - `org-tasktree-ui-minibuffer-completion-color-domain` を追加する。
 - 既存色を新仕様に合わせて変更する。
-*** TODO ERT テスト
+*** DONE ERT テスト
 - `:domain:` tag の candidate type が `domain` になること。
 - `:Domain:` のように大小文字が混在しても `domain` になること。
 - `:domain:project:` のように複数分類タグがある場合、優先順位どおり `domain` になること。

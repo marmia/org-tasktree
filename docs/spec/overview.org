@@ -17,3 +17,17 @@ Emacs 用タスク管理プラグインである。
 * タスクの階層構造
 - ノードの階層構造に制約は設けない
 - 任意のノード配下に任意のノードを作成できる
+
+** 推奨タグ階層
+- 階層を視覚的に整理したい場合は、以下の tag を分類用途として使うことを推奨する。
+  - `domain`
+  - `project`
+  - `phase`
+  - `group`
+- 推奨例:
+  - domain: work
+  - project: product-a
+  - phase: launch
+  - group: marketing
+  - task: write announcement
+- これは推奨表現であり、DB や sync 処理は親子階層の制約を追加しない。

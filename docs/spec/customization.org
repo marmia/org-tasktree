@@ -32,3 +32,33 @@
   - ~/.config/emacs/org-tasktree/queries/
 
 - ディレクトリは org-tasktree-init 実行時に自動作成される。
+
+** org-tasktree-ui-minibuffer-completion-color-domain
+
+- 型: color
+- 説明: `org-tasktree-find-node` の domain candidate 表示色
+- 初期値: #40C97E
+
+** org-tasktree-ui-minibuffer-completion-color-project
+
+- 型: color
+- 説明: `org-tasktree-find-node` の project candidate 表示色
+- 初期値: #66BFFF
+
+** org-tasktree-ui-minibuffer-completion-color-phase
+
+- 型: color
+- 説明: `org-tasktree-find-node` の phase candidate 表示色
+- 初期値: #F08AC2
+
+** org-tasktree-ui-minibuffer-completion-color-group
+
+- 型: color
+- 説明: `org-tasktree-find-node` の group candidate 表示色
+- 初期値: #FFB366
+
+** org-tasktree-ui-minibuffer-completion-color-task
+
+- 型: color
+- 説明: `org-tasktree-find-node` の task candidate 表示色
+- 初期値: white
