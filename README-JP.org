@@ -6,21 +6,22 @@ Emacs 向けタスク管理プラグイン(org-tasktree)の開発
 
 * org-tasktree とは
 
-org-tasktree は、org-mode を編集 UI とし、SQLite を唯一のマスターデータベースとする  
+org-tasktree は、org-mode を編集 UI とし、SQLite を唯一のマスターデータベースとする
 Emacs 用タスク管理プラグインです。
 
 - org バッファは「編集ビュー」
 - SQLite は「唯一の正（single source of truth）」
-- タスクは階層構造（Project / Phase / Group / Task）で管理されます
+- タスクは任意の親子階層で管理されます
+- domain / project / phase / group は分類用 tag として扱えます
 
 * 特徴
 
 - org-mode の標準機能のみを使用
   - org-todo / org-schedule / org-deadline / org-priority / org タグ
 - SQLite ベースの高速な検索
-- delete / insert 方式による安全な同期設計
+- UID ベースの INSERT / UPDATE による安全な同期設計
 - YAML による柔軟な検索クエリー定義
-- Project / Phase 未指定タスクは自動的に inbox に集約
+- node_tags による tag 検索
 
 * 必要環境
 
@@ -34,11 +35,9 @@ Emacs 用タスク管理プラグインです。
 
 * インストール（予定）
 
-#+begin_src elisp
-;; 将来 MELPA 等で配布予定
-#+end_src
-
-現時点ではソースを clone して load-path に追加する形を想定しています。
+現時点では MELPA には登録していません。
+ソースを clone して =load-path= に追加する形を想定しています。
+将来 MELPA に登録するかどうかは未定です。
 
 * 初期設定
 
@@ -63,47 +62,41 @@ M-x org-tasktree-init
 
 - DB ファイル作成
 - テーブル作成
-- inbox Project 作成
 - クエリーディレクトリ作成
 
 がすべて自動で行われます。
 
 ※ これらのパスは、後から defcustom で自由に変更可能です。
 
-* ユースケース
+* 基本的な使い方
 
-** タスクツリーを org-mode で一括作成して登録（予定）
+** タスクツリーを org-mode で一括作成して登録
 
-1. 新規 org バッファで Project / Phase / Group / Task のツリーを 1 から記述する。
+1. 新規 org バッファで任意の親子階層を 1 から記述する。
 2. ツリー全体を SQLite に同期する。
-   - v0.2 以降で `org-tasktree-sync-buffer` を提供予定。
+   - `org-tasktree-sync-buffer` で同期する。
 
-** DB のタスクツリーを org-view にロードして編集（予定）
+** DB のタスクツリーを org-view にロードして編集
 
-1. 既存 Project/Phase を検索して org 形式の編集ビューを開く。
+1. 既存 node を検索して org 形式の編集ビューを開く。
 2. org-mode 上でツリーを編集する。
    - `uid` あり見出しは既存ノード更新、`uid` なし見出しは新規ノードとして扱う。
 3. 編集した範囲のみを DB に再同期する。
-   - v0.2 以降で `org-tasktree-sync-subtree` / `org-tasktree-sync-region` を提供予定。
+   - `org-tasktree-sync-subtree` / `org-tasktree-sync-region` で同期する。
 
-** 単体タスクを UI で素早く登録
+** 単体 node を UI で素早く登録
 
 1. `M-x org-tasktree-find-node` を実行する。
-2. find-file 風の階層補完で Project / Phase / Group を辿り、最後に task 名を入力する。
+2. find-file 風の階層補完で既存 node を辿り、最後に新規 node 名を入力する。
 3. 開かれた編集バッファで必要項目（priority / scheduled / deadline / tags / content）を入力し、`C-c C-c` で確定する。
-4. Project 未指定の task は自動的に Inbox Project に収容される。
-
-** Inbox に集約して後で整理
-
-1. とりあえず単体タスクを Inbox に登録する（上記手順）。
-2. まとまった時間で Inbox を開き、適切な Project/Phase に移動・整理する。
-
-* 基本的な使い方
+4. tag に domain / project / phase / group を設定すると、補完候補の表示色に反映される。
 
 * 設計ポリシー
 
-- UPDATE 文は一切使いません（DELETE / INSERT のみ）
+- nodes は UID をキーに INSERT / UPDATE します
+- node_tags は node_id 単位で DELETE / INSERT により再生成します
 - UID による一意性保証
+- parent_id は org バッファには保持せず、org ツリーから再計算します
 - org バッファの内容は常に「一時ビュー」
 - DB の内容のみが正です
 
@@ -114,4 +107,4 @@ M-x org-tasktree-init
 * 開発者向け
 
 - 仕様書は以下を参照:
-  - docs/org-tasktree-spec.org
+  - docs/spec/README.org

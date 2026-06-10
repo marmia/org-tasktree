@@ -12,16 +12,17 @@ the editing UI and SQLite as the single master database.
 
 - Org buffers are editing views.
 - SQLite is the single source of truth.
-- Tasks are managed in a hierarchical structure: Project / Phase / Group / Task.
+- Tasks are managed in arbitrary parent-child hierarchies.
+- domain / project / phase / group can be used as classification tags.
 
 * Features
 
 - Uses only standard =org-mode= features:
   - =org-todo= / =org-schedule= / =org-deadline= / =org-priority= / Org tags
 - Fast SQLite-based search
-- Safe synchronization design based on delete / insert operations
+- Safe synchronization design based on UID-based INSERT / UPDATE operations
 - Flexible search query definitions using YAML
-- Tasks without a Project / Phase are automatically collected in the inbox
+- Tag search using node_tags
 
 * Requirements
 
@@ -35,12 +36,9 @@ the editing UI and SQLite as the single master database.
 
 * Installation (Planned)
 
-#+begin_src elisp
-;; Planned for future distribution via MELPA or similar package archives.
-#+end_src
-
-At this stage, the expected setup is to clone the source and add it to
-=load-path=.
+At this stage, =org-tasktree= is not registered on MELPA.
+The expected setup is to clone the source and add it to =load-path=.
+Whether it will be registered on MELPA in the future is undecided.
 
 * Initial Setup
 
@@ -65,50 +63,44 @@ This automatically performs all of the following:
 
 - Creates the DB file
 - Creates the tables
-- Creates the Inbox Project
 - Creates the query directory
 
 These paths can be freely changed later via =defcustom=.
 
-* Use Cases
+* Basic Usage
 
-** Create and Register a Task Tree in org-mode (Planned)
+** Create and Register a Task Tree in org-mode
 
-1. Write a Project / Phase / Group / Task tree from scratch in a new Org buffer.
+1. Write an arbitrary parent-child hierarchy from scratch in a new Org buffer.
 2. Synchronize the entire tree to SQLite.
-   - =org-tasktree-sync-buffer= is planned for v0.2 or later.
+   - Synchronize it with =org-tasktree-sync-buffer=.
 
-** Load a DB Task Tree into an Org View and Edit It (Planned)
+** Load a DB Task Tree into an Org View and Edit It
 
-1. Search for an existing Project/Phase and open an Org-format editing view.
+1. Search for an existing node and open an Org-format editing view.
 2. Edit the tree in =org-mode=.
    - Headings with a =uid= update existing nodes; headings without a =uid= are
      treated as new nodes.
 3. Resynchronize only the edited range to the DB.
-   - =org-tasktree-sync-subtree= / =org-tasktree-sync-region= are planned for
-     v0.2 or later.
+   - Synchronize it with =org-tasktree-sync-subtree= /
+     =org-tasktree-sync-region=.
 
-** Quickly Register a Single Task from the UI
+** Quickly Register a Single Node from the UI
 
 1. Run =M-x org-tasktree-find-node=.
-2. Follow Project / Phase / Group via find-file-style hierarchical completion,
-   then enter the task name at the end.
+2. Follow existing nodes via find-file-style hierarchical completion, then enter
+   the new node name at the end.
 3. In the opened editing buffer, enter the required fields: priority /
    scheduled / deadline / tags / content. Confirm with =C-c C-c=.
-4. Tasks without a Project are automatically placed in the Inbox Project.
-
-** Collect Tasks in Inbox and Organize Later
-
-1. First, register standalone tasks in Inbox using the steps above.
-2. Later, open Inbox during focused organization time and move tasks to the
-   appropriate Project/Phase.
-
-* Basic Usage
+4. When domain / project / phase / group tags are set, they are reflected in
+   completion candidate colors.
 
 * Design Policy
 
-- UPDATE statements are never used; only DELETE / INSERT operations are used.
+- nodes are inserted or updated by UID.
+- node_tags are regenerated per node_id using DELETE / INSERT operations.
 - Uniqueness is guaranteed by UID.
+- parent_id is not stored in Org buffers; it is recalculated from the Org tree.
 - Org buffer contents are always temporary views.
 - Only DB contents are authoritative.
 
@@ -118,5 +110,6 @@ Undecided; it will be decided after development is complete.
 
 * For Developers
 
+- Project documents are written in Japanese.
 - See the following specification:
-  - =docs/org-tasktree-spec.org=
+  - =docs/spec/README.org=
