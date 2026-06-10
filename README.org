@@ -32,7 +32,7 @@ the editing UI and SQLite as the single master database.
   - macOS
   - Linux
 - Windows:
-  - Not officially supported in v1; future support is under consideration
+  - Not tested
 
 * Installation (Planned)
 
