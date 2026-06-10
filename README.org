@@ -1,117 +1,122 @@
 #+TITLE: README
 #+STARTUP: showall
 
-* プロジェクト概要
-Emacs 向けタスク管理プラグイン(org-tasktree)の開発
+* Project Overview
 
-* org-tasktree とは
+Development of =org-tasktree=, a task management plugin for Emacs.
 
-org-tasktree は、org-mode を編集 UI とし、SQLite を唯一のマスターデータベースとする  
-Emacs 用タスク管理プラグインです。
+* What is org-tasktree?
 
-- org バッファは「編集ビュー」
-- SQLite は「唯一の正（single source of truth）」
-- タスクは階層構造（Project / Phase / Group / Task）で管理されます
+=org-tasktree= is a task management plugin for Emacs that uses =org-mode= as
+the editing UI and SQLite as the single master database.
 
-* 特徴
+- Org buffers are editing views.
+- SQLite is the single source of truth.
+- Tasks are managed in a hierarchical structure: Project / Phase / Group / Task.
 
-- org-mode の標準機能のみを使用
-  - org-todo / org-schedule / org-deadline / org-priority / org タグ
-- SQLite ベースの高速な検索
-- delete / insert 方式による安全な同期設計
-- YAML による柔軟な検索クエリー定義
-- Project / Phase 未指定タスクは自動的に inbox に集約
+* Features
 
-* 必要環境
+- Uses only standard =org-mode= features:
+  - =org-todo= / =org-schedule= / =org-deadline= / =org-priority= / Org tags
+- Fast SQLite-based search
+- Safe synchronization design based on delete / insert operations
+- Flexible search query definitions using YAML
+- Tasks without a Project / Phase are automatically collected in the inbox
 
-- Emacs 29 以上（sqlite.el サポート必須）
-- org-mode（Emacs 標準）
-- 対応 OS:
+* Requirements
+
+- Emacs 29 or later, with =sqlite.el= support
+- =org-mode=, bundled with Emacs
+- Supported OS:
   - macOS
   - Linux
 - Windows:
-  - v1 では動作保証外（将来対応検討）
+  - Not officially supported in v1; future support is under consideration
 
-* インストール（予定）
+* Installation (Planned)
 
 #+begin_src elisp
-;; 将来 MELPA 等で配布予定
+;; Planned for future distribution via MELPA or similar package archives.
 #+end_src
 
-現時点ではソースを clone して load-path に追加する形を想定しています。
+At this stage, the expected setup is to clone the source and add it to
+=load-path=.
 
-* 初期設定
+* Initial Setup
 
-org-tasktree は初回起動時に、以下の設定を user-emacs-directory を基準に
-自動的に初期化します。
+On first startup, =org-tasktree= automatically initializes the following
+settings relative to =user-emacs-directory=.
 
 - SQLite DB:
-  - ~/.emacs.d/org-tasktree/tasktree.db
-  - ~/.config/emacs/org-tasktree/tasktree.db など
+  - =~/.emacs.d/org-tasktree/tasktree.db=
+  - =~/.config/emacs/org-tasktree/tasktree.db=, etc.
 
-- クエリーディレクトリ:
-  - ~/.emacs.d/org-tasktree/queries/
-  - ~/.config/emacs/org-tasktree/queries/
+- Query directory:
+  - =~/.emacs.d/org-tasktree/queries/=
+  - =~/.config/emacs/org-tasktree/queries/=
 
-初回のみ、以下を実行してください。
+Run the following command once on first use.
 
 #+begin_src elisp
 M-x org-tasktree-init
 #+end_src
 
-これにより：
+This automatically performs all of the following:
 
-- DB ファイル作成
-- テーブル作成
-- inbox Project 作成
-- クエリーディレクトリ作成
+- Creates the DB file
+- Creates the tables
+- Creates the Inbox Project
+- Creates the query directory
 
-がすべて自動で行われます。
+These paths can be freely changed later via =defcustom=.
 
-※ これらのパスは、後から defcustom で自由に変更可能です。
+* Use Cases
 
-* ユースケース
+** Create and Register a Task Tree in org-mode (Planned)
 
-** タスクツリーを org-mode で一括作成して登録（予定）
+1. Write a Project / Phase / Group / Task tree from scratch in a new Org buffer.
+2. Synchronize the entire tree to SQLite.
+   - =org-tasktree-sync-buffer= is planned for v0.2 or later.
 
-1. 新規 org バッファで Project / Phase / Group / Task のツリーを 1 から記述する。
-2. ツリー全体を SQLite に同期する。
-   - v0.2 以降で `org-tasktree-sync-buffer` を提供予定。
+** Load a DB Task Tree into an Org View and Edit It (Planned)
 
-** DB のタスクツリーを org-view にロードして編集（予定）
+1. Search for an existing Project/Phase and open an Org-format editing view.
+2. Edit the tree in =org-mode=.
+   - Headings with a =uid= update existing nodes; headings without a =uid= are
+     treated as new nodes.
+3. Resynchronize only the edited range to the DB.
+   - =org-tasktree-sync-subtree= / =org-tasktree-sync-region= are planned for
+     v0.2 or later.
 
-1. 既存 Project/Phase を検索して org 形式の編集ビューを開く。
-2. org-mode 上でツリーを編集する。
-   - `uid` あり見出しは既存ノード更新、`uid` なし見出しは新規ノードとして扱う。
-3. 編集した範囲のみを DB に再同期する。
-   - v0.2 以降で `org-tasktree-sync-subtree` / `org-tasktree-sync-region` を提供予定。
+** Quickly Register a Single Task from the UI
 
-** 単体タスクを UI で素早く登録
+1. Run =M-x org-tasktree-find-node=.
+2. Follow Project / Phase / Group via find-file-style hierarchical completion,
+   then enter the task name at the end.
+3. In the opened editing buffer, enter the required fields: priority /
+   scheduled / deadline / tags / content. Confirm with =C-c C-c=.
+4. Tasks without a Project are automatically placed in the Inbox Project.
 
-1. `M-x org-tasktree-find-node` を実行する。
-2. find-file 風の階層補完で Project / Phase / Group を辿り、最後に task 名を入力する。
-3. 開かれた編集バッファで必要項目（priority / scheduled / deadline / tags / content）を入力し、`C-c C-c` で確定する。
-4. Project 未指定の task は自動的に Inbox Project に収容される。
+** Collect Tasks in Inbox and Organize Later
 
-** Inbox に集約して後で整理
+1. First, register standalone tasks in Inbox using the steps above.
+2. Later, open Inbox during focused organization time and move tasks to the
+   appropriate Project/Phase.
 
-1. とりあえず単体タスクを Inbox に登録する（上記手順）。
-2. まとまった時間で Inbox を開き、適切な Project/Phase に移動・整理する。
+* Basic Usage
 
-* 基本的な使い方
+* Design Policy
 
-* 設計ポリシー
+- UPDATE statements are never used; only DELETE / INSERT operations are used.
+- Uniqueness is guaranteed by UID.
+- Org buffer contents are always temporary views.
+- Only DB contents are authoritative.
 
-- UPDATE 文は一切使いません（DELETE / INSERT のみ）
-- UID による一意性保証
-- org バッファの内容は常に「一時ビュー」
-- DB の内容のみが正です
+* License
 
-* ライセンス
+Undecided; it will be decided after development is complete.
 
-未定（開発完了後に決定予定）
+* For Developers
 
-* 開発者向け
-
-- 仕様書は以下を参照:
-  - docs/org-tasktree-spec.org
+- See the following specification:
+  - =docs/org-tasktree-spec.org=
